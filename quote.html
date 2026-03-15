@@ -89,13 +89,11 @@
   </div>
   <button class="nav-cta hover-target" onclick="window.location='quote.html'">GET QUOTED <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></button>
 </nav>
-
 <div class="page-hero">
   <div class="page-eyebrow">Start Your Coverage</div>
   <h1 class="page-title">GET YOUR<br><span>FREE QUOTE</span></h1>
   <p class="page-sub">Fill out the form below and our specialists will build a custom policy within hours. Same-day binding available.</p>
 </div>
-
 <div class="form-section">
   <form id="quoteForm">
     <div class="form-grid">
@@ -107,7 +105,7 @@
             <div class="field"><label>Last Name</label><input type="text" id="lastName" name="lastName" placeholder="Smith" required class="hover-target"></div>
           </div>
           <div class="field"><label>Email Address</label><input type="email" id="email" name="email" placeholder="john@company.com" required class="hover-target"></div>
-          <div class="field"><label>Telephone Number</label><input type="tel" id="phone" name="phone" placeholder="(555) 000-0000" required class="hover-target"></div>
+          <div class="field"><label>Telephone Number</label><input type="tel" id="phone" name="phone" placeholder="(657) 366-5312" class="hover-target"></div>
           <div class="field"><label>Business Address</label><input type="text" id="address" name="address" placeholder="123 Main St, City, State, ZIP" required class="hover-target"></div>
         </div>
         <div class="form-block">
@@ -148,9 +146,7 @@
           <div class="field"><label>Additional Notes</label><textarea id="notes" name="notes" placeholder="Describe your operation, cargo types, special requirements..." class="hover-target"></textarea></div>
         </div>
       </div>
-
       <div class="divider"></div>
-
       <div class="form-col">
         <div class="form-block">
           <div class="form-block-title">03 &mdash; Upload Documents</div>
@@ -164,7 +160,6 @@
           </div>
           <div class="file-list" id="fileList"></div>
         </div>
-
         <div class="form-block" style="margin-top:8px;">
           <div class="form-block-title">04 &mdash; Confirm &amp; Submit</div>
           <div class="field">
@@ -178,40 +173,29 @@
               Submit Quote Request
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
             </button>
-            <div class="sending-state" id="sendingState">
-              <div class="spinner"></div>
-              SENDING...
-            </div>
+            <div class="sending-state" id="sendingState"><div class="spinner"></div>SENDING...</div>
           </div>
           <div class="error-msg" id="errorMsg"></div>
-          <p style="margin-top:16px;font-size:12px;color:rgba(255,255,255,0.25);font-weight:300;line-height:1.6;">A licensed specialist will contact you within 2 business hours. Same-day binding available for most trucking policies.</p>
+          <p style="margin-top:16px;font-size:12px;color:rgba(255,255,255,0.25);font-weight:300;line-height:1.6;">A licensed specialist will contact you within 2 business hours. You can also call us directly at <a href="tel:6573665312" style="color:rgba(0,255,204,0.6);text-decoration:none;">(657) 366-5312</a></p>
         </div>
       </div>
     </div>
   </form>
-
   <div id="successMsg" style="display:none;text-align:center;padding:80px 0;">
     <div style="font-family:'Syncopate',sans-serif;font-size:clamp(36px,5vw,64px);font-weight:700;text-transform:uppercase;margin-bottom:24px;">Quote<br><span style="color:#00FFCC;">Submitted!</span></div>
     <p style="font-size:18px;font-weight:300;color:rgba(255,255,255,0.5);max-width:480px;margin:0 auto 40px;line-height:1.7;">Thank you. A licensed specialist will reach out within 2 business hours to build your custom policy.</p>
     <a href="index.html" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#00FFCC;text-decoration:none;border:1px solid rgba(0,255,204,0.3);padding:16px 32px;transition:all .3s;display:inline-block;">Back to Home</a>
   </div>
 </div>
-
 <footer style="border-top:1px solid rgba(255,255,255,0.05);padding:40px 64px;display:flex;justify-content:space-between;align-items:center;">
   <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.3);">&#169; 2026 ADVANCEDINS.AI</div>
   <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.3);">ALL RIGHTS RESERVED</div>
 </footer>
-
 <script>
-  // ── LIVE EMAILJS CREDENTIALS ──────────────────────────────
   const EMAILJS_PUBLIC_KEY  = 'tKA4jAYqwNAWpmUFO';
   const EMAILJS_SERVICE_ID  = 'service_1odm043';
   const EMAILJS_TEMPLATE_ID = 'template_7gq9f46';
-  // ─────────────────────────────────────────────────────────
-
   emailjs.init(EMAILJS_PUBLIC_KEY);
-
-  // Cursor
   const dot=document.getElementById('cursor-dot'),ring=document.getElementById('cursor-ring');
   let mx=0,my=0,rx=0,ry=0;
   window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;dot.style.left=mx+'px';dot.style.top=my+'px';});
@@ -219,8 +203,6 @@
   function animRing(){rx=lerp(rx,mx,.12);ry=lerp(ry,my,.12);ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(animRing);}
   animRing();
   window.addEventListener('mouseover',e=>{e.target.closest('.hover-target,a,button,input,select,textarea,label')?ring.classList.add('hovering'):ring.classList.remove('hovering');});
-
-  // File upload
   const dropZone=document.getElementById('dropZone');
   const fileInput=document.getElementById('fileInput');
   const fileListEl=document.getElementById('fileList');
@@ -242,8 +224,6 @@
       </div>`).join('');
   }
   function removeFile(i){files.splice(i,1);renderFiles();}
-
-  // Form submit
   document.getElementById('quoteForm').addEventListener('submit',async function(e){
     e.preventDefault();
     const btn=document.getElementById('submitBtn');
@@ -251,7 +231,6 @@
     const errBox=document.getElementById('errorMsg');
     btn.disabled=true; btn.style.display='none';
     spinner.style.display='flex'; errBox.style.display='none';
-
     const v=id=>document.getElementById(id).value.trim();
     const firstName=v('firstName'), lastName=v('lastName'), email=v('email'),
           phone=v('phone'), address=v('address'),
@@ -260,56 +239,11 @@
           insuranceType=document.getElementById('insuranceType').value||'Not selected',
           notes=v('notes')||'None',
           ts=new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles',dateStyle:'full',timeStyle:'short'});
-
-    const fileSummary=files.length
-      ? files.map(f=>`- ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`).join('\n')
-      : 'No files uploaded.';
-
-    const message=`NEW QUOTE REQUEST — ADVANCEDINS.AI
-${'='.repeat(50)}
-Submitted: ${ts}
-
-CONTACT INFORMATION
--------------------
-Name:     ${firstName} ${lastName}
-Email:    ${email}
-Phone:    ${phone}
-Address:  ${address}
-
-BUSINESS DETAILS
-----------------
-DOT Number:   ${dot}
-MC Number:    ${mc}
-Units/Trucks: ${units}
-Coverage:     ${insuranceType}
-
-NOTES
------
-${notes}
-
-UPLOADED FILES
---------------
-${fileSummary}
-${'='.repeat(50)}
-Submitted via advancedins.ai`.trim();
-
-    const params={
-      from_name:`${firstName} ${lastName}`,
-      from_email:email,
-      reply_to:email,
-      subject:`New Quote Request — ${firstName} ${lastName} | ${insuranceType}`,
-      name:`${firstName} ${lastName}`,
-      message,
-      first_name:firstName, last_name:lastName,
-      phone, address, dot_number:dot, mc_number:mc,
-      units, insurance_type:insuranceType, notes,
-      submitted_at:ts, files_uploaded:fileSummary
-    };
-
+    const fileSummary=files.length ? files.map(f=>`- ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`).join('\n') : 'No files uploaded.';
+    const message=`NEW QUOTE REQUEST — ADVANCEDINS.AI\n${'='.repeat(50)}\nSubmitted: ${ts}\n\nCONTACT INFORMATION\n-------------------\nName:     ${firstName} ${lastName}\nEmail:    ${email}\nPhone:    ${phone}\nAddress:  ${address}\n\nBUSINESS DETAILS\n----------------\nDOT Number:   ${dot}\nMC Number:    ${mc}\nUnits/Trucks: ${units}\nCoverage:     ${insuranceType}\n\nNOTES\n-----\n${notes}\n\nUPLOADED FILES\n--------------\n${fileSummary}\n${'='.repeat(50)}\nSubmitted via advancedins.ai`.trim();
+    const params={from_name:`${firstName} ${lastName}`,from_email:email,reply_to:email,subject:`New Quote Request — ${firstName} ${lastName} | ${insuranceType}`,name:`${firstName} ${lastName}`,message,first_name:firstName,last_name:lastName,phone,address,dot_number:dot,mc_number:mc,units,insurance_type:insuranceType,notes,submitted_at:ts,files_uploaded:fileSummary};
     try {
-      // Send to trucking@ins2day.com (To field in template)
       await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
-      // SUCCESS
       document.getElementById('quoteForm').style.display='none';
       document.getElementById('successMsg').style.display='block';
       window.scrollTo({top:0,behavior:'smooth'});
@@ -317,7 +251,7 @@ Submitted via advancedins.ai`.trim();
       console.error('EmailJS error:',err);
       spinner.style.display='none';
       btn.style.display='flex'; btn.disabled=false;
-      errBox.textContent='There was an error sending your request. Please email trucking@ins2day.com or call us directly.';
+      errBox.textContent='There was an error sending your request. Please call us at (657) 366-5312 or email trucking@ins2day.com';
       errBox.style.display='block';
     }
   });

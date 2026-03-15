@@ -25,7 +25,6 @@
   .nav-links a:hover,.nav-links a.active{color:#00FFCC}
   .nav-cta{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;background:#fff;color:#000;border:none;padding:12px 24px;cursor:none;display:flex;align-items:center;gap:8px;transition:background .3s;}
   .nav-cta:hover{background:#00FFCC}
-
   .page-hero{padding:160px 64px 100px;max-width:1400px;margin:0 auto;position:relative;}
   .hero-glow{position:absolute;top:20%;right:10%;width:500px;height:500px;background:#00FFCC;border-radius:50%;mix-blend-mode:screen;filter:blur(160px);opacity:0.06;pointer-events:none;}
   .eyebrow{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#00FFCC;display:flex;align-items:center;gap:12px;margin-bottom:28px;}
@@ -33,28 +32,15 @@
   .page-title{font-family:'Syncopate',sans-serif;font-size:clamp(52px,8vw,110px);font-weight:700;text-transform:uppercase;line-height:0.87;letter-spacing:-1px;margin-bottom:40px;}
   .page-title .outline{-webkit-text-stroke:1px rgba(255,255,255,0.2);color:transparent;}
   .page-sub{font-size:18px;font-weight:300;color:rgba(255,255,255,0.5);max-width:560px;line-height:1.75;}
-
   .industries-section{padding:0 64px 80px;max-width:1400px;margin:0 auto;}
   .section-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:56px;}
   .section-title{font-family:'Syncopate',sans-serif;font-size:clamp(28px,3vw,44px);font-weight:700;text-transform:uppercase;letter-spacing:-0.5px;}
   .section-count{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:rgba(255,255,255,0.3);}
-
-  .industry-card{
-    display:grid;grid-template-columns:80px 1fr auto;
-    align-items:center;gap:32px;
-    padding:36px 40px;
-    border:1px solid rgba(255,255,255,0.06);
-    background:#050505;
-    margin-bottom:1px;
-    position:relative;overflow:hidden;
-    cursor:none;transition:all .4s;
-    text-decoration:none;color:inherit;
-  }
+  .industry-card{display:grid;grid-template-columns:80px 1fr auto;align-items:center;gap:32px;padding:36px 40px;border:1px solid rgba(255,255,255,0.06);background:#050505;margin-bottom:1px;position:relative;overflow:hidden;cursor:none;transition:all .4s;text-decoration:none;color:inherit;}
   .industry-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:#00FFCC;transform:scaleY(0);transform-origin:bottom;transition:transform .4s;}
   .industry-card:hover{background:#0a0a0a;padding-left:56px;}
   .industry-card:hover::before{transform:scaleY(1);}
   .card-num{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:rgba(0,255,204,0.4);}
-  .card-body{}
   .card-industry{font-family:'Syncopate',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;transition:color .3s;}
   .industry-card:hover .card-industry{color:#00FFCC;}
   .card-desc{font-size:14px;font-weight:300;color:rgba(255,255,255,0.45);line-height:1.6;max-width:560px;}
@@ -65,7 +51,6 @@
   .industry-card:hover .card-cta{color:#00FFCC;}
   .card-premium{font-family:'Syncopate',sans-serif;font-size:11px;font-weight:700;color:#00FFCC;text-align:right;}
   .card-premium-label{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.25);margin-top:4px;}
-
   .why-section{padding:80px 64px 80px;background:#080808;border-top:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);}
   .why-inner{max-width:1400px;margin:0 auto;}
   .why-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,0.06);margin-top:56px;}
@@ -73,25 +58,21 @@
   .why-icon{width:40px;height:40px;border:1px solid rgba(0,255,204,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:20px;}
   .why-title{font-family:'Syncopate',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
   .why-desc{font-size:13px;font-weight:300;color:rgba(255,255,255,0.45);line-height:1.7;}
-
   .cta-band{background:#00FFCC;padding:80px 64px;display:flex;align-items:center;justify-content:space-between;gap:40px;}
   .cta-title{font-family:'Syncopate',sans-serif;font-size:clamp(36px,4vw,64px);font-weight:700;text-transform:uppercase;color:#000;line-height:0.9;letter-spacing:-1px;}
   .cta-right{display:flex;flex-direction:column;gap:16px;align-items:flex-start;}
   .cta-btn{font-family:'Space Mono',monospace;font-size:13px;letter-spacing:4px;text-transform:uppercase;background:#000;color:#fff;border:none;padding:18px 48px;cursor:none;transition:all .3s;text-decoration:none;display:inline-block;}
   .cta-btn:hover{background:#111;}
-  .cta-phone{font-family:'Syncopate',sans-serif;font-size:24px;color:rgba(0,0,0,0.5);letter-spacing:1px;}
-
+  .cta-phone{font-family:'Syncopate',sans-serif;font-size:24px;color:rgba(0,0,0,0.6);letter-spacing:1px;}
   footer{border-top:1px solid rgba(255,255,255,0.05);padding:40px 64px;display:flex;justify-content:space-between;align-items:center;}
   .footer-brand{display:flex;align-items:center;gap:8px;font-family:'Syncopate',sans-serif;font-weight:700;font-size:11px;letter-spacing:4px;text-transform:uppercase;}
   .footer-links{display:flex;gap:32px;}
   .footer-links a{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.3);text-decoration:none;transition:color .2s;}
   .footer-links a:hover{color:#00FFCC;}
-
   .reveal-up{opacity:0;transform:translateY(40px);transition:all 1s cubic-bezier(0.16,1,0.3,1);}
   .reveal-up.in-view{opacity:1;transform:translateY(0);}
   .d1{transition-delay:.05s}.d2{transition-delay:.1s}.d3{transition-delay:.15s}.d4{transition-delay:.2s}
   .d5{transition-delay:.25s}.d6{transition-delay:.3s}
-
   @media(max-width:900px){
     nav{padding:16px 24px}.nav-links{display:none}
     .page-hero,.industries-section,.why-section{padding-left:24px;padding-right:24px;}
@@ -106,7 +87,6 @@
 <body>
 <div id="cursor-dot"></div>
 <div id="cursor-ring"></div>
-
 <nav>
   <a href="index.html" class="nav-logo hover-target">
     <div class="logo-icon"><div class="logo-icon-bg"></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
@@ -119,151 +99,72 @@
   </div>
   <button class="nav-cta hover-target" onclick="window.location='quote.html'">GET QUOTED <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></button>
 </nav>
-
-<!-- HERO -->
 <div class="page-hero">
   <div class="hero-glow"></div>
   <div class="eyebrow">Commercial Coverage Portfolio</div>
   <h1 class="page-title">EVERY BUSINESS.<br>EVERY RISK.<br><span class="outline">FULLY COVERED.</span></h1>
   <p class="page-sub">From long-haul trucking to fine dining, from job sites to medical offices &mdash; we write high-limit commercial insurance for the industries that keep America running.</p>
 </div>
-
-<!-- INDUSTRIES -->
 <section class="industries-section">
   <div class="section-header reveal-up">
     <div class="section-title">High-Premium Industries<br>We Specialize In</div>
     <div class="section-count">06 Industries</div>
   </div>
-
-  <!-- 1. Commercial Trucking -->
   <a href="quote.html" class="industry-card hover-target reveal-up">
     <div class="card-num">01</div>
     <div class="card-body">
       <div class="card-industry">Commercial Trucking &amp; Transportation</div>
       <p class="card-desc">The highest-premium commercial coverage category. Primary liability, physical damage, motor truck cargo, bobtail, and occupational accident for owner-operators and enterprise fleets of all sizes and commodities.</p>
-      <div class="card-tags">
-        <span class="tag">Primary Liability</span>
-        <span class="tag">Motor Truck Cargo</span>
-        <span class="tag">Physical Damage</span>
-        <span class="tag">Bobtail</span>
-        <span class="tag">OCC Accident</span>
-        <span class="tag">Fleet Programs</span>
-      </div>
+      <div class="card-tags"><span class="tag">Primary Liability</span><span class="tag">Motor Truck Cargo</span><span class="tag">Physical Damage</span><span class="tag">Bobtail</span><span class="tag">OCC Accident</span><span class="tag">Fleet Programs</span></div>
     </div>
-    <div style="text-align:right;">
-      <div class="card-premium">HIGH PREMIUM</div>
-      <div class="card-premium-label">Priority Industry</div>
-      <div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
-    </div>
+    <div style="text-align:right;"><div class="card-premium">HIGH PREMIUM</div><div class="card-premium-label">Priority Industry</div><div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div></div>
   </a>
-
-  <!-- 2. Construction -->
   <a href="quote.html" class="industry-card hover-target reveal-up d1">
     <div class="card-num">02</div>
     <div class="card-body">
       <div class="card-industry">Contractors &amp; Construction</div>
       <p class="card-desc">General contractors, subcontractors, electricians, plumbers, roofers, and developers. Comprehensive GL, builders risk, inland marine, and workers comp programs for high-exposure job sites.</p>
-      <div class="card-tags">
-        <span class="tag">General Liability</span>
-        <span class="tag">Builders Risk</span>
-        <span class="tag">Workers Comp</span>
-        <span class="tag">Inland Marine</span>
-        <span class="tag">Commercial Auto</span>
-      </div>
+      <div class="card-tags"><span class="tag">General Liability</span><span class="tag">Builders Risk</span><span class="tag">Workers Comp</span><span class="tag">Inland Marine</span><span class="tag">Commercial Auto</span></div>
     </div>
-    <div style="text-align:right;">
-      <div class="card-premium">HIGH PREMIUM</div>
-      <div class="card-premium-label">High Exposure</div>
-      <div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
-    </div>
+    <div style="text-align:right;"><div class="card-premium">HIGH PREMIUM</div><div class="card-premium-label">High Exposure</div><div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div></div>
   </a>
-
-  <!-- 3. Restaurants -->
   <a href="quote.html" class="industry-card hover-target reveal-up d2">
     <div class="card-num">03</div>
     <div class="card-body">
       <div class="card-industry">Restaurants &amp; Food Service</div>
       <p class="card-desc">Sit-down restaurants, fast food operations, food trucks, catering companies, and ghost kitchens. Liquor liability, food contamination, and employment practices coverage for one of the most litigated industries.</p>
-      <div class="card-tags">
-        <span class="tag">Liquor Liability</span>
-        <span class="tag">Food Contamination</span>
-        <span class="tag">General Liability</span>
-        <span class="tag">Workers Comp</span>
-        <span class="tag">EPLI</span>
-      </div>
+      <div class="card-tags"><span class="tag">Liquor Liability</span><span class="tag">Food Contamination</span><span class="tag">General Liability</span><span class="tag">Workers Comp</span><span class="tag">EPLI</span></div>
     </div>
-    <div style="text-align:right;">
-      <div class="card-premium">HIGH PREMIUM</div>
-      <div class="card-premium-label">High Litigation Risk</div>
-      <div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
-    </div>
+    <div style="text-align:right;"><div class="card-premium">HIGH PREMIUM</div><div class="card-premium-label">High Litigation Risk</div><div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div></div>
   </a>
-
-  <!-- 4. Healthcare -->
   <a href="quote.html" class="industry-card hover-target reveal-up d3">
     <div class="card-num">04</div>
     <div class="card-body">
       <div class="card-industry">Healthcare &amp; Medical Facilities</div>
       <p class="card-desc">Medical practices, urgent care centers, home health agencies, dental offices, and mental health providers. High-limit medical malpractice, cyber liability, and HIPAA compliance coverage.</p>
-      <div class="card-tags">
-        <span class="tag">Medical Malpractice</span>
-        <span class="tag">Cyber Liability</span>
-        <span class="tag">General Liability</span>
-        <span class="tag">Workers Comp</span>
-        <span class="tag">EPLI</span>
-      </div>
+      <div class="card-tags"><span class="tag">Medical Malpractice</span><span class="tag">Cyber Liability</span><span class="tag">General Liability</span><span class="tag">Workers Comp</span><span class="tag">EPLI</span></div>
     </div>
-    <div style="text-align:right;">
-      <div class="card-premium">HIGH PREMIUM</div>
-      <div class="card-premium-label">Complex Risks</div>
-      <div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
-    </div>
+    <div style="text-align:right;"><div class="card-premium">HIGH PREMIUM</div><div class="card-premium-label">Complex Risks</div><div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div></div>
   </a>
-
-  <!-- 5. Real Estate -->
   <a href="quote.html" class="industry-card hover-target reveal-up d4">
     <div class="card-num">05</div>
     <div class="card-body">
       <div class="card-industry">Real Estate &amp; Property Management</div>
       <p class="card-desc">Property managers, landlords, real estate developers, brokerages, and HOAs. Umbrella coverage, E&amp;O, habitational liability, and environmental protection for large multi-unit portfolios.</p>
-      <div class="card-tags">
-        <span class="tag">E&O / Professional</span>
-        <span class="tag">Umbrella / Excess</span>
-        <span class="tag">Property</span>
-        <span class="tag">General Liability</span>
-        <span class="tag">Environmental</span>
-      </div>
+      <div class="card-tags"><span class="tag">E&O / Professional</span><span class="tag">Umbrella / Excess</span><span class="tag">Property</span><span class="tag">General Liability</span><span class="tag">Environmental</span></div>
     </div>
-    <div style="text-align:right;">
-      <div class="card-premium">HIGH PREMIUM</div>
-      <div class="card-premium-label">Large Portfolios</div>
-      <div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
-    </div>
+    <div style="text-align:right;"><div class="card-premium">HIGH PREMIUM</div><div class="card-premium-label">Large Portfolios</div><div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div></div>
   </a>
-
-  <!-- 6. Technology -->
   <a href="quote.html" class="industry-card hover-target reveal-up d5">
     <div class="card-num">06</div>
     <div class="card-body">
       <div class="card-industry">Technology &amp; Cyber Risk</div>
       <p class="card-desc">SaaS companies, IT service providers, fintech firms, and digital agencies. High-limit cyber liability, technology E&amp;O, data breach response, and ransomware coverage for companies with significant digital exposure.</p>
-      <div class="card-tags">
-        <span class="tag">Cyber Liability</span>
-        <span class="tag">Tech E&O</span>
-        <span class="tag">Data Breach</span>
-        <span class="tag">D&O</span>
-        <span class="tag">Crime / Fidelity</span>
-      </div>
+      <div class="card-tags"><span class="tag">Cyber Liability</span><span class="tag">Tech E&O</span><span class="tag">Data Breach</span><span class="tag">D&O</span><span class="tag">Crime / Fidelity</span></div>
     </div>
-    <div style="text-align:right;">
-      <div class="card-premium">HIGH PREMIUM</div>
-      <div class="card-premium-label">Emerging Risk</div>
-      <div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
-    </div>
+    <div style="text-align:right;"><div class="card-premium">HIGH PREMIUM</div><div class="card-premium-label">Emerging Risk</div><div class="card-cta" style="margin-top:16px;">Get Quote <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div></div>
   </a>
 </section>
-
-<!-- WHY US -->
 <section class="why-section">
   <div class="why-inner">
     <div class="reveal-up">
@@ -271,39 +172,20 @@
       <div style="font-family:'Syncopate',sans-serif;font-size:clamp(28px,3.5vw,44px);font-weight:700;text-transform:uppercase;letter-spacing:-0.5px;">THE AIIS COMMERCIAL<br>ADVANTAGE</div>
     </div>
     <div class="why-grid">
-      <div class="why-item reveal-up">
-        <div class="why-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-        <div class="why-title">Same-Day Binding</div>
-        <p class="why-desc">Most policies quoted and bound within 4 hours. We know your operation can&rsquo;t wait days for coverage.</p>
-      </div>
-      <div class="why-item reveal-up d1">
-        <div class="why-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-        <div class="why-title">A-Rated Carriers Only</div>
-        <p class="why-desc">Every carrier in our network holds an A or better AM Best rating. Your coverage is backed by financially sound companies.</p>
-      </div>
-      <div class="why-item reveal-up d2">
-        <div class="why-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
-        <div class="why-title">AI Rate Optimization</div>
-        <p class="why-desc">Our proprietary algorithm compares your risk profile across 50+ carriers instantly, guaranteeing the most competitive rate available.</p>
-      </div>
-      <div class="why-item reveal-up d3">
-        <div class="why-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-        <div class="why-title">Dedicated Specialists</div>
-        <p class="why-desc">Every client gets a dedicated specialist who knows their industry. No call centers, no bots &mdash; real people who understand your risk.</p>
-      </div>
+      <div class="why-item reveal-up"><div class="why-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="why-title">Same-Day Binding</div><p class="why-desc">Most policies quoted and bound within 4 hours. We know your operation can&rsquo;t wait days for coverage.</p></div>
+      <div class="why-item reveal-up d1"><div class="why-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="why-title">A-Rated Carriers Only</div><p class="why-desc">Every carrier in our network holds an A or better AM Best rating. Your coverage is backed by financially sound companies.</p></div>
+      <div class="why-item reveal-up d2"><div class="why-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="why-title">AI Rate Optimization</div><p class="why-desc">Our proprietary algorithm compares your risk profile across 50+ carriers instantly, guaranteeing the most competitive rate available.</p></div>
+      <div class="why-item reveal-up d3"><div class="why-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="why-title">Dedicated Specialists</div><p class="why-desc">Every client gets a dedicated specialist who knows their industry. No call centers, no bots &mdash; real people who understand your risk.</p></div>
     </div>
   </div>
 </section>
-
-<!-- CTA -->
 <div class="cta-band reveal-up">
   <div class="cta-title">YOUR INDUSTRY.<br>YOUR COVERAGE.</div>
   <div class="cta-right">
     <a href="quote.html" class="cta-btn hover-target">Start Your Free Quote</a>
-    <div class="cta-phone">CALL 1-800-AIIS-INS</div>
+    <a href="tel:6573665312" class="cta-phone" style="text-decoration:none;color:rgba(0,0,0,0.7);">(657) 366-5312</a>
   </div>
 </div>
-
 <footer>
   <div class="footer-brand">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -316,7 +198,6 @@
     <a href="#" class="hover-target">Privacy Policy</a>
   </div>
 </footer>
-
 <script>
   const dot=document.getElementById('cursor-dot'),ring=document.getElementById('cursor-ring');
   let mx=0,my=0,rx=0,ry=0;
