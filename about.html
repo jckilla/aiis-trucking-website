@@ -25,11 +25,7 @@
   .nav-links a:hover{color:#00FFCC}
   .nav-cta{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;background:#fff;color:#000;border:none;padding:12px 24px;cursor:none;display:flex;align-items:center;gap:8px;transition:background .3s;}
   .nav-cta:hover{background:#00FFCC}
-
-  .about-hero{
-    min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;
-    padding:0 64px 80px;position:relative;overflow:hidden;
-  }
+  .about-hero{min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;padding:0 64px 80px;position:relative;overflow:hidden;}
   .hero-glow{position:absolute;bottom:10%;left:30%;width:700px;height:700px;background:#00FFCC;border-radius:50%;mix-blend-mode:screen;filter:blur(180px);opacity:0.06;pointer-events:none;}
   .hero-noise{position:absolute;inset:0;pointer-events:none;opacity:0.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px;}
   .hero-content{position:relative;z-index:2;max-width:1400px;margin:0 auto;width:100%;}
@@ -44,21 +40,18 @@
   .h-stat-num{font-family:'Syncopate',sans-serif;font-size:40px;font-weight:700;color:#fff;line-height:1;}
   .h-stat-num span{color:#00FFCC;}
   .h-stat-label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-top:4px;}
-
   .marquee-bar{padding:20px 0;border-top:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);background:#0a0a0a;overflow:hidden;display:flex;white-space:nowrap;}
   .marquee-track{display:flex;animation:marquee 30s linear infinite;}
   @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
   .marquee-item{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.3);padding:0 40px;display:flex;align-items:center;gap:16px;}
   .marquee-dot{width:3px;height:3px;background:#00FFCC;border-radius:50%;}
-
   .mission-section{padding:120px 64px;max-width:1400px;margin:0 auto;}
   .split-layout{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start;}
   .section-label{font-family:'Syncopate',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#00FFCC;margin-bottom:32px;}
   .big-text{font-family:'Syncopate',sans-serif;font-size:clamp(32px,4vw,56px);font-weight:700;text-transform:uppercase;line-height:1.0;letter-spacing:-0.5px;}
   .body-text{font-size:17px;font-weight:300;color:rgba(255,255,255,0.55);line-height:1.85;margin-top:32px;}
-  .body-text + .body-text{margin-top:20px;}
+  .body-text+.body-text{margin-top:20px;}
   .accent-line{width:48px;height:2px;background:#00FFCC;margin:32px 0;}
-
   .values-section{padding:0 64px 120px;max-width:1400px;margin:0 auto;}
   .values-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.06);margin-top:64px;}
   .value-card{background:#050505;padding:48px 36px;position:relative;overflow:hidden;transition:background .3s;}
@@ -68,41 +61,53 @@
   .value-num{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:rgba(0,255,204,0.5);margin-bottom:20px;}
   .value-title{font-family:'Syncopate',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;line-height:1.1;}
   .value-desc{font-size:14px;font-weight:300;color:rgba(255,255,255,0.5);line-height:1.75;}
-
-  .team-section{padding:0 64px 120px;max-width:1400px;margin:0 auto;}
-  .team-header{margin-bottom:64px;}
-  .team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;}
-  .team-card{border:1px solid rgba(255,255,255,0.07);overflow:hidden;transition:border-color .3s;}
-  .team-card:hover{border-color:rgba(0,255,204,0.3);}
-  .team-avatar{height:280px;background:linear-gradient(135deg,#0d1117 0%,#111820 100%);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
-  .avatar-initials{font-family:'Syncopate',sans-serif;font-size:48px;font-weight:700;color:rgba(0,255,204,0.15);letter-spacing:4px;}
-  .avatar-glow{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:120px;height:120px;background:#00FFCC;border-radius:50%;filter:blur(60px);opacity:0.08;}
-  .team-info{padding:24px 28px 28px;}
-  .team-name{font-family:'Syncopate',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
-  .team-role{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#00FFCC;margin-bottom:12px;}
-  .team-bio{font-size:13px;font-weight:300;color:rgba(255,255,255,0.45);line-height:1.7;}
-
+  .carriers-section{padding:0 64px 120px;max-width:1400px;margin:0 auto;}
+  .carriers-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:64px;}
+  .carriers-intro{font-size:16px;font-weight:300;color:rgba(255,255,255,0.45);max-width:400px;line-height:1.7;}
+  .carriers-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.07);}
+  .carrier-tile{background:#050505;padding:36px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;transition:background .35s;min-height:140px;cursor:none;}
+  .carrier-tile:hover{background:#0c0c0c;}
+  .carrier-tile::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:#00FFCC;transform:scaleX(0);transform-origin:center;transition:transform .4s;}
+  .carrier-tile:hover::after{transform:scaleX(1);}
+  .carrier-name{font-family:'Syncopate',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.55);text-align:center;transition:color .3s;line-height:1.3;}
+  .carrier-tile:hover .carrier-name{color:#fff;}
+  .carrier-rating{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(0,255,204,0.5);margin-top:8px;}
+  .carrier-type{font-size:11px;color:rgba(255,255,255,0.2);margin-top:4px;font-weight:300;text-align:center;}
+  .process-section{padding:0 64px 120px;max-width:1400px;margin:0 auto;}
+  .process-track{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:64px;position:relative;}
+  .process-track::before{content:'';position:absolute;top:40px;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,rgba(0,255,204,0.3) 20%,rgba(0,255,204,0.3) 80%,transparent);pointer-events:none;}
+  .process-step{padding:0 24px 0 0;position:relative;}
+  .step-num-wrap{width:80px;height:80px;border:1px solid rgba(0,255,204,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:28px;position:relative;background:#050505;transition:border-color .3s,background .3s;}
+  .process-step:hover .step-num-wrap{border-color:#00FFCC;background:rgba(0,255,204,0.04);}
+  .step-num{font-family:'Syncopate',sans-serif;font-size:28px;font-weight:700;color:rgba(0,255,204,0.3);line-height:1;transition:color .3s;}
+  .process-step:hover .step-num{color:#00FFCC;}
+  .step-icon{position:absolute;top:-12px;right:-12px;width:24px;height:24px;background:#00FFCC;display:flex;align-items:center;justify-content:center;}
+  .step-title{font-family:'Syncopate',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;line-height:1.2;}
+  .step-desc{font-size:13px;font-weight:300;color:rgba(255,255,255,0.45);line-height:1.75;}
+  .step-time{display:inline-block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#00FFCC;margin-top:12px;padding:3px 10px;border:1px solid rgba(0,255,204,0.25);}
   .cta-band{background:#00FFCC;padding:80px 64px;display:flex;align-items:center;justify-content:space-between;gap:40px;}
   .cta-title{font-family:'Syncopate',sans-serif;font-size:clamp(36px,4vw,64px);font-weight:700;text-transform:uppercase;color:#000;line-height:0.9;letter-spacing:-1px;}
   .cta-btn{font-family:'Space Mono',monospace;font-size:13px;letter-spacing:4px;text-transform:uppercase;background:#000;color:#fff;border:none;padding:18px 48px;cursor:none;transition:all .3s;white-space:nowrap;text-decoration:none;display:inline-block;}
   .cta-btn:hover{background:#111;}
-
   footer{border-top:1px solid rgba(255,255,255,0.05);padding:40px 64px;display:flex;justify-content:space-between;align-items:center;}
   .footer-brand{display:flex;align-items:center;gap:8px;font-family:'Syncopate',sans-serif;font-weight:700;font-size:11px;letter-spacing:4px;text-transform:uppercase;}
   .footer-links{display:flex;gap:32px;}
   .footer-links a{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.3);text-decoration:none;transition:color .2s;}
   .footer-links a:hover{color:#00FFCC;}
-
   .reveal-up{opacity:0;transform:translateY(40px);transition:all 1s cubic-bezier(0.16,1,0.3,1);}
   .reveal-up.in-view{opacity:1;transform:translateY(0);}
-  .d1{transition-delay:.1s}.d2{transition-delay:.2s}.d3{transition-delay:.3s}.d4{transition-delay:.4s}
-
+  .d1{transition-delay:.1s}.d2{transition-delay:.2s}.d3{transition-delay:.3s}
+  .d5{transition-delay:.05s}.d6{transition-delay:.1s}.d7{transition-delay:.15s}.d8{transition-delay:.2s}
   @media(max-width:900px){
     nav{padding:16px 24px}.nav-links{display:none}
-    .about-hero,.mission-section,.values-section,.team-section{padding-left:24px;padding-right:24px;}
-    .split-layout,.values-grid,.team-grid{grid-template-columns:1fr;}
+    .about-hero,.mission-section,.values-section,.carriers-section,.process-section{padding-left:24px;padding-right:24px;}
+    .split-layout,.values-grid{grid-template-columns:1fr;}
+    .carriers-grid{grid-template-columns:repeat(2,1fr);}
+    .process-track{grid-template-columns:1fr 1fr;}
+    .process-track::before{display:none;}
     .hero-stat-row{flex-wrap:wrap;gap:24px;}
     .hero-bottom-row{flex-direction:column;align-items:flex-start;}
+    .carriers-header{flex-direction:column;gap:16px;align-items:flex-start;}
     .cta-band{flex-direction:column;padding:60px 24px;}
     footer{flex-direction:column;gap:24px;padding:40px 24px;text-align:center;}
     .footer-links{flex-wrap:wrap;justify-content:center;}
@@ -112,7 +117,6 @@
 <body>
 <div id="cursor-dot"></div>
 <div id="cursor-ring"></div>
-
 <nav>
   <a href="index.html" class="nav-logo hover-target">
     <div class="logo-icon"><div class="logo-icon-bg"></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
@@ -125,8 +129,6 @@
   </div>
   <button class="nav-cta hover-target" onclick="window.location='quote.html'">GET QUOTED <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></button>
 </nav>
-
-<!-- HERO -->
 <section class="about-hero">
   <div class="hero-glow"></div>
   <div class="hero-noise"></div>
@@ -136,24 +138,13 @@
     <div class="hero-bottom-row">
       <p class="hero-statement">Advanced Insurance &amp; Indemnity Solutions was built by industry veterans who understood that truckers and business owners deserved better &mdash; faster quotes, fairer rates, and an advocate in their corner when it matters most.</p>
       <div class="hero-stat-row">
-        <div class="h-stat">
-          <div class="h-stat-num">15<span>K+</span></div>
-          <div class="h-stat-label">Trucks Insured</div>
-        </div>
-        <div class="h-stat">
-          <div class="h-stat-num">50<span>+</span></div>
-          <div class="h-stat-label">Carrier Partners</div>
-        </div>
-        <div class="h-stat">
-          <div class="h-stat-num">98<span>%</span></div>
-          <div class="h-stat-label">Retention Rate</div>
-        </div>
+        <div class="h-stat"><div class="h-stat-num">15<span>K+</span></div><div class="h-stat-label">Trucks Insured</div></div>
+        <div class="h-stat"><div class="h-stat-num">50<span>+</span></div><div class="h-stat-label">Carrier Partners</div></div>
+        <div class="h-stat"><div class="h-stat-num">98<span>%</span></div><div class="h-stat-label">Retention Rate</div></div>
       </div>
     </div>
   </div>
 </section>
-
-<!-- MARQUEE -->
 <div class="marquee-bar">
   <div class="marquee-track">
     <div style="display:flex;">
@@ -174,8 +165,6 @@
     </div>
   </div>
 </div>
-
-<!-- MISSION -->
 <section class="mission-section">
   <div class="split-layout">
     <div class="reveal-up">
@@ -194,82 +183,90 @@
     </div>
   </div>
 </section>
-
-<!-- VALUES -->
 <section class="values-section">
   <div class="reveal-up">
     <div class="section-label">What We Stand For</div>
     <div class="big-text">OUR VALUES</div>
   </div>
   <div class="values-grid">
-    <div class="value-card reveal-up">
-      <div class="value-num">01 &mdash;</div>
-      <div class="value-title">Speed Without Compromise</div>
-      <p class="value-desc">Same-day quoting and binding doesn&rsquo;t mean cutting corners. Our AI-powered platform does the heavy lifting so our specialists can focus on accuracy and competitive pricing.</p>
+    <div class="value-card reveal-up"><div class="value-num">01 &mdash;</div><div class="value-title">Speed Without Compromise</div><p class="value-desc">Same-day quoting and binding doesn&rsquo;t mean cutting corners. Our AI-powered platform does the heavy lifting so our specialists can focus on accuracy and competitive pricing.</p></div>
+    <div class="value-card reveal-up d1"><div class="value-num">02 &mdash;</div><div class="value-title">Radical Transparency</div><p class="value-desc">No hidden fees. No bait-and-switch. Every line of your policy is explained in plain language before you sign. We believe you should understand exactly what you&rsquo;re buying.</p></div>
+    <div class="value-card reveal-up d2"><div class="value-num">03 &mdash;</div><div class="value-title">Industry Expertise</div><p class="value-desc">Commercial trucking and business insurance is all we do. Our specialists live and breathe the regulations, the carriers, and the unique risks of your industry.</p></div>
+    <div class="value-card reveal-up"><div class="value-num">04 &mdash;</div><div class="value-title">Claims as a Priority</div><p class="value-desc">When you file a claim, we become your advocate. Our dedicated claims team works around the clock to get your operation back up and running as fast as possible.</p></div>
+    <div class="value-card reveal-up d1"><div class="value-num">05 &mdash;</div><div class="value-title">Technology-Driven</div><p class="value-desc">We use proprietary AI risk-scoring to match your operation to the perfect carrier at the optimal rate &mdash; a process that used to take days now takes minutes.</p></div>
+    <div class="value-card reveal-up d2"><div class="value-num">06 &mdash;</div><div class="value-title">Long-Term Partnership</div><p class="value-desc">Our 98% retention rate isn&rsquo;t an accident. We build relationships, review your coverage annually, and proactively find ways to save you money as your business grows.</p></div>
+  </div>
+</section>
+
+<!-- CARRIER NETWORK -->
+<section class="carriers-section">
+  <div class="carriers-header reveal-up">
+    <div>
+      <div class="section-label">Our Network</div>
+      <div class="big-text">50+ A-RATED<br>CARRIER PARTNERS</div>
     </div>
-    <div class="value-card reveal-up d1">
-      <div class="value-num">02 &mdash;</div>
-      <div class="value-title">Radical Transparency</div>
-      <p class="value-desc">No hidden fees. No bait-and-switch. Every line of your policy is explained in plain language before you sign. We believe you should understand exactly what you&rsquo;re buying.</p>
+    <p class="carriers-intro">Every carrier we work with holds an AM Best rating of A or better. Your coverage is backed by the most financially sound and reputable insurers in the commercial market.</p>
+  </div>
+  <div class="carriers-grid">
+    <div class="carrier-tile reveal-up"><div class="carrier-name">Progressive<br>Commercial</div><div class="carrier-rating">AM BEST: A+</div><div class="carrier-type">Trucking &bull; Auto</div></div>
+    <div class="carrier-tile reveal-up d5"><div class="carrier-name">Travelers<br>Insurance</div><div class="carrier-rating">AM BEST: A++</div><div class="carrier-type">Commercial &bull; Property</div></div>
+    <div class="carrier-tile reveal-up d6"><div class="carrier-name">Old Republic<br>National</div><div class="carrier-rating">AM BEST: A</div><div class="carrier-type">Trucking &bull; Cargo</div></div>
+    <div class="carrier-tile reveal-up d7"><div class="carrier-name">Berkshire<br>Hathaway</div><div class="carrier-rating">AM BEST: A++</div><div class="carrier-type">Commercial &bull; Excess</div></div>
+    <div class="carrier-tile reveal-up d8"><div class="carrier-name">Great West<br>Casualty</div><div class="carrier-rating">AM BEST: A</div><div class="carrier-type">Trucking Specialist</div></div>
+    <div class="carrier-tile reveal-up"><div class="carrier-name">Zurich North<br>America</div><div class="carrier-rating">AM BEST: A+</div><div class="carrier-type">Commercial &bull; Fleet</div></div>
+    <div class="carrier-tile reveal-up d5"><div class="carrier-name">Canal<br>Insurance</div><div class="carrier-rating">AM BEST: A</div><div class="carrier-type">Trucking Specialist</div></div>
+    <div class="carrier-tile reveal-up d6"><div class="carrier-name">Employers<br>Holdings</div><div class="carrier-rating">AM BEST: A-</div><div class="carrier-type">Workers Comp</div></div>
+    <div class="carrier-tile reveal-up d7"><div class="carrier-name">Markel<br>Corporation</div><div class="carrier-rating">AM BEST: A</div><div class="carrier-type">Specialty &bull; E&amp;O</div></div>
+    <div class="carrier-tile reveal-up d8"><div class="carrier-name">+ 40 More<br>Partners</div><div class="carrier-rating">ALL A-RATED</div><div class="carrier-type">Across All Sectors</div></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="process-section">
+  <div class="reveal-up">
+    <div class="section-label">How We Work</div>
+    <div class="big-text">FROM QUOTE TO<br>BOUND IN HOURS.</div>
+  </div>
+  <div class="process-track">
+    <div class="process-step reveal-up">
+      <div class="step-num-wrap">
+        <div class="step-num">01</div>
+        <div class="step-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+      </div>
+      <div class="step-title">Submit Your Info</div>
+      <p class="step-desc">Fill out our quick quote form with your operation details, DOT number, and coverage needs. Upload any documents you have on hand.</p>
+      <span class="step-time">Under 5 Minutes</span>
     </div>
-    <div class="value-card reveal-up d2">
-      <div class="value-num">03 &mdash;</div>
-      <div class="value-title">Industry Expertise</div>
-      <p class="value-desc">Commercial trucking and business insurance is all we do. Our specialists live and breathe the regulations, the carriers, and the unique risks of your industry.</p>
+    <div class="process-step reveal-up d1">
+      <div class="step-num-wrap">
+        <div class="step-num">02</div>
+        <div class="step-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+      </div>
+      <div class="step-title">AI Risk Analysis</div>
+      <p class="step-desc">Our proprietary engine scores your risk profile and matches your operation against 50+ carriers in real time to find the most competitive options.</p>
+      <span class="step-time">Instant</span>
     </div>
-    <div class="value-card reveal-up">
-      <div class="value-num">04 &mdash;</div>
-      <div class="value-title">Claims as a Priority</div>
-      <p class="value-desc">When you file a claim, we become your advocate. Our dedicated claims team works around the clock to get your operation back up and running as fast as possible.</p>
+    <div class="process-step reveal-up d2">
+      <div class="step-num-wrap">
+        <div class="step-num">03</div>
+        <div class="step-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+      </div>
+      <div class="step-title">Specialist Review</div>
+      <p class="step-desc">A licensed commercial specialist reviews your quote, contacts you directly, answers questions, and tailors the policy to fit your exact operation.</p>
+      <span class="step-time">Within 2 Hours</span>
     </div>
-    <div class="value-card reveal-up d1">
-      <div class="value-num">05 &mdash;</div>
-      <div class="value-title">Technology-Driven</div>
-      <p class="value-desc">We use proprietary AI risk-scoring to match your operation to the perfect carrier at the optimal rate &mdash; a process that used to take days now takes minutes.</p>
-    </div>
-    <div class="value-card reveal-up d2">
-      <div class="value-num">06 &mdash;</div>
-      <div class="value-title">Long-Term Partnership</div>
-      <p class="value-desc">Our 98% retention rate isn&rsquo;t an accident. We build relationships, review your coverage annually, and proactively find ways to save you money as your business grows.</p>
+    <div class="process-step reveal-up d3">
+      <div class="step-num-wrap">
+        <div class="step-num">04</div>
+        <div class="step-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+      </div>
+      <div class="step-title">Bound &amp; Protected</div>
+      <p class="step-desc">Sign off and your coverage is bound same-day. Certificate of insurance issued immediately. You&rsquo;re covered and back on the road.</p>
+      <span class="step-time">Same Day</span>
     </div>
   </div>
 </section>
 
-<!-- TEAM -->
-<section class="team-section">
-  <div class="team-header reveal-up">
-    <div class="section-label">The People Behind the Platform</div>
-    <div class="big-text">MEET THE TEAM</div>
-  </div>
-  <div class="team-grid">
-    <div class="team-card reveal-up">
-      <div class="team-avatar"><div class="avatar-initials">AR</div><div class="avatar-glow"></div></div>
-      <div class="team-info">
-        <div class="team-name">Alex Rivera</div>
-        <div class="team-role">Founder &amp; CEO</div>
-        <p class="team-bio">15 years in commercial trucking insurance. Former fleet owner who built AIIS after experiencing firsthand how broken the industry was for operators.</p>
-      </div>
-    </div>
-    <div class="team-card reveal-up d1">
-      <div class="team-avatar"><div class="avatar-initials">MC</div><div class="avatar-glow"></div></div>
-      <div class="team-info">
-        <div class="team-name">Maria Chen</div>
-        <div class="team-role">Head of Underwriting</div>
-        <p class="team-bio">Former senior underwriter at two of the nation&rsquo;s largest commercial carriers. Specializes in high-risk and high-value fleet programs.</p>
-      </div>
-    </div>
-    <div class="team-card reveal-up d2">
-      <div class="team-avatar"><div class="avatar-initials">DJ</div><div class="avatar-glow"></div></div>
-      <div class="team-info">
-        <div class="team-name">David Johnson</div>
-        <div class="team-role">Chief Claims Officer</div>
-        <p class="team-bio">20+ years in commercial claims management. His team holds an industry-leading 4-hour average initial response time on all filed claims.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- CTA -->
 <div class="cta-band reveal-up">
   <div class="cta-title">READY TO WORK<br>WITH THE BEST?</div>
   <a href="quote.html" class="cta-btn hover-target">GET YOUR FREE QUOTE</a>
@@ -296,7 +293,7 @@
   function animRing(){rx=lerp(rx,mx,.12);ry=lerp(ry,my,.12);ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(animRing);}
   animRing();
   window.addEventListener('mouseover',e=>{e.target.closest('.hover-target,a,button')?ring.classList.add('hovering'):ring.classList.remove('hovering');});
-  const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in-view');});},{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
+  const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in-view');});},{threshold:0.08,rootMargin:'0px 0px -40px 0px'});
   document.querySelectorAll('.reveal-up').forEach(el=>obs.observe(el));
 </script>
 </body>
