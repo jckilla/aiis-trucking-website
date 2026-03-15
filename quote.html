@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Get a Quote | AdvancedIns.ai</title>
+<link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:#050505;color:#F5F5F5;font-family:'Inter',sans-serif;overflow-x:hidden;cursor:none;}
+  #cursor-dot{position:fixed;top:0;left:0;width:8px;height:8px;background:#00FFCC;border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+  #cursor-ring{position:fixed;top:0;left:0;border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .3s,height .3s,background .3s,border-color .3s;width:40px;height:40px;border:1px solid rgba(0,255,204,0.4);background:transparent;}
+  #cursor-ring.hovering{width:64px;height:64px;border-color:transparent;background:rgba(0,255,204,0.08);backdrop-filter:blur(4px);}
+  nav{position:fixed;top:0;width:100%;z-index:40;display:flex;justify-content:space-between;align-items:center;padding:20px 48px;background:rgba(5,5,5,0.85);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.05);}
+  .nav-logo{display:flex;align-items:center;gap:12px;cursor:none;text-decoration:none;}
+  .logo-icon{width:32px;height:32px;border:1px solid #00FFCC;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+  .logo-icon-bg{position:absolute;inset:0;background:#00FFCC;transform:translateY(100%);transition:transform .3s;}
+  .logo-icon:hover .logo-icon-bg{transform:translateY(0)}
+  .logo-icon svg{position:relative;z-index:1;color:#00FFCC;transition:color .3s}
+  .logo-icon:hover svg{color:#000}
+  .nav-brand{font-family:'Syncopate',sans-serif;font-weight:700;font-size:13px;letter-spacing:4px;text-transform:uppercase;}
+  .nav-links{display:flex;gap:40px;align-items:center}
+  .nav-links a{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-decoration:none;transition:color .2s;cursor:none;}
+  .nav-links a:hover{color:#00FFCC}
+  .nav-cta{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;background:#00FFCC;color:#000;border:none;padding:12px 24px;cursor:none;display:flex;align-items:center;gap:8px;transition:background .3s;}
+  .nav-cta:hover{background:#fff}
+  .page-hero{padding:160px 64px 80px;max-width:1400px;margin:0 auto;}
+  .page-eyebrow{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#00FFCC;display:flex;align-items:center;gap:12px;margin-bottom:24px;}
+  .page-eyebrow::before{content:'';width:32px;height:1px;background:#00FFCC;}
+  .page-title{font-family:'Syncopate',sans-serif;font-size:clamp(48px,7vw,96px);font-weight:700;text-transform:uppercase;line-height:0.9;letter-spacing:-1px;margin-bottom:24px;}
+  .page-title span{-webkit-text-stroke:1px rgba(255,255,255,0.3);color:transparent;}
+  .page-sub{font-size:18px;font-weight:300;color:rgba(255,255,255,0.5);max-width:520px;line-height:1.7;}
+  .form-section{padding:0 64px 120px;max-width:1400px;margin:0 auto;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;}
+  .form-col{display:flex;flex-direction:column;gap:0;}
+  .form-block{margin-bottom:40px;}
+  .form-block-title{font-family:'Syncopate',sans-serif;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#00FFCC;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid rgba(0,255,204,0.2);}
+  .field{margin-bottom:20px;}
+  .field label{display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:8px;}
+  .field input,.field select,.field textarea{
+    width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);
+    color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:300;
+    padding:14px 16px;outline:none;transition:border-color .3s,background .3s;
+    -webkit-appearance:none;appearance:none;border-radius:0;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:#00FFCC;background:rgba(0,255,204,0.04);}
+  .field input::placeholder,.field textarea::placeholder{color:rgba(255,255,255,0.2);}
+  .field select{cursor:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2300FFCC' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:40px;}
+  .field select option{background:#111;color:#fff;}
+  .field textarea{resize:vertical;min-height:100px;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .drop-zone{
+    border:1px dashed rgba(0,255,204,0.3);padding:48px 32px;
+    text-align:center;cursor:none;transition:all .3s;
+    background:rgba(0,255,204,0.02);
+  }
+  .drop-zone:hover,.drop-zone.drag-over{border-color:#00FFCC;background:rgba(0,255,204,0.06);}
+  .drop-icon{width:48px;height:48px;border:1px solid rgba(0,255,204,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .drop-title{font-family:'Syncopate',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+  .drop-sub{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:16px;line-height:1.6;}
+  .drop-types{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:rgba(0,255,204,0.6);}
+  .file-list{margin-top:16px;display:flex;flex-direction:column;gap:8px;}
+  .file-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,255,204,0.05);border:1px solid rgba(0,255,204,0.15);font-size:13px;}
+  .file-item-name{display:flex;align-items:center;gap:10px;color:rgba(255,255,255,0.7);}
+  .file-remove{background:none;border:none;color:rgba(255,255,255,0.3);cursor:none;font-size:18px;transition:color .2s;line-height:1;}
+  .file-remove:hover{color:#ff4444;}
+  .submit-row{margin-top:40px;display:flex;align-items:center;gap:24px;}
+  .submit-btn{
+    font-family:'Space Mono',monospace;font-size:13px;letter-spacing:4px;text-transform:uppercase;
+    background:#00FFCC;color:#000;border:none;padding:18px 48px;cursor:none;
+    font-weight:700;transition:all .3s;display:flex;align-items:center;gap:12px;
+  }
+  .submit-btn:hover{background:#fff;transform:translateY(-2px);}
+  .submit-note{font-size:13px;color:rgba(255,255,255,0.3);font-weight:300;line-height:1.6;max-width:280px;}
+  .divider{width:1px;background:rgba(255,255,255,0.08);margin:0 -24px;}
+  @media(max-width:900px){
+    nav{padding:16px 24px}.nav-links{display:none}
+    .page-hero,.form-section{padding-left:24px;padding-right:24px;}
+    .form-grid{grid-template-columns:1fr;gap:0;}
+    .divider{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="cursor-dot"></div>
+<div id="cursor-ring"></div>
+<nav>
+  <a href="index.html" class="nav-logo hover-target">
+    <div class="logo-icon"><div class="logo-icon-bg"></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+    <span class="nav-brand">AdvancedIns.ai</span>
+  </a>
+  <div class="nav-links">
+    <a href="index.html#coverages" class="hover-target">COVERAGES</a>
+    <a href="commercial.html" class="hover-target">COMMERCIAL</a>
+    <a href="about.html" class="hover-target">ABOUT</a>
+  </div>
+  <button class="nav-cta hover-target" onclick="window.location='quote.html'">GET QUOTED <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></button>
+</nav>
+
+<div class="page-hero">
+  <div class="page-eyebrow">Start Your Coverage</div>
+  <h1 class="page-title">GET YOUR<br><span>FREE QUOTE</span></h1>
+  <p class="page-sub">Fill out the form below and our specialists will build a custom policy within hours. Same-day binding available.</p>
+</div>
+
+<div class="form-section">
+  <form id="quoteForm">
+    <div class="form-grid">
+      <!-- LEFT COLUMN -->
+      <div class="form-col">
+        <div class="form-block">
+          <div class="form-block-title">01 &mdash; Contact Information</div>
+          <div class="field-row">
+            <div class="field"><label>First Name</label><input type="text" name="firstName" placeholder="John" required class="hover-target"></div>
+            <div class="field"><label>Last Name</label><input type="text" name="lastName" placeholder="Smith" required class="hover-target"></div>
+          </div>
+          <div class="field"><label>Email Address</label><input type="email" name="email" placeholder="john@company.com" required class="hover-target"></div>
+          <div class="field"><label>Telephone Number</label><input type="tel" name="phone" placeholder="(555) 000-0000" required class="hover-target"></div>
+          <div class="field"><label>Business Address</label><input type="text" name="address" placeholder="123 Main St, City, State, ZIP" required class="hover-target"></div>
+        </div>
+
+        <div class="form-block">
+          <div class="form-block-title">02 &mdash; Business Details</div>
+          <div class="field"><label>DOT Number</label><input type="text" name="dot" placeholder="USDOT 0000000" class="hover-target"></div>
+          <div class="field"><label>MC Number (if applicable)</label><input type="text" name="mc" placeholder="MC-000000" class="hover-target"></div>
+          <div class="field"><label>Number of Units / Vehicles</label><input type="number" name="units" placeholder="1" min="1" class="hover-target"></div>
+          <div class="field">
+            <label>Type of Insurance Needed</label>
+            <select name="insuranceType" required class="hover-target">
+              <option value="" disabled selected>Select coverage type...</option>
+              <optgroup label="&mdash; Trucking">
+                <option value="primary-liability">Primary Auto Liability</option>
+                <option value="physical-damage">Physical Damage (Comp &amp; Collision)</option>
+                <option value="motor-cargo">Motor Truck Cargo</option>
+                <option value="bobtail">Bobtail / Non-Trucking Liability</option>
+                <option value="occ-accident">Occupational Accident</option>
+                <option value="trucking-bundle">Full Trucking Bundle</option>
+              </optgroup>
+              <optgroup label="&mdash; Commercial">
+                <option value="general-liability">General Liability</option>
+                <option value="commercial-property">Commercial Property</option>
+                <option value="workers-comp">Workers Compensation</option>
+                <option value="umbrella">Umbrella / Excess Liability</option>
+                <option value="professional">Professional Liability (E&amp;O)</option>
+                <option value="commercial-auto">Commercial Auto</option>
+              </optgroup>
+              <optgroup label="&mdash; Industry Specific">
+                <option value="restaurant">Restaurant &amp; Food Service</option>
+                <option value="contractor">Contractors &amp; Construction</option>
+                <option value="healthcare">Healthcare &amp; Medical</option>
+                <option value="real-estate">Real Estate</option>
+                <option value="tech">Technology &amp; Cyber</option>
+                <option value="other">Other / Multiple</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="field"><label>Additional Notes</label><textarea name="notes" placeholder="Describe your operation, cargo types, special requirements..." class="hover-target"></textarea></div>
+        </div>
+      </div>
+
+      <!-- DIVIDER -->
+      <div class="divider"></div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="form-col">
+        <div class="form-block">
+          <div class="form-block-title">03 &mdash; Upload Documents</div>
+          <p style="font-size:14px;color:rgba(255,255,255,0.4);line-height:1.7;margin-bottom:24px;font-weight:300;">Upload your CDL, vehicle titles, VIN documents, current insurance declarations, or any other relevant files. Accepted: PDF, JPG, PNG, HEIC.</p>
+
+          <div class="drop-zone hover-target" id="dropZone">
+            <div class="drop-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="drop-title">Drop Files Here</div>
+            <p class="drop-sub">Driver&rsquo;s License / CDL &bull; Vehicle Titles<br>VIN Documents &bull; Current Insurance Decks<br>Any Additional Supporting Documents</p>
+            <div class="drop-types">PDF &bull; JPG &bull; PNG &bull; HEIC &bull; Max 25MB each</div>
+            <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.heic" style="display:none">
+          </div>
+          <div class="file-list" id="fileList"></div>
+        </div>
+
+        <div class="form-block" style="margin-top:8px;">
+          <div class="form-block-title">04 &mdash; Confirm &amp; Submit</div>
+          <div class="field">
+            <label style="display:flex;align-items:flex-start;gap:12px;cursor:none;">
+              <input type="checkbox" name="consent" required style="width:18px;height:18px;min-width:18px;margin-top:2px;accent-color:#00FFCC;">
+              <span style="font-size:13px;color:rgba(255,255,255,0.4);font-weight:300;line-height:1.6;">I consent to being contacted by AdvancedIns.ai regarding my quote request. I understand my information will be kept confidential and used only for insurance purposes.</span>
+            </label>
+          </div>
+          <div class="submit-row">
+            <button type="submit" class="submit-btn hover-target">
+              Submit Quote Request
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+            </button>
+          </div>
+          <p style="margin-top:16px;font-size:12px;color:rgba(255,255,255,0.25);font-weight:300;line-height:1.6;">A licensed specialist will contact you within 2 business hours. Same-day binding available for most trucking policies.</p>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <!-- Success Message -->
+  <div id="successMsg" style="display:none;text-align:center;padding:80px 0;">
+    <div style="font-family:'Syncopate',sans-serif;font-size:clamp(36px,5vw,64px);font-weight:700;text-transform:uppercase;margin-bottom:24px;">Quote<br><span style="color:#00FFCC;">Submitted!</span></div>
+    <p style="font-size:18px;font-weight:300;color:rgba(255,255,255,0.5);max-width:480px;margin:0 auto 40px;line-height:1.7;">Thank you. A licensed specialist will reach out within 2 business hours to build your custom policy.</p>
+    <a href="index.html" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#00FFCC;text-decoration:none;border:1px solid rgba(0,255,204,0.3);padding:16px 32px;transition:all .3s;display:inline-block;">Back to Home</a>
+  </div>
+</div>
+
+<footer style="border-top:1px solid rgba(255,255,255,0.05);padding:40px 64px;display:flex;justify-content:space-between;align-items:center;">
+  <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.3);">&#169; 2026 ADVANCEDINS.AI</div>
+  <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.3);">ALL RIGHTS RESERVED</div>
+</footer>
+
+<script>
+  const dot=document.getElementById('cursor-dot'),ring=document.getElementById('cursor-ring');
+  let mx=0,my=0,rx=0,ry=0;
+  window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;dot.style.left=mx+'px';dot.style.top=my+'px';});
+  function lerp(a,b,t){return a+(b-a)*t}
+  function animRing(){rx=lerp(rx,mx,.12);ry=lerp(ry,my,.12);ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(animRing);}
+  animRing();
+  window.addEventListener('mouseover',e=>{e.target.closest('.hover-target,a,button,input,select,textarea,label')?ring.classList.add('hovering'):ring.classList.remove('hovering');});
+
+  const dropZone=document.getElementById('dropZone');
+  const fileInput=document.getElementById('fileInput');
+  const fileList=document.getElementById('fileList');
+  let files=[];
+
+  dropZone.addEventListener('click',()=>fileInput.click());
+  dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag-over');});
+  dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('drag-over');addFiles(e.dataTransfer.files);});
+  fileInput.addEventListener('change',e=>addFiles(e.target.files));
+
+  function addFiles(newFiles){
+    Array.from(newFiles).forEach(f=>{if(!files.find(x=>x.name===f.name))files.push(f);});
+    renderFiles();
+  }
+  function renderFiles(){
+    fileList.innerHTML=files.map((f,i)=>`
+      <div class="file-item">
+        <div class="file-item-name">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          ${f.name} <span style="color:rgba(255,255,255,0.3);font-size:11px;">(${(f.size/1024/1024).toFixed(2)}MB)</span>
+        </div>
+        <button class="file-remove hover-target" onclick="removeFile(${i})" type="button">&times;</button>
+      </div>`).join('');
+  }
+  function removeFile(i){files.splice(i,1);renderFiles();}
+
+  document.getElementById('quoteForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    document.getElementById('quoteForm').style.display='none';
+    document.getElementById('successMsg').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+</script>
+</body>
+</html>

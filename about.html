@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About | AdvancedIns.ai</title>
+<link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:#050505;color:#F5F5F5;font-family:'Inter',sans-serif;overflow-x:hidden;cursor:none;}
+  #cursor-dot{position:fixed;top:0;left:0;width:8px;height:8px;background:#00FFCC;border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+  #cursor-ring{position:fixed;top:0;left:0;border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .3s,height .3s,background .3s,border-color .3s;width:40px;height:40px;border:1px solid rgba(0,255,204,0.4);background:transparent;}
+  #cursor-ring.hovering{width:64px;height:64px;border-color:transparent;background:rgba(0,255,204,0.08);backdrop-filter:blur(4px);}
+  nav{position:fixed;top:0;width:100%;z-index:40;display:flex;justify-content:space-between;align-items:center;padding:20px 48px;background:rgba(5,5,5,0.85);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.05);}
+  .nav-logo{display:flex;align-items:center;gap:12px;cursor:none;text-decoration:none;}
+  .logo-icon{width:32px;height:32px;border:1px solid #00FFCC;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+  .logo-icon-bg{position:absolute;inset:0;background:#00FFCC;transform:translateY(100%);transition:transform .3s;}
+  .logo-icon:hover .logo-icon-bg{transform:translateY(0)}
+  .logo-icon svg{position:relative;z-index:1;color:#00FFCC;transition:color .3s}
+  .logo-icon:hover svg{color:#000}
+  .nav-brand{font-family:'Syncopate',sans-serif;font-weight:700;font-size:13px;letter-spacing:4px;text-transform:uppercase;}
+  .nav-links{display:flex;gap:40px;align-items:center}
+  .nav-links a{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,0.5);text-decoration:none;transition:color .2s;cursor:none;}
+  .nav-links a:hover{color:#00FFCC}
+  .nav-cta{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;background:#fff;color:#000;border:none;padding:12px 24px;cursor:none;display:flex;align-items:center;gap:8px;transition:background .3s;}
+  .nav-cta:hover{background:#00FFCC}
+
+  .about-hero{
+    min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;
+    padding:0 64px 80px;position:relative;overflow:hidden;
+  }
+  .hero-glow{position:absolute;bottom:10%;left:30%;width:700px;height:700px;background:#00FFCC;border-radius:50%;mix-blend-mode:screen;filter:blur(180px);opacity:0.06;pointer-events:none;}
+  .hero-noise{position:absolute;inset:0;pointer-events:none;opacity:0.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px;}
+  .hero-content{position:relative;z-index:2;max-width:1400px;margin:0 auto;width:100%;}
+  .eyebrow{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#00FFCC;display:flex;align-items:center;gap:12px;margin-bottom:32px;}
+  .eyebrow::before{content:'';width:32px;height:1px;background:#00FFCC;}
+  .hero-title{font-family:'Syncopate',sans-serif;font-size:clamp(52px,8vw,120px);font-weight:700;text-transform:uppercase;line-height:0.87;letter-spacing:-1px;margin-bottom:48px;}
+  .hero-title .outline{-webkit-text-stroke:1px rgba(255,255,255,0.25);color:transparent;}
+  .hero-bottom-row{display:flex;align-items:flex-end;justify-content:space-between;gap:40px;}
+  .hero-statement{font-size:20px;font-weight:300;color:rgba(255,255,255,0.55);max-width:520px;line-height:1.7;}
+  .hero-stat-row{display:flex;gap:48px;flex-shrink:0;}
+  .h-stat{text-align:right;}
+  .h-stat-num{font-family:'Syncopate',sans-serif;font-size:40px;font-weight:700;color:#fff;line-height:1;}
+  .h-stat-num span{color:#00FFCC;}
+  .h-stat-label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-top:4px;}
+
+  .marquee-bar{padding:20px 0;border-top:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);background:#0a0a0a;overflow:hidden;display:flex;white-space:nowrap;}
+  .marquee-track{display:flex;animation:marquee 30s linear infinite;}
+  @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+  .marquee-item{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.3);padding:0 40px;display:flex;align-items:center;gap:16px;}
+  .marquee-dot{width:3px;height:3px;background:#00FFCC;border-radius:50%;}
+
+  .mission-section{padding:120px 64px;max-width:1400px;margin:0 auto;}
+  .split-layout{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start;}
+  .section-label{font-family:'Syncopate',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#00FFCC;margin-bottom:32px;}
+  .big-text{font-family:'Syncopate',sans-serif;font-size:clamp(32px,4vw,56px);font-weight:700;text-transform:uppercase;line-height:1.0;letter-spacing:-0.5px;}
+  .body-text{font-size:17px;font-weight:300;color:rgba(255,255,255,0.55);line-height:1.85;margin-top:32px;}
+  .body-text + .body-text{margin-top:20px;}
+  .accent-line{width:48px;height:2px;background:#00FFCC;margin:32px 0;}
+
+  .values-section{padding:0 64px 120px;max-width:1400px;margin:0 auto;}
+  .values-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.06);margin-top:64px;}
+  .value-card{background:#050505;padding:48px 36px;position:relative;overflow:hidden;transition:background .3s;}
+  .value-card:hover{background:#0d0d0d;}
+  .value-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:#00FFCC;transform:scaleX(0);transform-origin:left;transition:transform .4s;}
+  .value-card:hover::before{transform:scaleX(1);}
+  .value-num{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:rgba(0,255,204,0.5);margin-bottom:20px;}
+  .value-title{font-family:'Syncopate',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;line-height:1.1;}
+  .value-desc{font-size:14px;font-weight:300;color:rgba(255,255,255,0.5);line-height:1.75;}
+
+  .team-section{padding:0 64px 120px;max-width:1400px;margin:0 auto;}
+  .team-header{margin-bottom:64px;}
+  .team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;}
+  .team-card{border:1px solid rgba(255,255,255,0.07);overflow:hidden;transition:border-color .3s;}
+  .team-card:hover{border-color:rgba(0,255,204,0.3);}
+  .team-avatar{height:280px;background:linear-gradient(135deg,#0d1117 0%,#111820 100%);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+  .avatar-initials{font-family:'Syncopate',sans-serif;font-size:48px;font-weight:700;color:rgba(0,255,204,0.15);letter-spacing:4px;}
+  .avatar-glow{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:120px;height:120px;background:#00FFCC;border-radius:50%;filter:blur(60px);opacity:0.08;}
+  .team-info{padding:24px 28px 28px;}
+  .team-name{font-family:'Syncopate',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+  .team-role{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#00FFCC;margin-bottom:12px;}
+  .team-bio{font-size:13px;font-weight:300;color:rgba(255,255,255,0.45);line-height:1.7;}
+
+  .cta-band{background:#00FFCC;padding:80px 64px;display:flex;align-items:center;justify-content:space-between;gap:40px;}
+  .cta-title{font-family:'Syncopate',sans-serif;font-size:clamp(36px,4vw,64px);font-weight:700;text-transform:uppercase;color:#000;line-height:0.9;letter-spacing:-1px;}
+  .cta-btn{font-family:'Space Mono',monospace;font-size:13px;letter-spacing:4px;text-transform:uppercase;background:#000;color:#fff;border:none;padding:18px 48px;cursor:none;transition:all .3s;white-space:nowrap;text-decoration:none;display:inline-block;}
+  .cta-btn:hover{background:#111;}
+
+  footer{border-top:1px solid rgba(255,255,255,0.05);padding:40px 64px;display:flex;justify-content:space-between;align-items:center;}
+  .footer-brand{display:flex;align-items:center;gap:8px;font-family:'Syncopate',sans-serif;font-weight:700;font-size:11px;letter-spacing:4px;text-transform:uppercase;}
+  .footer-links{display:flex;gap:32px;}
+  .footer-links a{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.3);text-decoration:none;transition:color .2s;}
+  .footer-links a:hover{color:#00FFCC;}
+
+  .reveal-up{opacity:0;transform:translateY(40px);transition:all 1s cubic-bezier(0.16,1,0.3,1);}
+  .reveal-up.in-view{opacity:1;transform:translateY(0);}
+  .d1{transition-delay:.1s}.d2{transition-delay:.2s}.d3{transition-delay:.3s}.d4{transition-delay:.4s}
+
+  @media(max-width:900px){
+    nav{padding:16px 24px}.nav-links{display:none}
+    .about-hero,.mission-section,.values-section,.team-section{padding-left:24px;padding-right:24px;}
+    .split-layout,.values-grid,.team-grid{grid-template-columns:1fr;}
+    .hero-stat-row{flex-wrap:wrap;gap:24px;}
+    .hero-bottom-row{flex-direction:column;align-items:flex-start;}
+    .cta-band{flex-direction:column;padding:60px 24px;}
+    footer{flex-direction:column;gap:24px;padding:40px 24px;text-align:center;}
+    .footer-links{flex-wrap:wrap;justify-content:center;}
+  }
+</style>
+</head>
+<body>
+<div id="cursor-dot"></div>
+<div id="cursor-ring"></div>
+
+<nav>
+  <a href="index.html" class="nav-logo hover-target">
+    <div class="logo-icon"><div class="logo-icon-bg"></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+    <span class="nav-brand">AdvancedIns.ai</span>
+  </a>
+  <div class="nav-links">
+    <a href="index.html#coverages" class="hover-target">COVERAGES</a>
+    <a href="commercial.html" class="hover-target">COMMERCIAL</a>
+    <a href="about.html" class="hover-target" style="color:#00FFCC;">ABOUT</a>
+  </div>
+  <button class="nav-cta hover-target" onclick="window.location='quote.html'">GET QUOTED <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></button>
+</nav>
+
+<!-- HERO -->
+<section class="about-hero">
+  <div class="hero-glow"></div>
+  <div class="hero-noise"></div>
+  <div class="hero-content">
+    <div class="eyebrow">Who We Are</div>
+    <h1 class="hero-title">PROTECTING<br>THE PEOPLE<br>WHO <span class="outline">MOVE AMERICA</span></h1>
+    <div class="hero-bottom-row">
+      <p class="hero-statement">Advanced Insurance &amp; Indemnity Solutions was built by industry veterans who understood that truckers and business owners deserved better &mdash; faster quotes, fairer rates, and an advocate in their corner when it matters most.</p>
+      <div class="hero-stat-row">
+        <div class="h-stat">
+          <div class="h-stat-num">15<span>K+</span></div>
+          <div class="h-stat-label">Trucks Insured</div>
+        </div>
+        <div class="h-stat">
+          <div class="h-stat-num">50<span>+</span></div>
+          <div class="h-stat-label">Carrier Partners</div>
+        </div>
+        <div class="h-stat">
+          <div class="h-stat-num">98<span>%</span></div>
+          <div class="h-stat-label">Retention Rate</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-bar">
+  <div class="marquee-track">
+    <div style="display:flex;">
+      <span class="marquee-item">Licensed &amp; Bonded <span class="marquee-dot"></span></span>
+      <span class="marquee-item">A-Rated Carriers <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Same-Day Binding <span class="marquee-dot"></span></span>
+      <span class="marquee-item">24/7 Claims Support <span class="marquee-dot"></span></span>
+      <span class="marquee-item">AI-Optimized Rates <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Nationwide Coverage <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Owner-Operated <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Licensed &amp; Bonded <span class="marquee-dot"></span></span>
+      <span class="marquee-item">A-Rated Carriers <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Same-Day Binding <span class="marquee-dot"></span></span>
+      <span class="marquee-item">24/7 Claims Support <span class="marquee-dot"></span></span>
+      <span class="marquee-item">AI-Optimized Rates <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Nationwide Coverage <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Owner-Operated <span class="marquee-dot"></span></span>
+    </div>
+  </div>
+</div>
+
+<!-- MISSION -->
+<section class="mission-section">
+  <div class="split-layout">
+    <div class="reveal-up">
+      <div class="section-label">Our Mission</div>
+      <div class="big-text">WE DON&rsquo;T SELL POLICIES.<br>WE BUILD<br>PROTECTION.</div>
+      <div class="accent-line"></div>
+      <p class="body-text">Most insurance agencies treat commercial clients like a number. We treat them like partners. Every policy we write is engineered specifically for the operation it protects &mdash; not copied from a template.</p>
+      <p class="body-text">We leverage advanced technology and a network of over 50 A-rated carriers to make sure you never pay more than you should, and never have less coverage than you need.</p>
+    </div>
+    <div class="reveal-up d2">
+      <div class="section-label">Our Story</div>
+      <div class="big-text">BUILT BY<br>OPERATORS<br>FOR OPERATORS.</div>
+      <div class="accent-line"></div>
+      <p class="body-text">AIIS was founded by a team of insurance veterans and former logistics operators who were tired of watching truckers get locked into overpriced, underperforming policies by agencies that didn&rsquo;t understand the industry.</p>
+      <p class="body-text">We built the platform we always wished existed &mdash; one where you can get a real, bindable quote in hours, talk to a specialist who actually knows what a bobtail is, and trust that your claim will be handled the same day it&rsquo;s filed.</p>
+    </div>
+  </div>
+</section>
+
+<!-- VALUES -->
+<section class="values-section">
+  <div class="reveal-up">
+    <div class="section-label">What We Stand For</div>
+    <div class="big-text">OUR VALUES</div>
+  </div>
+  <div class="values-grid">
+    <div class="value-card reveal-up">
+      <div class="value-num">01 &mdash;</div>
+      <div class="value-title">Speed Without Compromise</div>
+      <p class="value-desc">Same-day quoting and binding doesn&rsquo;t mean cutting corners. Our AI-powered platform does the heavy lifting so our specialists can focus on accuracy and competitive pricing.</p>
+    </div>
+    <div class="value-card reveal-up d1">
+      <div class="value-num">02 &mdash;</div>
+      <div class="value-title">Radical Transparency</div>
+      <p class="value-desc">No hidden fees. No bait-and-switch. Every line of your policy is explained in plain language before you sign. We believe you should understand exactly what you&rsquo;re buying.</p>
+    </div>
+    <div class="value-card reveal-up d2">
+      <div class="value-num">03 &mdash;</div>
+      <div class="value-title">Industry Expertise</div>
+      <p class="value-desc">Commercial trucking and business insurance is all we do. Our specialists live and breathe the regulations, the carriers, and the unique risks of your industry.</p>
+    </div>
+    <div class="value-card reveal-up">
+      <div class="value-num">04 &mdash;</div>
+      <div class="value-title">Claims as a Priority</div>
+      <p class="value-desc">When you file a claim, we become your advocate. Our dedicated claims team works around the clock to get your operation back up and running as fast as possible.</p>
+    </div>
+    <div class="value-card reveal-up d1">
+      <div class="value-num">05 &mdash;</div>
+      <div class="value-title">Technology-Driven</div>
+      <p class="value-desc">We use proprietary AI risk-scoring to match your operation to the perfect carrier at the optimal rate &mdash; a process that used to take days now takes minutes.</p>
+    </div>
+    <div class="value-card reveal-up d2">
+      <div class="value-num">06 &mdash;</div>
+      <div class="value-title">Long-Term Partnership</div>
+      <p class="value-desc">Our 98% retention rate isn&rsquo;t an accident. We build relationships, review your coverage annually, and proactively find ways to save you money as your business grows.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TEAM -->
+<section class="team-section">
+  <div class="team-header reveal-up">
+    <div class="section-label">The People Behind the Platform</div>
+    <div class="big-text">MEET THE TEAM</div>
+  </div>
+  <div class="team-grid">
+    <div class="team-card reveal-up">
+      <div class="team-avatar"><div class="avatar-initials">AR</div><div class="avatar-glow"></div></div>
+      <div class="team-info">
+        <div class="team-name">Alex Rivera</div>
+        <div class="team-role">Founder &amp; CEO</div>
+        <p class="team-bio">15 years in commercial trucking insurance. Former fleet owner who built AIIS after experiencing firsthand how broken the industry was for operators.</p>
+      </div>
+    </div>
+    <div class="team-card reveal-up d1">
+      <div class="team-avatar"><div class="avatar-initials">MC</div><div class="avatar-glow"></div></div>
+      <div class="team-info">
+        <div class="team-name">Maria Chen</div>
+        <div class="team-role">Head of Underwriting</div>
+        <p class="team-bio">Former senior underwriter at two of the nation&rsquo;s largest commercial carriers. Specializes in high-risk and high-value fleet programs.</p>
+      </div>
+    </div>
+    <div class="team-card reveal-up d2">
+      <div class="team-avatar"><div class="avatar-initials">DJ</div><div class="avatar-glow"></div></div>
+      <div class="team-info">
+        <div class="team-name">David Johnson</div>
+        <div class="team-role">Chief Claims Officer</div>
+        <p class="team-bio">20+ years in commercial claims management. His team holds an industry-leading 4-hour average initial response time on all filed claims.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-band reveal-up">
+  <div class="cta-title">READY TO WORK<br>WITH THE BEST?</div>
+  <a href="quote.html" class="cta-btn hover-target">GET YOUR FREE QUOTE</a>
+</div>
+
+<footer>
+  <div class="footer-brand">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    AdvancedIns.ai <span style="color:rgba(255,255,255,0.3);margin-left:8px;font-family:Space Mono,monospace;font-size:10px;">&copy; 2026</span>
+  </div>
+  <div class="footer-links">
+    <a href="index.html" class="hover-target">Home</a>
+    <a href="commercial.html" class="hover-target">Commercial</a>
+    <a href="quote.html" class="hover-target">Get a Quote</a>
+    <a href="#" class="hover-target">Privacy Policy</a>
+  </div>
+</footer>
+
+<script>
+  const dot=document.getElementById('cursor-dot'),ring=document.getElementById('cursor-ring');
+  let mx=0,my=0,rx=0,ry=0;
+  window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;dot.style.left=mx+'px';dot.style.top=my+'px';});
+  function lerp(a,b,t){return a+(b-a)*t}
+  function animRing(){rx=lerp(rx,mx,.12);ry=lerp(ry,my,.12);ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(animRing);}
+  animRing();
+  window.addEventListener('mouseover',e=>{e.target.closest('.hover-target,a,button')?ring.classList.add('hovering'):ring.classList.remove('hovering');});
+  const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in-view');});},{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal-up').forEach(el=>obs.observe(el));
+</script>
+</body>
+</html>
