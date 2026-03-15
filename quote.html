@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Get a Quote | AdvancedIns.ai</title>
 <link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<!-- EmailJS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
@@ -121,28 +120,28 @@
             <select id="insuranceType" name="insuranceType" required class="hover-target">
               <option value="" disabled selected>Select coverage type...</option>
               <optgroup label="&mdash; Trucking">
-                <option value="Primary Auto Liability">Primary Auto Liability</option>
-                <option value="Physical Damage (Comp &amp; Collision)">Physical Damage (Comp &amp; Collision)</option>
-                <option value="Motor Truck Cargo">Motor Truck Cargo</option>
-                <option value="Bobtail / Non-Trucking Liability">Bobtail / Non-Trucking Liability</option>
-                <option value="Occupational Accident">Occupational Accident</option>
-                <option value="Full Trucking Bundle">Full Trucking Bundle</option>
+                <option>Primary Auto Liability</option>
+                <option>Physical Damage (Comp &amp; Collision)</option>
+                <option>Motor Truck Cargo</option>
+                <option>Bobtail / Non-Trucking Liability</option>
+                <option>Occupational Accident</option>
+                <option>Full Trucking Bundle</option>
               </optgroup>
               <optgroup label="&mdash; Commercial">
-                <option value="General Liability">General Liability</option>
-                <option value="Commercial Property">Commercial Property</option>
-                <option value="Workers Compensation">Workers Compensation</option>
-                <option value="Umbrella / Excess Liability">Umbrella / Excess Liability</option>
-                <option value="Professional Liability (E&O)">Professional Liability (E&amp;O)</option>
-                <option value="Commercial Auto">Commercial Auto</option>
+                <option>General Liability</option>
+                <option>Commercial Property</option>
+                <option>Workers Compensation</option>
+                <option>Umbrella / Excess Liability</option>
+                <option>Professional Liability (E&amp;O)</option>
+                <option>Commercial Auto</option>
               </optgroup>
               <optgroup label="&mdash; Industry Specific">
-                <option value="Restaurant &amp; Food Service">Restaurant &amp; Food Service</option>
-                <option value="Contractors &amp; Construction">Contractors &amp; Construction</option>
-                <option value="Healthcare &amp; Medical">Healthcare &amp; Medical</option>
-                <option value="Real Estate">Real Estate</option>
-                <option value="Technology &amp; Cyber">Technology &amp; Cyber</option>
-                <option value="Other / Multiple">Other / Multiple</option>
+                <option>Restaurant &amp; Food Service</option>
+                <option>Contractors &amp; Construction</option>
+                <option>Healthcare &amp; Medical</option>
+                <option>Real Estate</option>
+                <option>Technology &amp; Cyber</option>
+                <option>Other / Multiple</option>
               </optgroup>
             </select>
           </div>
@@ -204,25 +203,15 @@
 </footer>
 
 <script>
-  // ============================================================
-  // EMAILJS CONFIGURATION
-  // Replace these 3 values with your EmailJS credentials:
-  //   1. Go to emailjs.com -> Sign Up Free
-  //   2. Add an Email Service (Gmail, Outlook, etc) -> copy Service ID
-  //   3. Create an Email Template -> copy Template ID
-  //   4. Go to Account -> General -> copy Public Key
-  // ============================================================
-  const EMAILJS_PUBLIC_KEY   = 'YOUR_PUBLIC_KEY';      // e.g. 'user_aBcDeFgHiJkLmN'
-  const EMAILJS_SERVICE_ID   = 'YOUR_SERVICE_ID';     // e.g. 'service_abc123'
-  const EMAILJS_TEMPLATE_ID  = 'YOUR_TEMPLATE_ID';    // e.g. 'template_xyz789'
-
-  // The two recipient emails — already set, no need to change
-  const RECIPIENTS = ['trucking@ins2day.com', 'quote@ins2day.com'];
-  // ============================================================
+  // ── LIVE EMAILJS CREDENTIALS ──────────────────────────────
+  const EMAILJS_PUBLIC_KEY  = 'tKA4jAYqwNAWpmUFO';
+  const EMAILJS_SERVICE_ID  = 'service_1odm043';
+  const EMAILJS_TEMPLATE_ID = 'template_7gq9f46';
+  // ─────────────────────────────────────────────────────────
 
   emailjs.init(EMAILJS_PUBLIC_KEY);
 
-  // --- Cursor ---
+  // Cursor
   const dot=document.getElementById('cursor-dot'),ring=document.getElementById('cursor-ring');
   let mx=0,my=0,rx=0,ry=0;
   window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;dot.style.left=mx+'px';dot.style.top=my+'px';});
@@ -231,22 +220,17 @@
   animRing();
   window.addEventListener('mouseover',e=>{e.target.closest('.hover-target,a,button,input,select,textarea,label')?ring.classList.add('hovering'):ring.classList.remove('hovering');});
 
-  // --- File Upload ---
+  // File upload
   const dropZone=document.getElementById('dropZone');
   const fileInput=document.getElementById('fileInput');
   const fileListEl=document.getElementById('fileList');
   let files=[];
-
   dropZone.addEventListener('click',()=>fileInput.click());
   dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag-over');});
   dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
   dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('drag-over');addFiles(e.dataTransfer.files);});
   fileInput.addEventListener('change',e=>addFiles(e.target.files));
-
-  function addFiles(newFiles){
-    Array.from(newFiles).forEach(f=>{ if(!files.find(x=>x.name===f.name)) files.push(f); });
-    renderFiles();
-  }
+  function addFiles(f){Array.from(f).forEach(x=>{if(!files.find(y=>y.name===x.name))files.push(x);});renderFiles();}
   function renderFiles(){
     fileListEl.innerHTML=files.map((f,i)=>`
       <div class="file-item">
@@ -257,60 +241,33 @@
         <button class="file-remove hover-target" onclick="removeFile(${i})" type="button">&times;</button>
       </div>`).join('');
   }
-  function removeFile(i){ files.splice(i,1); renderFiles(); }
+  function removeFile(i){files.splice(i,1);renderFiles();}
 
-  // --- Convert file to base64 ---
-  function fileToBase64(file){
-    return new Promise((resolve,reject)=>{
-      const reader = new FileReader();
-      reader.onload = ()=>resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  // --- Build file summary for email body ---
-  function buildFileSummary(fileList){
-    if(!fileList.length) return 'No files uploaded.';
-    return fileList.map(f=>`- ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`).join('\n');
-  }
-
-  // --- Form Submit ---
-  document.getElementById('quoteForm').addEventListener('submit', async function(e){
+  // Form submit
+  document.getElementById('quoteForm').addEventListener('submit',async function(e){
     e.preventDefault();
+    const btn=document.getElementById('submitBtn');
+    const spinner=document.getElementById('sendingState');
+    const errBox=document.getElementById('errorMsg');
+    btn.disabled=true; btn.style.display='none';
+    spinner.style.display='flex'; errBox.style.display='none';
 
-    const submitBtn    = document.getElementById('submitBtn');
-    const sendingState = document.getElementById('sendingState');
-    const errorMsg     = document.getElementById('errorMsg');
+    const v=id=>document.getElementById(id).value.trim();
+    const firstName=v('firstName'), lastName=v('lastName'), email=v('email'),
+          phone=v('phone'), address=v('address'),
+          dot=v('dot')||'Not provided', mc=v('mc')||'Not provided',
+          units=v('units')||'Not provided',
+          insuranceType=document.getElementById('insuranceType').value||'Not selected',
+          notes=v('notes')||'None',
+          ts=new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles',dateStyle:'full',timeStyle:'short'});
 
-    // UI: show sending state
-    submitBtn.disabled = true;
-    submitBtn.style.display = 'none';
-    sendingState.style.display = 'flex';
-    errorMsg.style.display = 'none';
+    const fileSummary=files.length
+      ? files.map(f=>`- ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`).join('\n')
+      : 'No files uploaded.';
 
-    // Gather form values
-    const firstName    = document.getElementById('firstName').value.trim();
-    const lastName     = document.getElementById('lastName').value.trim();
-    const email        = document.getElementById('email').value.trim();
-    const phone        = document.getElementById('phone').value.trim();
-    const address      = document.getElementById('address').value.trim();
-    const dot          = document.getElementById('dot').value.trim() || 'Not provided';
-    const mc           = document.getElementById('mc').value.trim() || 'Not provided';
-    const units        = document.getElementById('units').value.trim() || 'Not provided';
-    const insuranceType= document.getElementById('insuranceType').value || 'Not selected';
-    const notes        = document.getElementById('notes').value.trim() || 'None';
-    const timestamp    = new Date().toLocaleString('en-US',{timeZone:'America/Chicago',dateStyle:'full',timeStyle:'short'});
-
-    // Build attachment info string
-    const fileSummary  = buildFileSummary(files);
-
-    // Build the full email body
-    const emailBody = `
-NEW QUOTE REQUEST — ADVANCEDINS.AI
+    const message=`NEW QUOTE REQUEST — ADVANCEDINS.AI
 ${'='.repeat(50)}
-
-Submitted: ${timestamp}
+Submitted: ${ts}
 
 CONTACT INFORMATION
 -------------------
@@ -334,58 +291,34 @@ UPLOADED FILES
 --------------
 ${fileSummary}
 ${'='.repeat(50)}
-This quote request was submitted via advancedins.ai
-    `.trim();
+Submitted via advancedins.ai`.trim();
 
-    // Template params — sent to BOTH recipients via two EmailJS calls
-    const templateParams = {
-      to_email:       RECIPIENTS.join(', '),
-      from_name:      `${firstName} ${lastName}`,
-      from_email:     email,
-      reply_to:       email,
-      subject:        `New Quote Request — ${firstName} ${lastName} | ${insuranceType}`,
-      // Contact fields (usable as template variables in EmailJS)
-      first_name:     firstName,
-      last_name:      lastName,
-      phone:          phone,
-      address:        address,
-      dot_number:     dot,
-      mc_number:      mc,
-      units:          units,
-      insurance_type: insuranceType,
-      notes:          notes,
-      submitted_at:   timestamp,
-      files_uploaded: fileSummary,
-      message:        emailBody,
+    const params={
+      from_name:`${firstName} ${lastName}`,
+      from_email:email,
+      reply_to:email,
+      subject:`New Quote Request — ${firstName} ${lastName} | ${insuranceType}`,
+      name:`${firstName} ${lastName}`,
+      message,
+      first_name:firstName, last_name:lastName,
+      phone, address, dot_number:dot, mc_number:mc,
+      units, insurance_type:insuranceType, notes,
+      submitted_at:ts, files_uploaded:fileSummary
     };
 
     try {
-      // Send to trucking@ins2day.com
-      const send1 = emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-        ...templateParams,
-        to_email: RECIPIENTS[0]
-      });
-
-      // Send to quote@ins2day.com
-      const send2 = emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-        ...templateParams,
-        to_email: RECIPIENTS[1]
-      });
-
-      await Promise.all([send1, send2]);
-
+      // Send to trucking@ins2day.com (To field in template)
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
       // SUCCESS
-      document.getElementById('quoteForm').style.display = 'none';
-      document.getElementById('successMsg').style.display = 'block';
+      document.getElementById('quoteForm').style.display='none';
+      document.getElementById('successMsg').style.display='block';
       window.scrollTo({top:0,behavior:'smooth'});
-
-    } catch(err) {
-      console.error('EmailJS error:', err);
-      sendingState.style.display = 'none';
-      submitBtn.style.display = 'flex';
-      submitBtn.disabled = false;
-      errorMsg.textContent = 'There was an error sending your request. Please call us directly at 1-800-AIIS-INS or email trucking@ins2day.com';
-      errorMsg.style.display = 'block';
+    } catch(err){
+      console.error('EmailJS error:',err);
+      spinner.style.display='none';
+      btn.style.display='flex'; btn.disabled=false;
+      errBox.textContent='There was an error sending your request. Please email trucking@ins2day.com or call us directly.';
+      errBox.style.display='block';
     }
   });
 </script>
