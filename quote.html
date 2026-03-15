@@ -1,11 +1,24 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Get a Quote | AdvancedIns.ai</title>
-<link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<title>Get a Free Quote | AdvancedIns.ai – Commercial Trucking Insurance</title>
+<meta name="description" content="Get a free commercial trucking insurance quote from AdvancedIns.ai. Fill out our quick form with your DOT number, fleet details, and coverage needs. Same-day binding available. Call (657) 366-5312.">
+<meta name="keywords" content="free trucking insurance quote, commercial insurance quote, fleet insurance quote, DOT insurance, same day binding, truck insurance online quote">
+<meta name="author" content="AdvancedIns.ai">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://fleet.ins2day.com/quote.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://fleet.ins2day.com/quote.html">
+<meta property="og:title" content="Get a Free Quote | AdvancedIns.ai – Commercial Trucking Insurance">
+<meta property="og:description" content="Get a free commercial trucking insurance quote. Same-day binding available. Fill out our quick form — a specialist will respond within 2 hours.">
+<meta property="og:site_name" content="AdvancedIns.ai">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Get a Free Trucking Insurance Quote | AdvancedIns.ai">
+<meta name="twitter:description" content="Free commercial trucking insurance quote. Same-day binding. Specialists respond within 2 hours. Call (657) 366-5312.">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html{scroll-behavior:smooth}
@@ -79,7 +92,7 @@
 <div id="cursor-ring"></div>
 <nav>
   <a href="index.html" class="nav-logo hover-target">
-    <div class="logo-icon"><div class="logo-icon-bg"></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+    <div class="logo-icon"><div class="logo-icon-bg"></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
     <span class="nav-brand">AdvancedIns.ai</span>
   </a>
   <div class="nav-links">
@@ -87,34 +100,35 @@
     <a href="commercial.html" class="hover-target">COMMERCIAL</a>
     <a href="about.html" class="hover-target">ABOUT</a>
   </div>
-  <button class="nav-cta hover-target" onclick="window.location='quote.html'">GET QUOTED <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></button>
+  <button class="nav-cta hover-target" onclick="window.location='quote.html'" aria-label="Get a free insurance quote">GET QUOTED <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></button>
 </nav>
+<main>
 <div class="page-hero">
   <div class="page-eyebrow">Start Your Coverage</div>
   <h1 class="page-title">GET YOUR<br><span>FREE QUOTE</span></h1>
   <p class="page-sub">Fill out the form below and our specialists will build a custom policy within hours. Same-day binding available.</p>
 </div>
 <div class="form-section">
-  <form id="quoteForm">
+  <form id="quoteForm" novalidate aria-label="Insurance quote request form">
     <div class="form-grid">
       <div class="form-col">
         <div class="form-block">
           <div class="form-block-title">01 &mdash; Contact Information</div>
           <div class="field-row">
-            <div class="field"><label>First Name</label><input type="text" id="firstName" name="firstName" placeholder="John" required class="hover-target"></div>
-            <div class="field"><label>Last Name</label><input type="text" id="lastName" name="lastName" placeholder="Smith" required class="hover-target"></div>
+            <div class="field"><label for="firstName">First Name</label><input type="text" id="firstName" name="firstName" placeholder="John" required autocomplete="given-name" class="hover-target"></div>
+            <div class="field"><label for="lastName">Last Name</label><input type="text" id="lastName" name="lastName" placeholder="Smith" required autocomplete="family-name" class="hover-target"></div>
           </div>
-          <div class="field"><label>Email Address</label><input type="email" id="email" name="email" placeholder="john@company.com" required class="hover-target"></div>
-          <div class="field"><label>Telephone Number</label><input type="tel" id="phone" name="phone" placeholder="(657) 366-5312" class="hover-target"></div>
-          <div class="field"><label>Business Address</label><input type="text" id="address" name="address" placeholder="123 Main St, City, State, ZIP" required class="hover-target"></div>
+          <div class="field"><label for="email">Email Address</label><input type="email" id="email" name="email" placeholder="john@company.com" required autocomplete="email" class="hover-target"></div>
+          <div class="field"><label for="phone">Telephone Number</label><input type="tel" id="phone" name="phone" placeholder="(657) 366-5312" autocomplete="tel" class="hover-target"></div>
+          <div class="field"><label for="address">Business Address</label><input type="text" id="address" name="address" placeholder="123 Main St, City, State, ZIP" required autocomplete="street-address" class="hover-target"></div>
         </div>
         <div class="form-block">
           <div class="form-block-title">02 &mdash; Business Details</div>
-          <div class="field"><label>DOT Number</label><input type="text" id="dot" name="dot" placeholder="USDOT 0000000" class="hover-target"></div>
-          <div class="field"><label>MC Number (if applicable)</label><input type="text" id="mc" name="mc" placeholder="MC-000000" class="hover-target"></div>
-          <div class="field"><label>Number of Units / Vehicles</label><input type="number" id="units" name="units" placeholder="1" min="1" class="hover-target"></div>
+          <div class="field"><label for="dot">DOT Number</label><input type="text" id="dot" name="dot" placeholder="USDOT 0000000" class="hover-target"></div>
+          <div class="field"><label for="mc">MC Number (if applicable)</label><input type="text" id="mc" name="mc" placeholder="MC-000000" class="hover-target"></div>
+          <div class="field"><label for="units">Number of Units / Vehicles</label><input type="number" id="units" name="units" placeholder="1" min="1" class="hover-target"></div>
           <div class="field">
-            <label>Type of Insurance Needed</label>
+            <label for="insuranceType">Type of Insurance Needed</label>
             <select id="insuranceType" name="insuranceType" required class="hover-target">
               <option value="" disabled selected>Select coverage type...</option>
               <optgroup label="&mdash; Trucking">
@@ -143,22 +157,22 @@
               </optgroup>
             </select>
           </div>
-          <div class="field"><label>Additional Notes</label><textarea id="notes" name="notes" placeholder="Describe your operation, cargo types, special requirements..." class="hover-target"></textarea></div>
+          <div class="field"><label for="notes">Additional Notes</label><textarea id="notes" name="notes" placeholder="Describe your operation, cargo types, special requirements..." class="hover-target"></textarea></div>
         </div>
       </div>
-      <div class="divider"></div>
+      <div class="divider" aria-hidden="true"></div>
       <div class="form-col">
         <div class="form-block">
           <div class="form-block-title">03 &mdash; Upload Documents</div>
           <p style="font-size:14px;color:rgba(255,255,255,0.4);line-height:1.7;margin-bottom:24px;font-weight:300;">Upload your CDL, vehicle titles, VIN documents, current insurance declarations, or any other relevant files. Accepted: PDF, JPG, PNG, HEIC.</p>
-          <div class="drop-zone hover-target" id="dropZone">
-            <div class="drop-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+          <div class="drop-zone hover-target" id="dropZone" role="button" tabindex="0" aria-label="Upload documents by clicking or dragging files here">
+            <div class="drop-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
             <div class="drop-title">Drop Files Here</div>
             <p class="drop-sub">Driver&rsquo;s License / CDL &bull; Vehicle Titles<br>VIN Documents &bull; Current Insurance Decks<br>Any Additional Supporting Documents</p>
             <div class="drop-types">PDF &bull; JPG &bull; PNG &bull; HEIC &bull; Max 25MB each</div>
-            <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.heic" style="display:none">
+            <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.heic" style="display:none" aria-label="File upload input">
           </div>
-          <div class="file-list" id="fileList"></div>
+          <div class="file-list" id="fileList" aria-live="polite"></div>
         </div>
         <div class="form-block" style="margin-top:8px;">
           <div class="form-block-title">04 &mdash; Confirm &amp; Submit</div>
@@ -171,22 +185,23 @@
           <div class="submit-row">
             <button type="submit" id="submitBtn" class="submit-btn hover-target">
               Submit Quote Request
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
             </button>
-            <div class="sending-state" id="sendingState"><div class="spinner"></div>SENDING...</div>
+            <div class="sending-state" id="sendingState" aria-live="polite"><div class="spinner" aria-hidden="true"></div>SENDING...</div>
           </div>
-          <div class="error-msg" id="errorMsg"></div>
+          <div class="error-msg" id="errorMsg" role="alert"></div>
           <p style="margin-top:16px;font-size:12px;color:rgba(255,255,255,0.25);font-weight:300;line-height:1.6;">A licensed specialist will contact you within 2 business hours. You can also call us directly at <a href="tel:6573665312" style="color:rgba(0,255,204,0.6);text-decoration:none;">(657) 366-5312</a></p>
         </div>
       </div>
     </div>
   </form>
-  <div id="successMsg" style="display:none;text-align:center;padding:80px 0;">
+  <div id="successMsg" style="display:none;text-align:center;padding:80px 0;" role="status">
     <div style="font-family:'Syncopate',sans-serif;font-size:clamp(36px,5vw,64px);font-weight:700;text-transform:uppercase;margin-bottom:24px;">Quote<br><span style="color:#00FFCC;">Submitted!</span></div>
     <p style="font-size:18px;font-weight:300;color:rgba(255,255,255,0.5);max-width:480px;margin:0 auto 40px;line-height:1.7;">Thank you. A licensed specialist will reach out within 2 business hours to build your custom policy.</p>
     <a href="index.html" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#00FFCC;text-decoration:none;border:1px solid rgba(0,255,204,0.3);padding:16px 32px;transition:all .3s;display:inline-block;">Back to Home</a>
   </div>
 </div>
+</main>
 <footer style="border-top:1px solid rgba(255,255,255,0.05);padding:40px 64px;display:flex;justify-content:space-between;align-items:center;">
   <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.3);">&#169; 2026 ADVANCEDINS.AI</div>
   <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.3);">ALL RIGHTS RESERVED</div>
@@ -208,6 +223,7 @@
   const fileListEl=document.getElementById('fileList');
   let files=[];
   dropZone.addEventListener('click',()=>fileInput.click());
+  dropZone.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')fileInput.click();});
   dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag-over');});
   dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
   dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('drag-over');addFiles(e.dataTransfer.files);});
@@ -217,10 +233,10 @@
     fileListEl.innerHTML=files.map((f,i)=>`
       <div class="file-item">
         <div class="file-item-name">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="1.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           ${f.name} <span style="color:rgba(255,255,255,0.3);font-size:11px;">(${(f.size/1024/1024).toFixed(2)} MB)</span>
         </div>
-        <button class="file-remove hover-target" onclick="removeFile(${i})" type="button">&times;</button>
+        <button class="file-remove hover-target" onclick="removeFile(${i})" type="button" aria-label="Remove ${f.name}">&times;</button>
       </div>`).join('');
   }
   function removeFile(i){files.splice(i,1);renderFiles();}
@@ -240,8 +256,8 @@
           notes=v('notes')||'None',
           ts=new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles',dateStyle:'full',timeStyle:'short'});
     const fileSummary=files.length ? files.map(f=>`- ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`).join('\n') : 'No files uploaded.';
-    const message=`NEW QUOTE REQUEST — ADVANCEDINS.AI\n${'='.repeat(50)}\nSubmitted: ${ts}\n\nCONTACT INFORMATION\n-------------------\nName:     ${firstName} ${lastName}\nEmail:    ${email}\nPhone:    ${phone}\nAddress:  ${address}\n\nBUSINESS DETAILS\n----------------\nDOT Number:   ${dot}\nMC Number:    ${mc}\nUnits/Trucks: ${units}\nCoverage:     ${insuranceType}\n\nNOTES\n-----\n${notes}\n\nUPLOADED FILES\n--------------\n${fileSummary}\n${'='.repeat(50)}\nSubmitted via advancedins.ai`.trim();
-    const params={from_name:`${firstName} ${lastName}`,from_email:email,reply_to:email,subject:`New Quote Request — ${firstName} ${lastName} | ${insuranceType}`,name:`${firstName} ${lastName}`,message,first_name:firstName,last_name:lastName,phone,address,dot_number:dot,mc_number:mc,units,insurance_type:insuranceType,notes,submitted_at:ts,files_uploaded:fileSummary};
+    const message=`NEW QUOTE REQUEST \u2014 ADVANCEDINS.AI\n${'='.repeat(50)}\nSubmitted: ${ts}\n\nCONTACT INFORMATION\n-------------------\nName:     ${firstName} ${lastName}\nEmail:    ${email}\nPhone:    ${phone}\nAddress:  ${address}\n\nBUSINESS DETAILS\n----------------\nDOT Number:   ${dot}\nMC Number:    ${mc}\nUnits/Trucks: ${units}\nCoverage:     ${insuranceType}\n\nNOTES\n-----\n${notes}\n\nUPLOADED FILES\n--------------\n${fileSummary}\n${'='.repeat(50)}\nSubmitted via advancedins.ai`.trim();
+    const params={from_name:`${firstName} ${lastName}`,from_email:email,reply_to:email,subject:`New Quote Request \u2014 ${firstName} ${lastName} | ${insuranceType}`,name:`${firstName} ${lastName}`,message,first_name:firstName,last_name:lastName,phone,address,dot_number:dot,mc_number:mc,units,insurance_type:insuranceType,notes,submitted_at:ts,files_uploaded:fileSummary};
     try {
       await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
       document.getElementById('quoteForm').style.display='none';
