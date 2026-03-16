@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIIS CRM Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://sdk.twilio.com/js/client/releases/1.14.3/twilio.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -628,6 +629,44 @@ body {
 .script-section { margin-bottom: 12px; }
 .script-section .script-label { font-size: 10px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
 .script-section p { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+/* Power Dialer Live States */
+.dialer-line.ringing { border-color: var(--warning); animation: pulseRing 1.5s infinite; }
+.dialer-line.on-call { border-color: var(--success); box-shadow: 0 0 20px rgba(0,229,160,0.15); }
+.dialer-line.voicemail-detected { border-color: var(--info); }
+.dialer-line.call-ended { border-color: var(--border); opacity: 0.7; }
+
+@keyframes pulseRing {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,165,2,0.3); }
+  50% { box-shadow: 0 0 15px 5px rgba(255,165,2,0); }
+}
+
+.area-code-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; padding: 2px 8px; border-radius: 6px;
+  font-weight: 600; letter-spacing: 0.5px;
+}
+.area-code-badge.match { background: rgba(0,229,160,0.15); color: var(--accent); }
+.area-code-badge.fallback { background: rgba(255,165,2,0.15); color: var(--warning); }
+
+.call-timer { font-size: 18px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; text-align: center; margin: 8px 0; }
+
+.dialer-line .live-indicator {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+}
+.dialer-line .live-indicator .dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+  animation: livePulse 1s infinite;
+}
+@keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.vm-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 6px; background: rgba(52,152,219,0.15); color: var(--info); font-weight: 600; }
+
+.number-pool-summary {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
+}
+.number-pool-summary h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
 
 /* Campaigns */
 .campaign-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
@@ -1464,48 +1503,150 @@ async function renderLeads(el) {
   }
 }
 
-// ==================== PARALLEL DIALER ====================
-async function renderDialer(el) {
-  var html = '<div class="page-header"><h2>Parallel Dialer</h2><p>Power dial through leads with 3 simultaneous lines</p></div>';
+// ==================== POWER DIALER (TWILIO) ====================
+var twilioDevice = null;
+var twilioReady = false;
+var lineCallSids = {}; // line -> Twilio CallSid
+var lineTimers = {};   // line -> timer interval
+var lineStartTimes = {}; // line -> call start time
 
+function extractAreaCode(phone) {
+  if (!phone) return '???';
+  var digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return digits.substring(0, 3);
+  if (digits.length === 11 && digits[0] === '1') return digits.substring(1, 4);
+  return '???';
+}
+
+function formatCallTime(seconds) {
+  var m = Math.floor(seconds / 60);
+  var s = seconds % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+async function initTwilioDevice() {
+  if (twilioDevice) return true;
+  try {
+    var resp = await fetch('/api/twilio/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity: 'aiis-agent' })
+    });
+    var data = await resp.json();
+    if (data.error) {
+      console.error('Twilio token error:', data.error);
+      return false;
+    }
+    twilioDevice = new Twilio.Device(data.token, {
+      codecPreferences: ['opus', 'pcmu'],
+      enableRingingState: true
+    });
+    twilioDevice.on('ready', function() { twilioReady = true; console.log('Twilio Device ready'); });
+    twilioDevice.on('error', function(err) { console.error('Twilio Device error:', err); toast('Twilio error: ' + err.message, 'error'); });
+    twilioDevice.on('incoming', function(conn) {
+      console.log('Incoming call from lead, auto-accepting');
+      conn.accept();
+      // Find which line this belongs to and update UI
+      for (var n = 1; n <= 3; n++) {
+        var lead = dialerLeadMap[n];
+        if (lead && lineCallSids[n]) {
+          setLineState(n, 'on-call');
+          startCallTimer(n);
+          break;
+        }
+      }
+    });
+    twilioDevice.on('disconnect', function(conn) { console.log('Call disconnected'); });
+    return true;
+  } catch(e) {
+    console.error('Twilio init failed:', e);
+    return false;
+  }
+}
+
+function setLineState(line, state) {
+  var el = document.getElementById('dialerLine' + line);
+  if (!el) return;
+  el.className = 'dialer-line ' + state;
+  var statusEl = document.getElementById('lineStatus' + line);
+  if (state === 'ringing') { statusEl.innerHTML = '<span class="line-status active">Ringing...</span>'; }
+  else if (state === 'on-call') { statusEl.innerHTML = '<span class="live-indicator"><span class="dot"></span> LIVE</span>'; }
+  else if (state === 'voicemail-detected') { statusEl.innerHTML = '<span class="vm-badge">Voicemail Detected</span>'; }
+  else if (state === 'call-ended') { statusEl.innerHTML = '<span class="line-status">Ended</span>'; }
+  else { statusEl.innerHTML = '<span class="line-status">Idle</span>'; }
+}
+
+function startCallTimer(line) {
+  lineStartTimes[line] = Date.now();
+  var timerEl = document.getElementById('lineTimer' + line);
+  if (timerEl) timerEl.style.display = 'block';
+  lineTimers[line] = setInterval(function() {
+    var elapsed = Math.floor((Date.now() - lineStartTimes[line]) / 1000);
+    if (timerEl) timerEl.textContent = formatCallTime(elapsed);
+  }, 1000);
+}
+
+function stopCallTimer(line) {
+  if (lineTimers[line]) { clearInterval(lineTimers[line]); lineTimers[line] = null; }
+  var timerEl = document.getElementById('lineTimer' + line);
+  if (timerEl) timerEl.style.display = 'none';
+}
+
+async function renderDialer(el) {
+  var html = '<div class="page-header"><h2>Power Dialer</h2>';
+  html += '<p>3-line parallel dialer with area code matching &mdash; calls from a local number matching each lead\'s area code</p></div>';
+
+  // Controls row
   html += '<div class="dialer-controls">';
   html += '<select id="dialerSegment"><option value="">All Segments</option>';
   [['owner_operator','Owner-Operator'],['small_fleet','Small Fleet'],['commercial_lines','Commercial'],['enterprise','Enterprise']].forEach(function(seg) {
     html += '<option value="' + seg[0] + '">' + seg[1] + '</option>';
   });
   html += '</select>';
-
   html += '<select id="dialerStage"><option value="">All Stages</option>';
   STAGES.forEach(function(s) { html += '<option value="' + s.key + '">' + s.label + '</option>'; });
   html += '</select>';
-
-  html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">&#x25B6; Start Dialing</button>';
-  html += '<button class="btn btn-danger" id="dialerStopBtn" onclick="stopDialer()" style="display:none;">&#x23F9; Stop</button>';
+  html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">&#x1F4DE; Start Power Dialer (3 Lines)</button>';
+  html += '<button class="btn btn-danger" id="dialerStopBtn" onclick="stopDialer()" style="display:none;">&#x23F9; Stop Dialer</button>';
+  html += '<span id="twilioStatus" style="font-size:11px;color:var(--text-muted);margin-left:8px;"></span>';
   html += '</div>';
 
   html += '<div class="dialer-layout"><div><div class="dialer-lines" id="dialerLines">';
 
   for (var n = 1; n <= 3; n++) {
     html += '<div class="dialer-line" id="dialerLine' + n + '">';
-    html += '<div class="line-header"><span class="line-number">Line ' + n + '</span><span class="line-status" id="lineStatus' + n + '">Idle</span></div>';
+    html += '<div class="line-header"><span class="line-number">Line ' + n + '</span><span id="lineStatus' + n + '"><span class="line-status">Idle</span></span></div>';
     html += '<div class="lead-name" id="lineName' + n + '">&mdash;</div>';
     html += '<div class="lead-company" id="lineCompany' + n + '">Waiting...</div>';
     html += '<div class="lead-phone" id="linePhone' + n + '">&mdash;</div>';
+    html += '<div id="lineAreaBadge' + n + '" style="margin-bottom:6px;"></div>';
+    html += '<div class="call-timer" id="lineTimer' + n + '" style="display:none;">00:00</div>';
     html += '<div class="lead-details" id="lineDetails' + n + '">&mdash;</div>';
+
+    // Outcome buttons (shown when call is ringing or connected)
     html += '<div class="outcome-buttons" id="lineOutcomes' + n + '" style="display:none;">';
     html += '<button class="outcome-btn connected" onclick="dialOutcome(' + n + ', \'connected\')">&#x2713; Connected</button>';
     html += '<button class="outcome-btn no-answer" onclick="dialOutcome(' + n + ', \'no_answer\')">&#x2717; No Answer</button>';
     html += '<button class="outcome-btn voicemail" onclick="dialOutcome(' + n + ', \'voicemail\')">&#x1F4E9; Voicemail</button>';
     html += '<button class="outcome-btn busy" onclick="dialOutcome(' + n + ', \'busy\')">&#x1F534; Busy</button>';
     html += '</div>';
+
+    // Hangup button (shown during live call)
+    html += '<div id="lineHangup' + n + '" style="display:none;text-align:center;margin-top:8px;">';
+    html += '<button class="btn btn-danger btn-sm" onclick="hangupLine(' + n + ')">&#x260E; End Call</button>';
+    html += '</div>';
+
+    // Connected form (outcome + notes)
     html += '<div class="connected-form" id="lineForm' + n + '">';
     html += '<select id="lineOutcomeSelect' + n + '">';
-    html += '<option value="interested">Interested</option><option value="callback">Callback Requested</option>';
-    html += '<option value="not_interested">Not Interested</option><option value="wrong_number">Wrong Number</option>';
+    html += '<option value="interested">&#x2B50; Interested</option><option value="callback">&#x1F4C5; Callback Requested</option>';
+    html += '<option value="info_gathered">&#x1F4CB; Info Gathered</option><option value="quote_requested">&#x1F525; Quote Requested!</option>';
+    html += '<option value="not_interested">&#x274C; Not Interested</option><option value="wrong_number">&#x2753; Wrong Number</option>';
     html += '</select>';
     html += '<textarea id="lineNotes' + n + '" placeholder="Call notes..."></textarea>';
-    html += '<button class="btn btn-primary btn-sm" onclick="saveCallResult(' + n + ')">Save &amp; Next</button>';
-    html += '</div></div>';
+    html += '<button class="btn btn-primary btn-sm" onclick="saveCallResult(' + n + ')">Save &amp; Dial Next</button>';
+    html += '</div>';
+    html += '</div>';
   }
 
   html += '</div></div>';
@@ -1514,26 +1655,52 @@ async function renderDialer(el) {
   html += '<div class="dialer-sidebar">';
 
   // Session Stats
-  html += '<div class="session-stats"><h3>Session Stats</h3>';
+  html += '<div class="session-stats"><h3>&#x1F4CA; Session Stats</h3>';
   html += '<div class="stat-row"><span class="stat-label">Total Dialed</span><span class="stat-value" id="statTotal">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Connected</span><span class="stat-value" id="statConnected" style="color:var(--success)">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">No Answer</span><span class="stat-value" id="statNoAnswer" style="color:var(--warning)">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Voicemail</span><span class="stat-value" id="statVoicemail" style="color:var(--info)">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Interested</span><span class="stat-value" id="statInterested" style="color:var(--accent)">0</span></div>';
+  html += '<div class="stat-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px"><span class="stat-label">Connect Rate</span><span class="stat-value" id="statConnectRate" style="color:var(--accent)">0%</span></div>';
+  html += '</div>';
+
+  // Number Pool info
+  html += '<div class="number-pool-summary"><h3>&#x1F4F1; Number Pool</h3>';
+  html += '<div id="numberPoolInfo" style="font-size:12px;color:var(--text-secondary);">Loading...</div>';
   html += '</div>';
 
   // Call Script
-  html += '<div class="call-script"><h3>Call Script</h3>';
-  html += '<div class="script-section"><div class="script-label">Intro</div><p>Hi, this is [Your Name] from Advanced Insurance Solutions. Am I speaking with [Contact Name]?</p></div>';
-  html += '<div class="script-section"><div class="script-label">Hook</div><p>I\'m reaching out because we specialize in commercial trucking insurance and noticed your company may benefit from our competitive rates.</p></div>';
-  html += '<div class="script-section"><div class="script-label">Question</div><p>When does your current policy renew? How many power units are you currently running?</p></div>';
-  html += '<div class="script-section"><div class="script-label">Close</div><p>I\'d love to put together a no-obligation quote for you. Can I get your current policy info to see if we can save you money?</p></div>';
-  html += '<div class="script-section"><div class="script-label">CTA</div><p>Let me send you our information packet and schedule a 15-minute follow-up call. What email works best for you?</p></div>';
+  html += '<div class="call-script"><h3>&#x1F4DD; Call Script</h3>';
+  html += '<div class="script-section"><div class="script-label">Intro</div><p>"Hi [Name], this is [Your Name] from AdvancedIns.ai. We specialize in commercial trucking insurance."</p></div>';
+  html += '<div class="script-section"><div class="script-label">Hook</div><p>"I\'m reaching out because we work with 50+ A-rated carriers and can typically save trucking companies 15-20% on their coverage."</p></div>';
+  html += '<div class="script-section"><div class="script-label">Question</div><p>"When does your current policy renew? Are you happy with your current rates?"</p></div>';
+  html += '<div class="script-section"><div class="script-label">Close</div><p>"I\'d love to run a quick comparison &mdash; it takes about 5 minutes and could save you thousands. Can I get your current policy details?"</p></div>';
+  html += '<div class="script-section"><div class="script-label">CTA</div><p>"You can also get an instant quote at fleet.ins2day.com &mdash; that\'s fleet dot ins2day dot com"</p></div>';
   html += '</div>';
 
   html += '</div></div>';
 
   el.innerHTML = html;
+
+  // Load number pool info
+  loadNumberPoolInfo();
+}
+
+async function loadNumberPoolInfo() {
+  var infoEl = document.getElementById('numberPoolInfo');
+  if (!infoEl) return;
+  try {
+    var resp = await fetch('/api/twilio/numbers');
+    if (!resp.ok) { infoEl.innerHTML = '<span style="color:var(--text-muted)">Configure Twilio in Vercel env vars to enable live dialing</span>'; return; }
+    var data = await resp.json();
+    infoEl.innerHTML = '<strong>' + data.total + '</strong> numbers across <strong>' + data.areaCodes.length + '</strong> area codes';
+    if (data.areaCodes.length > 0) {
+      infoEl.innerHTML += '<div style="margin-top:6px;font-size:10px;color:var(--text-muted)">Area codes: ' + data.areaCodes.join(', ') + '</div>';
+    }
+    infoEl.innerHTML += '<div style="margin-top:6px;font-size:10px;color:var(--accent)">New area codes auto-provisioned on first dial</div>';
+  } catch(e) {
+    infoEl.innerHTML = '<span style="color:var(--text-muted)">Twilio not connected &mdash; using manual dial mode</span>';
+  }
 }
 
 async function startDialer() {
@@ -1543,6 +1710,17 @@ async function startDialer() {
   document.getElementById('dialerStartBtn').style.display = 'none';
   document.getElementById('dialerStopBtn').style.display = '';
 
+  // Try to init Twilio for live dialing
+  var statusEl = document.getElementById('twilioStatus');
+  statusEl.textContent = 'Connecting to Twilio...';
+  var twilioOk = await initTwilioDevice();
+  if (twilioOk) {
+    statusEl.innerHTML = '<span style="color:var(--accent)">&#x2705; Twilio connected &mdash; live dialing active</span>';
+  } else {
+    statusEl.innerHTML = '<span style="color:var(--warning)">&#x26A0; Twilio not available &mdash; manual dial mode</span>';
+  }
+
+  // Create dialer session in Supabase
   try {
     var sessRes = await sb.from('crm_dialer_sessions').insert({ status: 'active', lines_active: 3 }).select('id').single();
     dialerSessionId = sessRes.data ? sessRes.data.id : null;
@@ -1555,13 +1733,25 @@ function stopDialer() {
   dialerRunning = false;
   document.getElementById('dialerStartBtn').style.display = '';
   document.getElementById('dialerStopBtn').style.display = 'none';
+  document.getElementById('twilioStatus').textContent = '';
+
+  // Hang up any active calls
   for (var n = 1; n <= 3; n++) {
-    document.getElementById('lineStatus' + n).textContent = 'Idle';
-    document.getElementById('lineStatus' + n).classList.remove('active');
+    if (lineCallSids[n]) {
+      hangupLine(n);
+    }
+    stopCallTimer(n);
+    setLineState(n, 'idle');
     document.getElementById('lineOutcomes' + n).style.display = 'none';
     document.getElementById('lineForm' + n).classList.remove('active');
+    document.getElementById('lineHangup' + n).style.display = 'none';
+    document.getElementById('lineAreaBadge' + n).innerHTML = '';
+    document.getElementById('lineName' + n).textContent = '\u2014';
+    document.getElementById('lineCompany' + n).textContent = 'Waiting...';
+    document.getElementById('linePhone' + n).textContent = '\u2014';
+    document.getElementById('lineDetails' + n).textContent = '\u2014';
   }
-  toast('Dialer stopped');
+  toast('Dialer session ended');
 }
 
 async function loadDialerLeads() {
@@ -1574,8 +1764,8 @@ async function loadDialerLeads() {
   if (segment) query = query.eq('segment', segment);
   if (stage) query = query.eq('stage', stage);
 
-  var res = await query.order('lead_score', { ascending: false }).limit(50);
-  console.log('Dialer query result:', res.data ? res.data.length + ' leads found' : 'error', res.error);
+  var res = await query.order('lead_score', { ascending: false }).limit(100);
+  console.log('Dialer query:', res.data ? res.data.length + ' leads found' : 'error', res.error);
   var data = (res.data || []).filter(function(l) { return !dialerUsedIds.has(l.id); }).slice(0, 3);
 
   if (data.length === 0) {
@@ -1584,45 +1774,112 @@ async function loadDialerLeads() {
     return;
   }
 
-  data.forEach(function(lead, i) {
+  // Dial all 3 lines simultaneously
+  for (var i = 0; i < data.length; i++) {
+    var lead = data[i];
     var n = i + 1;
     dialerLeadMap[n] = lead;
     dialerUsedIds.add(lead.id);
     dialerStats.total++;
+
+    // Update UI
+    var phone = lead.phone || lead.cell_phone || '';
+    var ac = extractAreaCode(phone);
     document.getElementById('lineName' + n).textContent = lead.contact_name || 'Unknown';
     document.getElementById('lineCompany' + n).textContent = lead.company_name || '';
-    document.getElementById('linePhone' + n).textContent = lead.phone || lead.cell_phone || '\u2014';
+    document.getElementById('linePhone' + n).textContent = phone || '\u2014';
     document.getElementById('lineDetails' + n).textContent = (lead.trucks || lead.power_units || 0) + ' trucks | ' + (lead.state || 'N/A') + ' | Score: ' + (lead.lead_score || 0);
-    document.getElementById('lineStatus' + n).textContent = 'Ringing';
-    document.getElementById('lineStatus' + n).classList.add('active');
+    document.getElementById('lineAreaBadge' + n).innerHTML = '<span class="area-code-badge match">Calling from (' + ac + ') area code</span>';
+
+    setLineState(n, 'ringing');
     document.getElementById('lineOutcomes' + n).style.display = 'grid';
     document.getElementById('lineForm' + n).classList.remove('active');
-  });
+
+    // Actually dial via Twilio if available
+    dialLeadViaTwilio(n, lead, phone);
+  }
   updateDialerStatsUI();
+}
+
+async function dialLeadViaTwilio(line, lead, phone) {
+  if (!twilioReady) {
+    console.log('Line ' + line + ': Twilio not ready, manual mode for ' + phone);
+    return; // Manual mode — agent uses outcome buttons
+  }
+
+  try {
+    var resp = await fetch('/api/twilio/dial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: phone,
+        leadId: lead.id,
+        line: line,
+        agentIdentity: 'aiis-agent'
+      })
+    });
+    var data = await resp.json();
+    if (data.error) {
+      console.error('Dial error line ' + line + ':', data.error);
+      document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Manual dial</span>';
+      return;
+    }
+
+    lineCallSids[line] = data.callSid;
+    var matchLabel = data.areaCodeMatch
+      ? '<span class="area-code-badge match">&#x2705; Area ' + data.fromAreaCode + ' &rarr; ' + data.toAreaCode + '</span>'
+      : '<span class="area-code-badge fallback">&#x26A0; From ' + data.fromAreaCode + ' &rarr; ' + data.toAreaCode + '</span>';
+    document.getElementById('lineAreaBadge' + line).innerHTML = matchLabel;
+    document.getElementById('lineHangup' + line).style.display = 'block';
+
+    console.log('Line ' + line + ': Call initiated ' + data.callSid + ' from ' + data.from + ' to ' + data.to);
+  } catch(e) {
+    console.error('Twilio dial failed line ' + line + ':', e);
+  }
+}
+
+async function hangupLine(line) {
+  var sid = lineCallSids[line];
+  if (sid) {
+    try {
+      await fetch('/api/twilio/hangup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callSid: sid })
+      });
+    } catch(e) { console.error('Hangup error:', e); }
+    lineCallSids[line] = null;
+  }
+  stopCallTimer(line);
+  document.getElementById('lineHangup' + line).style.display = 'none';
+  setLineState(line, 'call-ended');
 }
 
 async function dialOutcome(line, outcome) {
   var lead = dialerLeadMap[line];
   if (!lead) return;
 
-  dialerStats.total++;
-  if (outcome === 'connected') dialerStats.connected++;
-  else if (outcome === 'no_answer') dialerStats.noAnswer++;
-  else if (outcome === 'voicemail') dialerStats.voicemail++;
-
-  updateDialerStatsUI();
-
   if (outcome === 'connected') {
+    dialerStats.connected++;
+    setLineState(line, 'on-call');
+    startCallTimer(line);
     document.getElementById('lineOutcomes' + line).style.display = 'none';
     document.getElementById('lineForm' + line).classList.add('active');
-    document.getElementById('lineStatus' + line).textContent = 'Connected';
   } else {
+    if (outcome === 'no_answer') dialerStats.noAnswer++;
+    if (outcome === 'voicemail') dialerStats.voicemail++;
+
+    // Hang up the Twilio call if active
+    if (lineCallSids[line]) { await hangupLine(line); }
+
     try {
       await sb.from('crm_calls').insert({ lead_id: lead.id, status: outcome, dialer_line: line });
       await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: ' + outcome });
+      await sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString() }).eq('id', lead.id);
     } catch(e) { console.error('Call log error:', e); }
     loadNextLead(line);
   }
+  updateDialerStatsUI();
 }
 
 async function saveCallResult(line) {
@@ -1631,23 +1888,51 @@ async function saveCallResult(line) {
 
   var outcome = document.getElementById('lineOutcomeSelect' + line).value;
   var notes = document.getElementById('lineNotes' + line).value;
+  var duration = lineStartTimes[line] ? Math.floor((Date.now() - lineStartTimes[line]) / 1000) : 0;
 
-  if (outcome === 'interested') dialerStats.interested++;
-  updateDialerStatsUI();
+  if (outcome === 'interested' || outcome === 'quote_requested') dialerStats.interested++;
+
+  // Hang up Twilio call
+  if (lineCallSids[line]) { await hangupLine(line); }
+  stopCallTimer(line);
+
+  // Advance stage if appropriate
+  var newStage = null;
+  if (outcome === 'interested' && lead.stage === 'prospect') newStage = 'lead';
+  if (outcome === 'quote_requested') newStage = 'info_pending';
+  if (outcome === 'info_gathered') newStage = 'info_pending';
 
   try {
-    await sb.from('crm_calls').insert({ lead_id: lead.id, status: 'connected', outcome: outcome, notes: notes, dialer_line: line });
-    await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call connected: ' + outcome + (notes ? ' - ' + notes : '') });
+    await sb.from('crm_calls').insert({
+      lead_id: lead.id, status: 'completed', outcome: outcome,
+      notes: notes, dialer_line: line, duration_seconds: duration
+    });
+    await sb.from('crm_activities').insert({
+      lead_id: lead.id, type: 'call',
+      description: 'Call connected (' + formatCallTime(duration) + '): ' + outcome + (notes ? ' - ' + notes : '')
+    });
+    var updateData = { last_contacted_at: new Date().toISOString() };
+    if (newStage) updateData.stage = newStage;
+    await sb.from('crm_leads').update(updateData).eq('id', lead.id);
+    if (newStage) {
+      await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'stage_change', description: 'Stage changed to ' + newStage + ' (from dialer)' });
+    }
   } catch(e) { console.error('Save call error:', e); }
 
   document.getElementById('lineForm' + line).classList.remove('active');
   document.getElementById('lineNotes' + line).value = '';
-  toast('Call saved');
+  toast('Call saved' + (newStage ? ' — lead moved to ' + newStage.replace(/_/g, ' ') : ''));
+  updateDialerStatsUI();
   loadNextLead(line);
 }
 
 async function loadNextLead(line) {
   if (!dialerRunning) return;
+
+  // Reset line UI
+  stopCallTimer(line);
+  document.getElementById('lineHangup' + line).style.display = 'none';
+  document.getElementById('lineAreaBadge' + line).innerHTML = '';
 
   var segment = document.getElementById('dialerSegment').value;
   var stage = document.getElementById('dialerStage').value;
@@ -1656,26 +1941,36 @@ async function loadNextLead(line) {
   if (segment) query = query.eq('segment', segment);
   if (stage) query = query.eq('stage', stage);
 
-  var res = await query.order('lead_score', { ascending: false }).limit(50);
+  var res = await query.order('lead_score', { ascending: false }).limit(100);
   var next = (res.data || []).find(function(l) { return !dialerUsedIds.has(l.id); });
 
   if (next) {
     dialerLeadMap[line] = next;
     dialerUsedIds.add(next.id);
+    dialerStats.total++;
+
+    var phone = next.phone || next.cell_phone || '';
+    var ac = extractAreaCode(phone);
     document.getElementById('lineName' + line).textContent = next.contact_name || 'Unknown';
     document.getElementById('lineCompany' + line).textContent = next.company_name || '';
-    document.getElementById('linePhone' + line).textContent = next.phone || '\u2014';
+    document.getElementById('linePhone' + line).textContent = phone || '\u2014';
     document.getElementById('lineDetails' + line).textContent = (next.trucks || next.power_units || 0) + ' trucks | ' + (next.state || 'N/A') + ' | Score: ' + (next.lead_score || 0);
-    document.getElementById('lineStatus' + line).textContent = 'Dialing';
+    document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge match">Calling from (' + ac + ') area code</span>';
+    setLineState(line, 'ringing');
     document.getElementById('lineOutcomes' + line).style.display = 'grid';
+    document.getElementById('lineForm' + line).classList.remove('active');
+    updateDialerStatsUI();
+
+    // Dial via Twilio
+    dialLeadViaTwilio(line, next, phone);
   } else {
     dialerLeadMap[line] = null;
     document.getElementById('lineName' + line).textContent = '\u2014';
     document.getElementById('lineCompany' + line).textContent = 'No more leads';
     document.getElementById('linePhone' + line).textContent = '\u2014';
     document.getElementById('lineDetails' + line).textContent = '\u2014';
-    document.getElementById('lineStatus' + line).textContent = 'Done';
-    document.getElementById('lineStatus' + line).classList.remove('active');
+    document.getElementById('lineAreaBadge' + line).innerHTML = '';
+    setLineState(line, 'idle');
     document.getElementById('lineOutcomes' + line).style.display = 'none';
   }
 }
@@ -1686,6 +1981,8 @@ function updateDialerStatsUI() {
   document.getElementById('statNoAnswer').textContent = dialerStats.noAnswer;
   document.getElementById('statVoicemail').textContent = dialerStats.voicemail;
   document.getElementById('statInterested').textContent = dialerStats.interested;
+  var rate = dialerStats.total > 0 ? Math.round((dialerStats.connected / dialerStats.total) * 100) : 0;
+  document.getElementById('statConnectRate').textContent = rate + '%';
 }
 
 // ==================== EMAIL CAMPAIGNS ====================

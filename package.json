@@ -1,0 +1,25 @@
+{
+  "name": "aiis-trucking-website",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://x-access-token@github.com/jckilla/aiis-trucking-website.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jckilla/aiis-trucking-website/issues"
+  },
+  "homepage": "https://github.com/jckilla/aiis-trucking-website#readme",
+  "dependencies": {
+    "octokit": "^5.0.5",
+    "twilio": "^5.13.0"
+  }
+}
