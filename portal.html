@@ -3,1625 +3,2046 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AdvancedIns.ai CRM Portal</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+<title>AIIS CRM Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 :root {
-  --bg: #0a0a0a;
-  --sidebar-bg: #0d0d0d;
-  --card-bg: #0d0d0d;
-  --card-border: rgba(255,255,255,0.05);
-  --card-hover-border: rgba(255,255,255,0.2);
-  --input-bg: #111;
-  --input-border: rgba(255,255,255,0.1);
-  --accent: #00FFCC;
-  --accent2: #00e5a0;
-  --text: #e0e0e0;
-  --text-muted: #888;
-  --text-dim: #555;
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111111;
+  --bg-card: #1a1a1a;
+  --bg-card-hover: #222222;
+  --bg-input: #2a2a2a;
+  --accent: #00e5a0;
+  --accent-hover: #00cc8e;
+  --accent-dim: rgba(0, 229, 160, 0.1);
+  --accent-border: rgba(0, 229, 160, 0.3);
+  --text-primary: #ffffff;
+  --text-secondary: #aaaaaa;
+  --text-muted: #666666;
+  --border: #2a2a2a;
+  --danger: #ff4757;
+  --warning: #ffa502;
+  --info: #3498db;
+  --success: #00e5a0;
   --stage-prospect: #666;
-  --stage-lead: #3b82f6;
-  --stage-info-pending: #f59e0b;
-  --stage-quote-submitted: #8b5cf6;
-  --stage-quote-ready: #06b6d4;
-  --stage-client: #00FFCC;
+  --stage-lead: #3498db;
+  --stage-info: #ffa502;
+  --stage-quote-sub: #9b59b6;
+  --stage-quote-ready: #00e5a0;
+  --stage-client: #2ecc71;
+  --sidebar-width: 240px;
 }
 
-html { font-size: 14px; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0a0a0a; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
-
-/* ─── NAVBAR ─── */
-.top-nav {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 2rem; height: 60px;
-  background: rgba(10,10,10,0.95);
-  border-bottom: 1px solid var(--card-border);
-  backdrop-filter: blur(12px);
-}
-.top-nav .logo {
-  font-family: 'Syncopate', sans-serif;
-  font-weight: 700; font-size: 1.1rem;
-  color: #fff; text-decoration: none; letter-spacing: 2px;
-}
-.top-nav .logo span { color: var(--accent); }
-.top-nav .nav-links { display: flex; align-items: center; gap: 1.5rem; }
-.top-nav .nav-links a {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.75rem; color: var(--text-muted);
-  text-decoration: none; text-transform: uppercase;
-  letter-spacing: 1px; transition: color 0.2s;
-}
-.top-nav .nav-links a:hover { color: #fff; }
-.top-nav .nav-links a.active { color: var(--accent); }
-.btn-logout {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.75rem; font-weight: 700;
-  background: var(--accent); color: #000;
-  border: none; padding: 0.5rem 1.2rem;
-  cursor: pointer; letter-spacing: 1px;
-  text-transform: uppercase; transition: background 0.2s;
-}
-.btn-logout:hover { background: var(--accent2); }
-
-/* ─── LAYOUT ─── */
-.app-layout {
-  display: flex;
-  margin-top: 60px;
-  min-height: calc(100vh - 60px);
-}
-
-/* ─── SIDEBAR ─── */
+/* Sidebar */
 .sidebar {
-  width: 64px; min-height: 100%;
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--card-border);
-  display: flex; flex-direction: column;
-  align-items: center; padding-top: 1rem;
-  position: fixed; top: 60px; bottom: 0; left: 0;
-  z-index: 900;
-}
-.sidebar-btn {
-  width: 48px; height: 48px;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: none; color: var(--text-dim);
-  cursor: pointer; border-radius: 8px;
-  margin-bottom: 0.25rem; position: relative;
-  transition: all 0.2s;
-}
-.sidebar-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
-.sidebar-btn.active { color: var(--accent); }
-.sidebar-btn.active::before {
-  content: ''; position: absolute; left: 0; top: 50%;
-  transform: translateY(-50%); width: 3px; height: 24px;
-  background: var(--accent); border-radius: 0 3px 3px 0;
-}
-.sidebar-btn svg { width: 20px; height: 20px; }
-.sidebar-btn .tooltip {
-  position: absolute; left: 60px; top: 50%;
-  transform: translateY(-50%);
-  background: #222; color: #fff;
-  font-size: 0.7rem; padding: 4px 8px;
-  border-radius: 4px; white-space: nowrap;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.15s;
-  font-family: 'Space Mono', monospace;
-}
-.sidebar-btn:hover .tooltip { opacity: 1; }
-
-/* ─── MAIN CONTENT ─── */
-.main-content {
-  flex: 1;
-  margin-left: 64px;
-  padding: 1.5rem;
-  max-width: calc(100vw - 64px);
-}
-
-.section { display: none; }
-.section.active { display: block; }
-
-.section-title {
-  font-family: 'Syncopate', sans-serif;
-  font-size: 1.3rem; font-weight: 700;
-  margin-bottom: 1.5rem; letter-spacing: 2px;
-}
-
-/* ─── CARDS & UTILITIES ─── */
-.card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  padding: 1.25rem;
-  transition: border-color 0.2s;
-}
-.card:hover { border-color: var(--card-hover-border); }
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-.stat-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  padding: 1.25rem;
-}
-.stat-card .label {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.65rem; text-transform: uppercase;
-  letter-spacing: 1px; color: var(--text-muted);
-  margin-bottom: 0.5rem;
-}
-.stat-card .value {
-  font-family: 'Space Mono', monospace;
-  font-size: 1.6rem; font-weight: 700; color: #fff;
-}
-.stat-card .value.accent { color: var(--accent); }
-
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
-.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
-
-/* ─── STAGE BADGES ─── */
-.badge {
-  display: inline-block;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.65rem; font-weight: 700;
-  padding: 3px 8px; border-radius: 4px;
-  text-transform: uppercase; letter-spacing: 0.5px;
-}
-.badge-prospect { background: rgba(102,102,102,0.2); color: var(--stage-prospect); }
-.badge-lead { background: rgba(59,130,246,0.15); color: var(--stage-lead); }
-.badge-info_pending { background: rgba(245,158,11,0.15); color: var(--stage-info-pending); }
-.badge-quote_submitted { background: rgba(139,92,246,0.15); color: var(--stage-quote-submitted); }
-.badge-quote_ready { background: rgba(6,182,212,0.15); color: var(--stage-quote-ready); }
-.badge-client { background: rgba(0,255,204,0.1); color: var(--stage-client); }
-
-/* ─── FORMS ─── */
-input, select, textarea {
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  color: var(--text);
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
-  padding: 0.6rem 0.8rem;
-  border-radius: 6px;
-  outline: none;
-  transition: border-color 0.2s;
-  width: 100%;
-}
-input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-select { cursor: pointer; }
-textarea { resize: vertical; min-height: 80px; }
-label {
-  display: block;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  margin-bottom: 0.3rem;
-}
-
-.btn {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.75rem; font-weight: 700;
-  padding: 0.6rem 1.2rem;
-  border: none; border-radius: 6px;
-  cursor: pointer; text-transform: uppercase;
-  letter-spacing: 0.5px;
-  transition: all 0.2s;
-  display: inline-flex; align-items: center; gap: 0.4rem;
-}
-.btn-primary { background: var(--accent); color: #000; }
-.btn-primary:hover { background: var(--accent2); }
-.btn-secondary { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--card-border); }
-.btn-secondary:hover { border-color: var(--card-hover-border); }
-.btn-danger { background: rgba(239,68,68,0.15); color: #ef4444; }
-.btn-danger:hover { background: rgba(239,68,68,0.25); }
-.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.65rem; }
-
-/* ─── TABLES ─── */
-.table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--card-border); }
-table { width: 100%; border-collapse: collapse; }
-th {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.65rem; text-transform: uppercase;
-  letter-spacing: 1px; color: var(--text-muted);
-  text-align: left; padding: 0.75rem 1rem;
-  background: var(--sidebar-bg);
-  border-bottom: 1px solid var(--card-border);
-  white-space: nowrap;
-}
-td {
-  padding: 0.7rem 1rem;
-  border-bottom: 1px solid var(--card-border);
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-tr:nth-child(even) td { background: var(--card-bg); }
-tr:nth-child(odd) td { background: var(--input-bg); }
-tr:hover td { background: rgba(255,255,255,0.03); }
-tr { cursor: pointer; }
-
-/* ─── PIPELINE KANBAN ─── */
-.kanban-board {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 1rem;
-  min-height: 500px;
-}
-.kanban-col {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  min-width: 220px;
-  display: flex; flex-direction: column;
-}
-.kanban-col-header {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--card-border);
-  text-align: center;
-}
-.kanban-col-header .col-title {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 0.3rem;
-}
-.kanban-col-header .col-stats {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.6rem;
-  color: var(--text-muted);
-}
-.kanban-col-body {
-  flex: 1;
-  padding: 0.5rem;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
   overflow-y: auto;
-  max-height: 600px;
-  min-height: 100px;
 }
-.kanban-col-body.drag-over {
-  background: rgba(0,255,204,0.03);
+
+.sidebar-brand {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
 }
-.kanban-card {
-  background: var(--input-bg);
-  border: 1px solid var(--card-border);
+
+.sidebar-brand h1 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.sidebar-brand p {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.sidebar-nav { flex: 1; padding: 12px 0; }
+
+.nav-section {
+  padding: 8px 20px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+}
+
+.nav-item:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-left-color: var(--accent);
+}
+
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+.sidebar-stats {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.sidebar-stat .label { color: var(--text-muted); }
+.sidebar-stat .value { color: var(--text-primary); font-weight: 600; }
+
+.sidebar-signout {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-signout button {
+  width: 100%;
+  padding: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
   border-radius: 6px;
-  padding: 0.7rem;
-  margin-bottom: 0.5rem;
-  cursor: grab;
+  cursor: pointer;
+  font-size: 12px;
   transition: all 0.15s;
 }
-.kanban-card:hover { border-color: var(--accent); }
-.kanban-card.dragging { opacity: 0.4; }
-.kanban-card .kc-company {
-  font-weight: 600; font-size: 0.85rem;
-  color: #fff; margin-bottom: 0.3rem;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.kanban-card .kc-contact {
-  font-size: 0.75rem; color: var(--text-muted);
-  margin-bottom: 0.3rem;
-}
-.kanban-card .kc-meta {
-  display: flex; justify-content: space-between;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.6rem; color: var(--text-dim);
-}
-.kanban-card .kc-meta .premium { color: var(--accent); }
-.kanban-load-more {
-  text-align: center; padding: 0.5rem;
+
+.sidebar-signout button:hover {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
-/* ─── DIALER ─── */
-.dialer-lines {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-.dialer-line {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  padding: 1.25rem;
-  text-align: center;
-}
-.dialer-line .line-number {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.65rem; text-transform: uppercase;
-  color: var(--text-muted); letter-spacing: 1px;
-  margin-bottom: 0.75rem;
-}
-.dialer-line .line-company {
-  font-weight: 600; font-size: 1rem;
-  color: #fff; margin-bottom: 0.25rem;
-}
-.dialer-line .line-contact {
-  font-size: 0.85rem; color: var(--text-muted);
-  margin-bottom: 0.15rem;
-}
-.dialer-line .line-phone {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.9rem; color: var(--accent);
-  margin-bottom: 0.75rem;
-}
-.dialer-line .line-actions {
-  display: flex; flex-wrap: wrap; gap: 0.4rem;
-  justify-content: center;
-}
-.dialer-line .line-actions .btn { font-size: 0.6rem; padding: 0.3rem 0.5rem; }
-.dialer-line.idle { opacity: 0.5; }
-.dialer-line .line-stage { margin-bottom: 0.5rem; }
-
-/* ─── CAMPAIGNS ─── */
-.campaign-list { margin-bottom: 1.5rem; }
-.campaign-item {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 0.5rem;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.campaign-item .ci-name { font-weight: 600; color: #fff; }
-.campaign-item .ci-meta {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.65rem; color: var(--text-muted);
-}
-.template-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-.template-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-.template-card:hover { border-color: var(--accent); }
-.template-card .tc-name {
-  font-weight: 600; color: #fff;
-  font-size: 0.9rem; margin-bottom: 0.25rem;
-}
-.template-card .tc-subject {
-  font-size: 0.75rem; color: var(--text-muted);
+/* Main Content */
+.main-content {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
 }
 
-/* ─── MODAL ─── */
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.7);
-  z-index: 2000;
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+}
+
+.search-container { position: relative; }
+
+.search-box {
+  width: 400px;
+  padding: 8px 12px 8px 36px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-box:focus { border-color: var(--accent-border); }
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 400px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 4px;
+  max-height: 400px;
+  overflow-y: auto;
   display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.search-results.active { display: block; }
+
+.search-result-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.search-result-item:hover { background: var(--bg-card-hover); }
+.search-result-item:last-child { border-bottom: none; }
+.search-result-item .company { font-size: 13px; font-weight: 600; }
+.search-result-item .details { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+.top-actions { display: flex; gap: 8px; }
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--bg-card-hover); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-sm { padding: 6px 10px; font-size: 12px; }
+
+.page-content { padding: 24px; }
+
+.page-header { margin-bottom: 24px; }
+.page-header h2 { font-size: 24px; font-weight: 700; }
+.page-header p { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+/* GWP Progress Bar */
+.gwp-progress-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.gwp-progress-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+
+.progress-bar {
+  width: 100%;
+  height: 24px;
+  background: var(--bg-input);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #00ff88);
+  border-radius: 12px;
+  transition: width 0.5s ease;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.progress-fill-pipeline {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(0,229,160,0.3), rgba(0,255,136,0.3));
+  border-radius: 0 12px 12px 0;
+  position: absolute;
+  top: 0;
+  transition: all 0.5s ease;
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.progress-labels .bound { color: var(--accent); font-weight: 600; }
+.progress-labels .pipeline { color: var(--text-secondary); }
+.progress-labels .target { color: var(--text-muted); }
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.15s;
+}
+
+.kpi-card:hover { border-color: var(--accent-border); background: var(--bg-card-hover); }
+.kpi-card.highlighted { border-color: var(--accent); background: var(--accent-dim); }
+.kpi-card .kpi-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.kpi-card .kpi-value { font-size: 28px; font-weight: 700; }
+.kpi-card .kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+/* Pipeline Overview Cards */
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.pipeline-stage-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  border-top: 3px solid;
+}
+
+.pipeline-stage-card .stage-name { font-size: 12px; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.pipeline-stage-card .stage-count { font-size: 24px; font-weight: 700; }
+.pipeline-stage-card .stage-premium { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* Chart Row */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.chart-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+.bar-chart { display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: flex; align-items: center; gap: 10px; }
+.bar-label { width: 60px; font-size: 12px; color: var(--text-secondary); text-align: right; flex-shrink: 0; }
+.bar-track { flex: 1; height: 20px; background: var(--bg-input); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; }
+.bar-value { width: 40px; font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+
+/* Activity Feed */
+.activity-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.activity-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-item:last-child { border-bottom: none; }
+
+.activity-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
-}
-.modal-overlay.open { display: flex; }
-.modal {
-  background: var(--bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  width: 90vw; max-width: 800px;
-  max-height: 85vh;
-  overflow-y: auto;
-  padding: 2rem;
-}
-.modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 1.5rem;
-}
-.modal-header h2 {
-  font-family: 'Syncopate', sans-serif;
-  font-size: 1rem; font-weight: 700;
-  letter-spacing: 2px;
-}
-.modal-close {
-  background: none; border: none; color: var(--text-muted);
-  font-size: 1.5rem; cursor: pointer;
-  transition: color 0.2s;
-}
-.modal-close:hover { color: #fff; }
-.modal-field { margin-bottom: 1rem; }
-.modal-field .field-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.6rem; text-transform: uppercase;
-  letter-spacing: 1px; color: var(--text-dim);
-  margin-bottom: 0.15rem;
-}
-.modal-field .field-value {
-  font-size: 0.9rem; color: var(--text);
-}
-.modal-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-.modal-tab {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.7rem; text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: none; border: none; color: var(--text-muted);
-  padding: 0.4rem 0.8rem; cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-.modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-.modal-tab-content { display: none; }
-.modal-tab-content.active { display: block; }
-
-/* ─── ACTIVITY FEED ─── */
-.activity-feed { max-height: 400px; overflow-y: auto; }
-.activity-item {
-  display: flex; gap: 0.75rem;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--card-border);
-}
-.activity-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  margin-top: 0.4rem;
+  font-size: 14px;
   flex-shrink: 0;
-}
-.activity-item .ai-desc { font-size: 0.85rem; }
-.activity-item .ai-time {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.65rem; color: var(--text-dim);
-  margin-top: 0.15rem;
+  background: var(--accent-dim);
 }
 
-/* ─── SPINNER ─── */
-.spinner {
-  display: inline-block;
-  width: 18px; height: 18px;
-  border: 2px solid var(--card-border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+.activity-text { font-size: 13px; flex: 1; }
+.activity-text .desc { color: var(--text-secondary); }
+.activity-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-.loading-area {
-  display: flex; align-items: center; justify-content: center;
-  padding: 3rem; gap: 0.75rem;
+/* Pipeline Board */
+.pipeline-board {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+}
+
+.pipeline-column {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pipeline-column-header {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  border-top: 3px solid;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pipeline-column-header .col-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.pipeline-column-header .col-count { font-size: 11px; background: var(--bg-input); padding: 2px 8px; border-radius: 10px; color: var(--text-muted); }
+
+.pipeline-column-body {
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.pipeline-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pipeline-card:hover { border-color: var(--accent-border); background: var(--bg-card-hover); }
+.pipeline-card .card-company { font-size: 13px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pipeline-card .card-contact { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+.pipeline-card .card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+.pipeline-card .card-meta .trucks { color: var(--text-muted); }
+.pipeline-card .card-meta .premium { color: var(--accent); font-weight: 600; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.badge-segment { background: var(--accent-dim); color: var(--accent); }
+.badge-stage { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+
+/* Leads Table */
+.filter-bar { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; }
+
+.filter-bar select, .filter-bar input {
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.filter-bar select:focus, .filter-bar input:focus { border-color: var(--accent-border); }
+
+.leads-table-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.leads-table { width: 100%; border-collapse: collapse; }
+
+.leads-table th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
-  font-family: 'Space Mono', monospace;
-  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
 }
 
-/* ─── FILTERS BAR ─── */
-.filters-bar {
-  display: flex; gap: 0.75rem; align-items: flex-end;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-}
-.filter-group { display: flex; flex-direction: column; }
-.filter-group label { margin-bottom: 0.2rem; }
-.filter-group input, .filter-group select { width: 180px; }
+.leads-table td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid var(--border); }
+.leads-table tr:hover { background: var(--bg-card-hover); }
+.leads-table tr:last-child td { border-bottom: none; }
 
-/* ─── PAGINATION ─── */
 .pagination {
-  display: flex; align-items: center; justify-content: center;
-  gap: 0.75rem; margin-top: 1rem;
-}
-.pagination .btn { min-width: 90px; justify-content: center; }
-.pagination .page-info {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.75rem; color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
 }
 
-/* ─── CHECKBOX ─── */
-.check-group {
-  display: flex; align-items: center; gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-.check-group input[type="checkbox"] {
-  width: 16px; height: 16px;
-  accent-color: var(--accent);
+.pagination .info { font-size: 12px; color: var(--text-muted); }
+.pagination .buttons { display: flex; gap: 8px; }
+
+/* Dialer */
+.dialer-layout { display: grid; grid-template-columns: 1fr 350px; gap: 16px; }
+
+.dialer-controls { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; }
+
+.dialer-controls select {
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
 }
 
-/* ─── RESPONSIVE ─── */
-@media (max-width: 1200px) {
-  .kanban-board { grid-template-columns: repeat(3, minmax(220px, 1fr)); }
-  .dialer-lines { grid-template-columns: 1fr; }
+.dialer-lines { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+.dialer-line {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
 }
-@media (max-width: 768px) {
-  .top-nav .nav-links a { display: none; }
-  .sidebar { width: 48px; }
-  .sidebar-btn { width: 40px; height: 40px; }
-  .main-content { margin-left: 48px; padding: 1rem; }
-  .kanban-board { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
-  .stat-grid { grid-template-columns: 1fr 1fr; }
-  .grid-2, .grid-3 { grid-template-columns: 1fr; }
-  .filters-bar { flex-direction: column; }
-  .filter-group input, .filter-group select { width: 100%; }
+
+.dialer-line .line-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.dialer-line .line-number { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+.dialer-line .line-status {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--bg-input);
+  color: var(--text-muted);
 }
+
+.dialer-line .line-status.active { background: var(--accent-dim); color: var(--accent); }
+.dialer-line .lead-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.dialer-line .lead-company { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+.dialer-line .lead-phone { font-size: 14px; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
+.dialer-line .lead-details { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
+
+.outcome-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+.outcome-btn {
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.outcome-btn:hover { border-color: var(--text-muted); color: var(--text-primary); }
+.outcome-btn.connected { border-color: var(--success); color: var(--success); }
+.outcome-btn.connected:hover { background: var(--success); color: #000; }
+.outcome-btn.no-answer { border-color: var(--warning); color: var(--warning); }
+.outcome-btn.voicemail { border-color: var(--info); color: var(--info); }
+.outcome-btn.busy { border-color: var(--danger); color: var(--danger); }
+
+.connected-form { margin-top: 12px; display: none; }
+.connected-form.active { display: block; }
+
+.connected-form select, .connected-form textarea {
+  width: 100%;
+  padding: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  margin-bottom: 8px;
+}
+
+.connected-form textarea { min-height: 60px; resize: vertical; font-family: inherit; }
+
+/* Dialer Sidebar */
+.dialer-sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+.session-stats {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.session-stats h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-row:last-child { border-bottom: none; }
+.stat-row .stat-label { color: var(--text-secondary); }
+.stat-row .stat-value { font-weight: 600; }
+
+.call-script {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.call-script h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+
+.script-section { margin-bottom: 12px; }
+.script-section .script-label { font-size: 10px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.script-section p { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+/* Campaigns */
+.campaign-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+
+.campaign-tab {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.campaign-tab:hover { color: var(--text-secondary); }
+.campaign-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.campaign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+.campaign-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.15s;
+}
+
+.campaign-card:hover { border-color: var(--accent-border); }
+.campaign-card .campaign-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.campaign-card .campaign-date { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
+.campaign-card .campaign-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+.campaign-stat { text-align: center; }
+.campaign-stat .cs-value { font-size: 18px; font-weight: 700; }
+.campaign-stat .cs-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+
+.compliance-banner {
+  background: rgba(255, 165, 2, 0.1);
+  border: 1px solid rgba(255, 165, 2, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--warning);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Settings */
+.settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+.settings-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.settings-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+.setting-field { margin-bottom: 12px; }
+.setting-field label { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+
+.setting-field input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.setting-field input:focus { border-color: var(--accent-border); }
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-header h2 { font-size: 20px; font-weight: 700; }
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.modal-close:hover { color: var(--text-primary); }
+
+.modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+
+.modal-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.modal-section h3 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-row:last-child { border-bottom: none; }
+.info-row .info-label { color: var(--text-muted); }
+.info-row .info-value { color: var(--text-primary); font-weight: 500; }
+
+.quick-actions { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+
+.notes-area { margin-bottom: 20px; }
+
+.notes-area textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  min-height: 80px;
+  resize: vertical;
+  outline: none;
+  margin-bottom: 8px;
+}
+
+.notes-area textarea:focus { border-color: var(--accent-border); }
+
+/* Toast */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.toast.success { background: rgba(0, 229, 160, 0.15); border: 1px solid var(--accent-border); color: var(--accent); }
+.toast.error { background: rgba(255, 71, 87, 0.15); border: 1px solid rgba(255, 71, 87, 0.3); color: var(--danger); }
+.toast.info { background: rgba(52, 152, 219, 0.15); border: 1px solid rgba(52, 152, 219, 0.3); color: var(--info); }
+
+@keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* Form groups */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
+
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+}
+
+.form-group textarea { min-height: 100px; resize: vertical; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent-border); }
+
+.char-counter { font-size: 11px; color: var(--text-muted); text-align: right; margin-top: 4px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Drag and Drop */
+.pipeline-card.dragging { opacity: 0.5; }
+.pipeline-column-body.drag-over { background: var(--accent-dim); border-radius: 0 0 12px 12px; }
+
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 13px; }
+
+select option { background: var(--bg-card); color: var(--text-primary); }
 </style>
 </head>
 <body>
 
-<!-- ═══════════ TOP NAV ═══════════ -->
-<nav class="top-nav">
-  <a href="index.html" class="logo">ADVANCED<span>INS</span>.AI</a>
-  <div class="nav-links">
-    <a href="index.html">Home</a>
-    <a href="index.html#coverages">Coverages</a>
-    <a href="commercial.html">Commercial</a>
-    <a href="about.html">About</a>
-    <a href="portal.html" class="active">Portal</a>
-    <button class="btn-logout" id="logoutBtn">LOGOUT</button>
-  </div>
-</nav>
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
 
-<!-- ═══════════ SIDEBAR ═══════════ -->
-<div class="app-layout">
-<aside class="sidebar">
-  <button class="sidebar-btn active" data-section="dashboard" title="Dashboard">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-    <span class="tooltip">Dashboard</span>
-  </button>
-  <button class="sidebar-btn" data-section="pipeline" title="Pipeline">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="6" width="4" height="15" rx="1"/><rect x="17" y="9" width="4" height="12" rx="1"/></svg>
-    <span class="tooltip">Pipeline</span>
-  </button>
-  <button class="sidebar-btn" data-section="leads" title="Leads">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-    <span class="tooltip">Leads</span>
-  </button>
-  <button class="sidebar-btn" data-section="dialer" title="Dialer">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-    <span class="tooltip">Dialer</span>
-  </button>
-  <button class="sidebar-btn" data-section="email" title="Email Campaigns">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-    <span class="tooltip">Email</span>
-  </button>
-  <button class="sidebar-btn" data-section="sms" title="SMS Campaigns">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    <span class="tooltip">SMS</span>
-  </button>
-</aside>
-
-<!-- ═══════════ MAIN CONTENT ═══════════ -->
-<main class="main-content">
-
-<!-- ═══════════ DASHBOARD SECTION ═══════════ -->
-<section class="section active" id="sec-dashboard">
-  <h1 class="section-title">Dashboard</h1>
-  <div id="dash-loading" class="loading-area"><div class="spinner"></div> Loading dashboard...</div>
-  <div id="dash-content" style="display:none;">
-    <div class="stat-grid" id="dash-top-stats"></div>
-    <div class="grid-2">
-      <div class="card">
-        <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Pipeline by Stage</h3>
-        <div id="dash-pipeline-stages"></div>
-      </div>
-      <div class="card">
-        <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Segment Breakdown</h3>
-        <div id="dash-segments"></div>
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="card">
-        <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">GWP Stats</h3>
-        <div id="dash-gwp"></div>
-      </div>
-      <div class="card">
-        <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Top 20 States</h3>
-        <div id="dash-states" style="max-height:300px;overflow-y:auto;"></div>
-      </div>
-    </div>
-    <div class="card" style="margin-top:1rem;">
-      <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Recent Activity</h3>
-      <div class="activity-feed" id="dash-activities"></div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ PIPELINE SECTION ═══════════ -->
-<section class="section" id="sec-pipeline">
-  <h1 class="section-title">Pipeline</h1>
-  <div id="pipeline-loading" class="loading-area"><div class="spinner"></div> Loading pipeline...</div>
-  <div class="kanban-board" id="kanban-board" style="display:none;"></div>
-</section>
-
-<!-- ═══════════ LEADS SECTION ═══════════ -->
-<section class="section" id="sec-leads">
-  <h1 class="section-title">Leads</h1>
-  <div class="filters-bar">
-    <div class="filter-group">
-      <label>Search</label>
-      <input type="text" id="leads-search" placeholder="Company, contact, DOT...">
-    </div>
-    <div class="filter-group">
-      <label>Stage</label>
-      <select id="leads-filter-stage">
-        <option value="">All Stages</option>
-        <option value="prospect">Prospect</option>
-        <option value="lead">Lead</option>
-        <option value="info_pending">Info Pending</option>
-        <option value="quote_submitted">Quote Submitted</option>
-        <option value="quote_ready">Quote Ready</option>
-        <option value="client">Client</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label>Segment</label>
-      <select id="leads-filter-segment">
-        <option value="">All Segments</option>
-        <option value="owner_operator">Owner Operator</option>
-        <option value="small_fleet">Small Fleet</option>
-        <option value="commercial_lines">Commercial Lines</option>
-        <option value="enterprise">Enterprise</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label>State</label>
-      <input type="text" id="leads-filter-state" placeholder="e.g. CA" style="width:80px;">
-    </div>
-    <button class="btn btn-primary" id="leads-search-btn">Search</button>
-  </div>
-  <div id="leads-loading" class="loading-area" style="display:none;"><div class="spinner"></div> Loading...</div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Company</th><th>Contact</th><th>Phone</th><th>Email</th><th>State</th><th>Trucks</th><th>Stage</th><th>Score</th><th>Premium</th>
-        </tr>
-      </thead>
-      <tbody id="leads-tbody"></tbody>
-    </table>
-  </div>
-  <div class="pagination">
-    <button class="btn btn-secondary btn-sm" id="leads-prev">Prev</button>
-    <span class="page-info" id="leads-page-info">Page 1</span>
-    <button class="btn btn-secondary btn-sm" id="leads-next">Next</button>
-  </div>
-</section>
-
-<!-- ═══════════ DIALER SECTION ═══════════ -->
-<section class="section" id="sec-dialer">
-  <h1 class="section-title">Parallel Dialer</h1>
-  <div class="card" style="margin-bottom:1.5rem;">
-    <div class="filters-bar" style="margin-bottom:0;">
-      <div class="filter-group">
-        <label>Segment</label>
-        <select id="dialer-segment">
-          <option value="">Any</option>
-          <option value="owner_operator">Owner Operator</option>
-          <option value="small_fleet">Small Fleet</option>
-          <option value="commercial_lines">Commercial Lines</option>
-          <option value="enterprise">Enterprise</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Stage</label>
-        <select id="dialer-stage">
-          <option value="">Any</option>
-          <option value="prospect">Prospect</option>
-          <option value="lead">Lead</option>
-          <option value="info_pending">Info Pending</option>
-          <option value="quote_submitted">Quote Submitted</option>
-          <option value="quote_ready">Quote Ready</option>
-          <option value="client">Client</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>State</label>
-        <input type="text" id="dialer-state" placeholder="e.g. TX" style="width:80px;">
-      </div>
-      <button class="btn btn-primary" id="dialer-start-btn">Start Dialing</button>
-      <button class="btn btn-danger" id="dialer-stop-btn" style="display:none;">Stop Session</button>
-    </div>
-  </div>
-  <div class="stat-grid" id="dialer-stats" style="margin-bottom:1.5rem;">
-    <div class="stat-card"><div class="label">Total Calls</div><div class="value" id="ds-total">0</div></div>
-    <div class="stat-card"><div class="label">Connected</div><div class="value accent" id="ds-connected">0</div></div>
-    <div class="stat-card"><div class="label">Connect Rate</div><div class="value" id="ds-rate">0%</div></div>
-    <div class="stat-card"><div class="label">Session Status</div><div class="value" id="ds-status">IDLE</div></div>
-  </div>
-  <div class="dialer-lines" id="dialer-lines">
-    <div class="dialer-line idle" id="line-0"><div class="line-number">Line 1</div><div style="color:var(--text-dim);">Start dialing to load leads</div></div>
-    <div class="dialer-line idle" id="line-1"><div class="line-number">Line 2</div><div style="color:var(--text-dim);">Start dialing to load leads</div></div>
-    <div class="dialer-line idle" id="line-2"><div class="line-number">Line 3</div><div style="color:var(--text-dim);">Start dialing to load leads</div></div>
-  </div>
-</section>
-
-<!-- ═══════════ EMAIL SECTION ═══════════ -->
-<section class="section" id="sec-email">
-  <h1 class="section-title">Email Campaigns</h1>
-  <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Templates</h3>
-  <div class="template-grid" id="email-templates"></div>
-  <div class="card" style="margin-bottom:1.5rem;">
-    <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Create Campaign</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-      <div class="modal-field"><label>Campaign Name</label><input type="text" id="email-name"></div>
-      <div class="modal-field"><label>Subject</label><input type="text" id="email-subject"></div>
-      <div class="modal-field"><label>Target Segment</label>
-        <select id="email-segment"><option value="">All</option><option value="owner_operator">Owner Operator</option><option value="small_fleet">Small Fleet</option><option value="commercial_lines">Commercial Lines</option><option value="enterprise">Enterprise</option></select>
-      </div>
-      <div class="modal-field"><label>Target Stage</label>
-        <select id="email-stage"><option value="">All</option><option value="prospect">Prospect</option><option value="lead">Lead</option><option value="info_pending">Info Pending</option><option value="quote_submitted">Quote Submitted</option><option value="quote_ready">Quote Ready</option><option value="client">Client</option></select>
-      </div>
-    </div>
-    <div class="modal-field"><label>Body HTML</label><textarea id="email-body" rows="6"></textarea></div>
-    <button class="btn btn-primary" id="email-create-btn">Create Campaign</button>
-  </div>
-  <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Existing Campaigns</h3>
-  <div id="email-campaigns-loading" class="loading-area"><div class="spinner"></div> Loading...</div>
-  <div class="campaign-list" id="email-campaigns-list"></div>
-</section>
-
-<!-- ═══════════ SMS SECTION ═══════════ -->
-<section class="section" id="sec-sms">
-  <h1 class="section-title">SMS Campaigns</h1>
-  <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Templates</h3>
-  <div class="template-grid" id="sms-templates"></div>
-  <div class="card" style="margin-bottom:1.5rem;">
-    <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Create Campaign</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-      <div class="modal-field"><label>Campaign Name</label><input type="text" id="sms-name"></div>
-      <div class="modal-field"><label>Batch Size</label><input type="number" id="sms-batch" value="100"></div>
-      <div class="modal-field"><label>Target Segment</label>
-        <select id="sms-segment"><option value="">All</option><option value="owner_operator">Owner Operator</option><option value="small_fleet">Small Fleet</option><option value="commercial_lines">Commercial Lines</option><option value="enterprise">Enterprise</option></select>
-      </div>
-      <div class="modal-field"><label>Target Stage</label>
-        <select id="sms-stage"><option value="">All</option><option value="prospect">Prospect</option><option value="lead">Lead</option><option value="info_pending">Info Pending</option><option value="quote_submitted">Quote Submitted</option><option value="quote_ready">Quote Ready</option><option value="client">Client</option></select>
-      </div>
-    </div>
-    <div class="modal-field"><label>Message</label><textarea id="sms-message" rows="3"></textarea></div>
-    <button class="btn btn-primary" id="sms-create-btn">Create Campaign</button>
-  </div>
-  <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Existing Campaigns</h3>
-  <div id="sms-campaigns-loading" class="loading-area"><div class="spinner"></div> Loading...</div>
-  <div class="campaign-list" id="sms-campaigns-list"></div>
-</section>
-
-</main>
+<!-- Modal Overlay -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
 </div>
 
-<!-- ═══════════ LEAD DETAIL MODAL ═══════════ -->
-<div class="modal-overlay" id="lead-modal">
-  <div class="modal">
-    <div class="modal-header">
-      <h2 id="modal-title">Lead Details</h2>
-      <button class="modal-close" id="modal-close-btn">&times;</button>
-    </div>
-    <div class="modal-tabs">
-      <button class="modal-tab active" data-tab="details">Details</button>
-      <button class="modal-tab" data-tab="activity">Activity</button>
-      <button class="modal-tab" data-tab="calls">Calls</button>
-    </div>
-    <div class="modal-tab-content active" id="tab-details">
-      <div id="modal-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;"></div>
-      <hr style="border:none;border-top:1px solid var(--card-border);margin:1.25rem 0;">
-      <h4 style="font-family:'Space Mono',monospace;font-size:0.7rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.75rem;">Edit Lead</h4>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">
-        <div class="modal-field">
-          <label>Stage</label>
-          <select id="modal-stage"><option value="prospect">Prospect</option><option value="lead">Lead</option><option value="info_pending">Info Pending</option><option value="quote_submitted">Quote Submitted</option><option value="quote_ready">Quote Ready</option><option value="client">Client</option></select>
-        </div>
-        <div></div>
-      </div>
-      <div class="modal-field"><label>Notes</label><textarea id="modal-notes" rows="3"></textarea></div>
-      <div style="display:flex;gap:1.5rem;margin-bottom:1rem;">
-        <div class="check-group"><input type="checkbox" id="modal-dnc"><label for="modal-dnc" style="margin:0;">Do Not Call</label></div>
-        <div class="check-group"><input type="checkbox" id="modal-dne"><label for="modal-dne" style="margin:0;">Do Not Email</label></div>
-        <div class="check-group"><input type="checkbox" id="modal-dnt"><label for="modal-dnt" style="margin:0;">Do Not Text</label></div>
-      </div>
-      <button class="btn btn-primary" id="modal-save-btn">Save Changes</button>
-    </div>
-    <div class="modal-tab-content" id="tab-activity">
-      <div id="modal-activities" class="activity-feed"></div>
-    </div>
-    <div class="modal-tab-content" id="tab-calls">
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Direction</th><th>Status</th><th>Duration</th><th>Outcome</th><th>Notes</th></tr></thead>
-          <tbody id="modal-calls-tbody"></tbody>
-        </table>
-      </div>
-    </div>
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-brand">
+    <h1>ADVANCEDINS.AI</h1>
+    <p>$10M GWP CRM</p>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section">OPERATIONS</div>
+    <div class="nav-item active" data-page="dashboard"><span class="icon">&#x1F4CA;</span> Dashboard</div>
+    <div class="nav-item" data-page="pipeline"><span class="icon">&#x1F504;</span> Pipeline Board</div>
+    <div class="nav-item" data-page="leads"><span class="icon">&#x1F465;</span> All Leads</div>
+    <div class="nav-section">OUTREACH</div>
+    <div class="nav-item" data-page="dialer"><span class="icon">&#x1F4DE;</span> Parallel Dialer</div>
+    <div class="nav-item" data-page="email"><span class="icon">&#x1F4E7;</span> Email Campaigns</div>
+    <div class="nav-item" data-page="sms"><span class="icon">&#x1F4AC;</span> SMS Campaigns</div>
+    <div class="nav-section">SYSTEM</div>
+    <div class="nav-item" data-page="settings"><span class="icon">&#x2699;&#xFE0F;</span> Settings</div>
+  </div>
+  <div class="sidebar-stats">
+    <div class="sidebar-stat"><span class="label">Leads</span><span class="value" id="sidebarLeads">0</span></div>
+    <div class="sidebar-stat"><span class="label">Clients</span><span class="value" id="sidebarClients">0</span></div>
+    <div class="sidebar-stat"><span class="label">GWP Bound</span><span class="value" id="sidebarGWP">$0</span></div>
+  </div>
+  <div class="sidebar-signout">
+    <button onclick="signOut()">Sign Out</button>
   </div>
 </div>
 
-<!-- ═══════════ JAVASCRIPT ═══════════ -->
+<!-- Main Content -->
+<div class="main-content">
+  <div class="top-bar">
+    <div class="search-container">
+      <span class="search-icon">&#x1F50D;</span>
+      <input type="text" class="search-box" id="globalSearch" placeholder="Search leads by name, company, DOT, phone...">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn-primary" onclick="showAddLeadModal()">+ Add Lead</button>
+    </div>
+  </div>
+  <div class="page-content" id="pageContent"></div>
+</div>
+
 <script>
-(function() {
-  // ─── Supabase Init ───
-  const SUPABASE_URL = 'https://cqijyhudfiteivejcgox.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxaWp5aHVkZml0ZWl2ZWpjZ294Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzI5OTUsImV4cCI6MjA4OTI0ODk5NX0.08wZTXZSQvB98VEKCMLVc0EcuxleNVSOF5Fg0eKENHI';
-  const { createClient } = supabase;
-  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+// ==================== SUPABASE INIT ====================
+const SUPABASE_URL = 'https://cqijyhudfiteivejcgox.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxaWp5aHVkZml0ZWl2ZWpjZ294Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzI5OTUsImV4cCI6MjA4OTI0ODk5NX0.08wZTXZSQvB98VEKCMLVc0EcuxleNVSOF5Fg0eKENHI';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ─── Auth Check ───
-  async function checkAuth() {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return false; }
-    return true;
-  }
-  checkAuth();
+// ==================== CONSTANTS ====================
+const STAGES = [
+  { key: 'prospect', label: 'Prospect', color: 'var(--stage-prospect)' },
+  { key: 'lead', label: 'Lead', color: 'var(--stage-lead)' },
+  { key: 'info_pending', label: 'Info Pending', color: 'var(--stage-info)' },
+  { key: 'quote_submitted', label: 'Quote Submitted', color: 'var(--stage-quote-sub)' },
+  { key: 'quote_ready', label: 'Quote Ready', color: 'var(--stage-quote-ready)' },
+  { key: 'client', label: 'Client', color: 'var(--stage-client)' }
+];
 
-  // ─── Logout ───
-  document.getElementById('logoutBtn').addEventListener('click', async () => {
-    await sb.auth.signOut();
+const STAGE_RAW_COLORS = {
+  'prospect': '#666', 'lead': '#3498db', 'info_pending': '#ffa502',
+  'quote_submitted': '#9b59b6', 'quote_ready': '#00e5a0', 'client': '#2ecc71'
+};
+
+// ==================== STATE ====================
+let currentPage = 'dashboard';
+let leadsPage = 0;
+let leadsFilter = { stage: '', segment: '', search: '' };
+let dialerRunning = false;
+let dialerSessionId = null;
+let dialerStats = { total: 0, connected: 0, noAnswer: 0, voicemail: 0, interested: 0 };
+let dialerLeadMap = {};
+let dialerUsedIds = new Set();
+
+// ==================== AUTH ====================
+async function checkAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
     window.location.href = 'login.html';
+    return false;
+  }
+  return true;
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  window.location.href = 'login.html';
+}
+
+// ==================== HELPERS ====================
+function toast(message, type) {
+  type = type || 'success';
+  var t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = message;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(function() { t.remove(); }, 3000);
+}
+
+function fmt$(n) { return '$' + (n || 0).toLocaleString(undefined, {maximumFractionDigits: 0}); }
+function fmtN(n) { return (n || 0).toLocaleString(); }
+
+function fmtDate(d) {
+  if (!d) return 'N/A';
+  var dt = new Date(d);
+  return dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function stageColor(stage) {
+  var s = STAGES.find(function(x) { return x.key === stage; });
+  return s ? s.color : 'var(--text-muted)';
+}
+
+function stageRawColor(stage) {
+  return STAGE_RAW_COLORS[stage] || '#666';
+}
+
+function stageLabel(stage) {
+  var s = STAGES.find(function(x) { return x.key === stage; });
+  return s ? s.label : (stage || 'Unknown');
+}
+
+function timeAgo(d) {
+  if (!d) return '';
+  var diff = Date.now() - new Date(d).getTime();
+  var mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  var hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  var days = Math.floor(hrs / 24);
+  return days + 'd ago';
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ==================== NAVIGATION ====================
+document.querySelectorAll('.nav-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    item.classList.add('active');
+    currentPage = item.dataset.page;
+    loadPage(currentPage);
   });
+});
 
-  // ─── Helpers ───
-  const STAGES = ['prospect','lead','info_pending','quote_submitted','quote_ready','client'];
-  const STAGE_LABELS = { prospect:'Prospect', lead:'Lead', info_pending:'Info Pending', quote_submitted:'Quote Submitted', quote_ready:'Quote Ready', client:'Client' };
-  const SEGMENT_LABELS = { owner_operator:'Owner Operator', small_fleet:'Small Fleet', commercial_lines:'Commercial Lines', enterprise:'Enterprise' };
+async function loadPage(page) {
+  var el = document.getElementById('pageContent');
+  switch(page) {
+    case 'dashboard': await renderDashboard(el); break;
+    case 'pipeline': await renderPipeline(el); break;
+    case 'leads': await renderLeads(el); break;
+    case 'dialer': await renderDialer(el); break;
+    case 'email': await renderEmailCampaigns(el); break;
+    case 'sms': await renderSMSCampaigns(el); break;
+    case 'settings': renderSettings(el); break;
+  }
+}
 
-  function fmt$(v) { if (v == null) return '$0'; return '$' + Number(v).toLocaleString(undefined, {maximumFractionDigits:0}); }
-  function fmtN(v) { return Number(v || 0).toLocaleString(); }
-  function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }); }
-  function stageBadge(s) { return `<span class="badge badge-${s}">${STAGE_LABELS[s] || s}</span>`; }
-  function escHtml(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+// ==================== SIDEBAR STATS ====================
+async function updateSidebarStats() {
+  try {
+    var results = await Promise.all([
+      sb.from('crm_leads').select('*', { count: 'exact', head: true }),
+      sb.from('crm_leads').select('*', { count: 'exact', head: true }).eq('stage', 'client')
+    ]);
 
-  // ─── Sidebar Navigation ───
-  const sidebarBtns = document.querySelectorAll('.sidebar-btn');
-  const sections = document.querySelectorAll('.section');
-  let currentSection = 'dashboard';
+    var totalLeads = results[0].count || 0;
+    var clients = results[1].count || 0;
+    var gwpBound = 0;
 
-  sidebarBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const sec = btn.dataset.section;
-      if (sec === currentSection) return;
-      currentSection = sec;
-      sidebarBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      sections.forEach(s => s.classList.remove('active'));
-      document.getElementById('sec-' + sec).classList.add('active');
-      // Lazy load sections
-      if (sec === 'dashboard') loadDashboard();
-      if (sec === 'pipeline') loadPipeline();
-      if (sec === 'leads') loadLeads();
-      if (sec === 'email') loadEmailCampaigns();
-      if (sec === 'sms') loadSmsCampaigns();
-    });
-  });
-
-  // ═══════════════════════════════════════════
-  // ─── DASHBOARD ───
-  // ═══════════════════════════════════════════
-  let dashLoaded = false;
-  async function loadDashboard() {
-    if (dashLoaded) return;
-    const loading = document.getElementById('dash-loading');
-    const content = document.getElementById('dash-content');
     try {
-      const [totalRes, premRes, pipeRes, segRes, stateRes, gwpRes, actRes] = await Promise.all([
-        sb.from('crm_leads').select('id', { count: 'exact', head: true }),
-        sb.from('crm_leads').select('estimated_premium'),
-        sb.rpc('crm_pipeline_stats'),
-        sb.rpc('crm_segment_breakdown'),
-        sb.rpc('crm_state_breakdown'),
-        sb.rpc('crm_gwp_stats'),
-        sb.from('crm_activities').select('*, crm_leads(company_name)').order('created_at', { ascending: false }).limit(20)
-      ]);
-
-      const totalCount = totalRes.count || 0;
-      const totalPremium = (premRes.data || []).reduce((s, r) => s + (Number(r.estimated_premium) || 0), 0);
-
-      // Top stats
-      document.getElementById('dash-top-stats').innerHTML = `
-        <div class="stat-card"><div class="label">Total Leads</div><div class="value">${fmtN(totalCount)}</div></div>
-        <div class="stat-card"><div class="label">Pipeline Value</div><div class="value accent">${fmt$(totalPremium)}</div></div>
-      `;
-
-      // Pipeline by stage
-      const pipeData = pipeRes.data || [];
-      let pipeHtml = '';
-      pipeData.forEach(row => {
-        const stage = row.stage || 'unknown';
-        const count = row.count || row.lead_count || 0;
-        const prem = row.total_premium || row.premium || 0;
-        pipeHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--card-border);">
-          <div>${stageBadge(stage)}</div>
-          <div style="text-align:right;">
-            <span style="font-family:'Space Mono',monospace;font-size:0.85rem;color:#fff;">${fmtN(count)}</span>
-            <span style="font-family:'Space Mono',monospace;font-size:0.7rem;color:var(--text-muted);margin-left:0.5rem;">${fmt$(prem)}</span>
-          </div>
-        </div>`;
-      });
-      document.getElementById('dash-pipeline-stages').innerHTML = pipeHtml || '<div style="color:var(--text-dim);">No data</div>';
-
-      // Segments
-      const segData = segRes.data || [];
-      let segHtml = '';
-      segData.forEach(row => {
-        const seg = row.segment || 'unknown';
-        const count = row.count || row.lead_count || 0;
-        segHtml += `<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--card-border);">
-          <span style="color:var(--text);">${SEGMENT_LABELS[seg] || seg}</span>
-          <span style="font-family:'Space Mono',monospace;color:#fff;">${fmtN(count)}</span>
-        </div>`;
-      });
-      document.getElementById('dash-segments').innerHTML = segHtml || '<div style="color:var(--text-dim);">No data</div>';
-
-      // GWP
-      const gwpData = gwpRes.data;
-      if (gwpData && (Array.isArray(gwpData) ? gwpData.length : true)) {
-        const g = Array.isArray(gwpData) ? gwpData[0] : gwpData;
-        document.getElementById('dash-gwp').innerHTML = `
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-            <div><div style="font-family:'Space Mono',monospace;font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.3rem;">Pipeline GWP</div><div style="font-family:'Space Mono',monospace;font-size:1.3rem;color:#fff;">${fmt$(g.pipeline_gwp || g.pipeline || 0)}</div></div>
-            <div><div style="font-family:'Space Mono',monospace;font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.3rem;">Bound GWP</div><div style="font-family:'Space Mono',monospace;font-size:1.3rem;color:var(--accent);">${fmt$(g.bound_gwp || g.bound || 0)}</div></div>
-          </div>`;
-      } else {
-        document.getElementById('dash-gwp').innerHTML = '<div style="color:var(--text-dim);">No data</div>';
+      var gwpRes = await sb.rpc('crm_gwp_stats');
+      var gwp = gwpRes.data;
+      if (gwp) {
+        if (Array.isArray(gwp) && gwp.length > 0) gwpBound = gwp[0].gwp_bound || 0;
+        else if (gwp.gwp_bound !== undefined) gwpBound = gwp.gwp_bound || 0;
       }
-
-      // States
-      const stateData = stateRes.data || [];
-      let stateHtml = '';
-      stateData.slice(0, 20).forEach((row, i) => {
-        stateHtml += `<div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--card-border);">
-          <span style="color:var(--text);">${i+1}. ${row.state || 'N/A'}</span>
-          <span style="font-family:'Space Mono',monospace;color:#fff;">${fmtN(row.count || row.lead_count || 0)}</span>
-        </div>`;
-      });
-      document.getElementById('dash-states').innerHTML = stateHtml || '<div style="color:var(--text-dim);">No data</div>';
-
-      // Activities
-      const actData = actRes.data || [];
-      let actHtml = '';
-      actData.forEach(a => {
-        const company = a.crm_leads?.company_name || '';
-        actHtml += `<div class="activity-item">
-          <div class="activity-dot"></div>
-          <div>
-            <div class="ai-desc">${escHtml(a.description || a.type)}${company ? ' &mdash; <strong>' + escHtml(company) + '</strong>' : ''}</div>
-            <div class="ai-time">${fmtDate(a.created_at)}</div>
-          </div>
-        </div>`;
-      });
-      document.getElementById('dash-activities').innerHTML = actHtml || '<div style="color:var(--text-dim);">No recent activity</div>';
-
-      dashLoaded = true;
-      loading.style.display = 'none';
-      content.style.display = 'block';
-    } catch (e) {
-      console.error('Dashboard error:', e);
-      loading.innerHTML = '<div style="color:#ef4444;">Error loading dashboard. Check console.</div>';
+    } catch(e) {
+      var clRes = await sb.from('crm_leads').select('estimated_premium').eq('stage', 'client');
+      (clRes.data || []).forEach(function(r) { gwpBound += (r.estimated_premium || 0); });
     }
+
+    document.getElementById('sidebarLeads').textContent = fmtN(totalLeads);
+    document.getElementById('sidebarClients').textContent = fmtN(clients);
+    document.getElementById('sidebarGWP').textContent = fmt$(gwpBound);
+  } catch(e) {
+    console.error('Failed to update sidebar stats:', e);
   }
-  loadDashboard();
+}
 
-  // ═══════════════════════════════════════════
-  // ─── PIPELINE (Kanban) ───
-  // ═══════════════════════════════════════════
-  let pipelineLoaded = false;
-  const pipelineData = {};
-  const pipelineOffsets = {};
+// ==================== GLOBAL SEARCH ====================
+var searchTimeout;
+document.getElementById('globalSearch').addEventListener('input', function(e) {
+  clearTimeout(searchTimeout);
+  var q = e.target.value.trim();
+  if (q.length < 2) {
+    document.getElementById('searchResults').classList.remove('active');
+    return;
+  }
+  searchTimeout = setTimeout(function() { doSearch(q); }, 300);
+});
 
-  async function loadPipeline() {
-    if (pipelineLoaded) return;
-    const loading = document.getElementById('pipeline-loading');
-    const board = document.getElementById('kanban-board');
+async function doSearch(q) {
+  var res = await sb.from('crm_leads')
+    .select('*')
+    .or('company_name.ilike.%' + q + '%,contact_name.ilike.%' + q + '%,dot_number.ilike.%' + q + '%,phone.ilike.%' + q + '%')
+    .limit(10);
 
-    // Build columns
-    let boardHtml = '';
-    STAGES.forEach(stage => {
-      boardHtml += `
-        <div class="kanban-col" data-stage="${stage}">
-          <div class="kanban-col-header">
-            <div class="col-title" style="color:var(--stage-${stage.replace('_','-')})">${STAGE_LABELS[stage]}</div>
-            <div class="col-stats" id="kstat-${stage}">Loading...</div>
-          </div>
-          <div class="kanban-col-body" id="kcol-${stage}" data-stage="${stage}"></div>
-          <div class="kanban-load-more"><button class="btn btn-secondary btn-sm" id="kmore-${stage}">Load More</button></div>
-        </div>`;
-    });
-    board.innerHTML = boardHtml;
+  var data = res.data;
+  var el = document.getElementById('searchResults');
+  if (!data || data.length === 0) {
+    el.innerHTML = '<div class="search-result-item"><div class="company">No results found</div></div>';
+  } else {
+    el.innerHTML = data.map(function(l) {
+      return '<div class="search-result-item" onclick="openLeadDetail(' + l.id + ')">' +
+        '<div class="company">' + escHtml(l.company_name) + '</div>' +
+        '<div class="details">' + escHtml(l.contact_name) + ' | ' + escHtml(l.phone) + ' | ' + escHtml(l.state) + ' | ' + stageLabel(l.stage) + '</div>' +
+      '</div>';
+    }).join('');
+  }
+  el.classList.add('active');
+}
 
-    // Load each column
-    await Promise.all(STAGES.map(s => loadKanbanColumn(s, 0)));
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.search-container')) {
+    document.getElementById('searchResults').classList.remove('active');
+  }
+});
 
-    // Setup drag/drop
-    STAGES.forEach(stage => {
-      const col = document.getElementById('kcol-' + stage);
-      col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
-      col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
-      col.addEventListener('drop', async e => {
-        e.preventDefault();
-        col.classList.remove('drag-over');
-        const leadId = e.dataTransfer.getData('text/plain');
-        const fromStage = e.dataTransfer.getData('from-stage');
-        if (fromStage === stage) return;
-        // Update in Supabase
-        const { error } = await sb.from('crm_leads').update({ stage, stage_changed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', leadId);
-        if (error) { console.error(error); alert('Failed to update stage'); return; }
-        // Log activity
-        await sb.from('crm_activities').insert({ lead_id: leadId, type: 'stage_change', description: `Stage changed from ${STAGE_LABELS[fromStage]} to ${STAGE_LABELS[stage]}` });
-        // Reload both columns
-        pipelineData[fromStage] = [];
-        pipelineData[stage] = [];
-        pipelineOffsets[fromStage] = 0;
-        pipelineOffsets[stage] = 0;
-        await Promise.all([loadKanbanColumn(fromStage, 0), loadKanbanColumn(stage, 0)]);
-      });
+// ==================== DASHBOARD ====================
+async function renderDashboard(el) {
+  el.innerHTML = '<div class="empty-state">Loading dashboard...</div>';
 
-      document.getElementById('kmore-' + stage).addEventListener('click', () => {
-        const offset = pipelineOffsets[stage] || 0;
-        loadKanbanColumn(stage, offset, true);
-      });
-    });
+  var twentyFourAgo = new Date(Date.now() - 86400000).toISOString();
 
-    pipelineLoaded = true;
-    loading.style.display = 'none';
-    board.style.display = 'grid';
+  var results = await Promise.all([
+    sb.from('crm_leads').select('*', { count: 'exact', head: true }),
+    sb.from('crm_leads').select('*', { count: 'exact', head: true }).eq('stage', 'client'),
+    sb.from('crm_calls').select('*', { count: 'exact', head: true }).gte('created_at', twentyFourAgo),
+    sb.from('crm_email_sends').select('*', { count: 'exact', head: true }).gte('created_at', twentyFourAgo)
+  ]);
+
+  var totalLeads = results[0].count || 0;
+  var boundPolicies = results[1].count || 0;
+  var recentCalls = results[2].count || 0;
+  var recentEmails = results[3].count || 0;
+
+  var gwpBound = 0, gwpPipeline = 0, pipelineData = [], segmentData = [], stateData = [];
+
+  // GWP stats
+  try {
+    var gwpRes = await sb.rpc('crm_gwp_stats');
+    var gwp = gwpRes.data;
+    if (gwp) {
+      if (Array.isArray(gwp) && gwp.length > 0) {
+        gwpBound = parseFloat(gwp[0].gwp_bound) || 0;
+        gwpPipeline = parseFloat(gwp[0].gwp_pipeline) || 0;
+      } else if (gwp.gwp_bound !== undefined) {
+        gwpBound = parseFloat(gwp.gwp_bound) || 0;
+        gwpPipeline = parseFloat(gwp.gwp_pipeline) || 0;
+      }
+    }
+  } catch(e) {
+    try {
+      var clRes = await sb.from('crm_leads').select('estimated_premium').eq('stage', 'client');
+      (clRes.data || []).forEach(function(r) { gwpBound += (r.estimated_premium || 0); });
+      var plRes = await sb.from('crm_leads').select('estimated_premium').in('stage', ['quote_submitted', 'quote_ready']);
+      (plRes.data || []).forEach(function(r) { gwpPipeline += (r.estimated_premium || 0); });
+    } catch(e2) {}
   }
 
-  async function loadKanbanColumn(stage, offset, append) {
-    if (!offset) offset = 0;
-    const limit = 20;
-    const { data, error, count } = await sb.from('crm_leads')
-      .select('id, company_name, contact_name, trucks, lead_score, estimated_premium, stage', { count: 'exact' })
-      .eq('stage', stage)
-      .order('lead_score', { ascending: false, nullsFirst: false })
-      .range(offset, offset + limit - 1);
+  // Pipeline stats
+  try {
+    var pipRes = await sb.rpc('crm_pipeline_stats');
+    pipelineData = pipRes.data || [];
+  } catch(e) {}
 
-    if (error) { console.error(error); return; }
+  // Segment breakdown
+  try {
+    var segRes = await sb.rpc('crm_segment_breakdown');
+    segmentData = segRes.data || [];
+  } catch(e) {}
 
-    const total = count || 0;
-    const totalPrem = 0; // We'll calc from stats
-    document.getElementById('kstat-' + stage).textContent = `${total} leads`;
+  // State breakdown
+  try {
+    var stRes = await sb.rpc('crm_state_breakdown');
+    stateData = stRes.data || [];
+  } catch(e) {}
 
-    if (!append) {
-      pipelineData[stage] = data || [];
-      pipelineOffsets[stage] = (data || []).length;
+  // Recent activity
+  var actRes = await sb.from('crm_activities').select('*').order('created_at', { ascending: false }).limit(20);
+  var recentActivity = actRes.data || [];
+
+  var gwpTarget = 10000000;
+  var boundPct = Math.min((gwpBound / gwpTarget) * 100, 100);
+  var pipePct = Math.min(((gwpBound + gwpPipeline) / gwpTarget) * 100, 100);
+
+  // Build stage map
+  var stageMap = {};
+  STAGES.forEach(function(s) { stageMap[s.key] = { count: 0, premium: 0 }; });
+  (pipelineData || []).forEach(function(p) {
+    if (stageMap[p.stage]) {
+      stageMap[p.stage].count = parseInt(p.count) || 0;
+      stageMap[p.stage].premium = parseFloat(p.total_premium) || 0;
+    }
+  });
+
+  // Top states (top 10)
+  var topStates = (stateData || []).slice(0, 10);
+  var maxStateCount = topStates.length > 0 ? Math.max.apply(null, topStates.map(function(s) { return parseInt(s.count) || 0; })) : 1;
+
+  // Segments
+  var maxSegCount = segmentData.length > 0 ? Math.max.apply(null, segmentData.map(function(s) { return parseInt(s.count) || 0; })) : 1;
+
+  var html = '';
+  html += '<div class="page-header">';
+  html += '<h2>Dashboard</h2>';
+  html += '<p>AIIS $10M GWP Tracking &mdash; Target: 820 policies, $10M GWP, $1M commission</p>';
+  html += '</div>';
+
+  // GWP Progress
+  html += '<div class="gwp-progress-section">';
+  html += '<h3>Path to $10M GWP</h3>';
+  html += '<div class="progress-bar">';
+  html += '<div class="progress-fill" style="width: ' + boundPct + '%"></div>';
+  html += '<div class="progress-fill-pipeline" style="left: ' + boundPct + '%; width: ' + Math.max(pipePct - boundPct, 0) + '%"></div>';
+  html += '</div>';
+  html += '<div class="progress-labels">';
+  html += '<span class="bound">Bound: ' + fmt$(gwpBound) + ' (' + boundPct.toFixed(1) + '%)</span>';
+  html += '<span class="pipeline">Pipeline: ' + fmt$(gwpPipeline) + '</span>';
+  html += '<span class="target">Target: ' + fmt$(gwpTarget) + '</span>';
+  html += '</div></div>';
+
+  // KPI Grid
+  html += '<div class="kpi-grid">';
+  html += '<div class="kpi-card highlighted"><div class="kpi-label">Total Leads</div><div class="kpi-value">' + fmtN(totalLeads) + '</div><div class="kpi-sub">In database</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Bound Policies</div><div class="kpi-value">' + fmtN(boundPolicies) + '</div><div class="kpi-sub">Active clients</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">GWP Bound</div><div class="kpi-value">' + fmt$(gwpBound) + '</div><div class="kpi-sub">' + boundPct.toFixed(1) + '% of target</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Pipeline Value</div><div class="kpi-value">' + fmt$(gwpPipeline) + '</div><div class="kpi-sub">Quotes in progress</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Calls (24h)</div><div class="kpi-value">' + fmtN(recentCalls) + '</div><div class="kpi-sub">Last 24 hours</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Emails (24h)</div><div class="kpi-value">' + fmtN(recentEmails) + '</div><div class="kpi-sub">Last 24 hours</div></div>';
+  html += '</div>';
+
+  // Pipeline Overview
+  html += '<h3 style="font-size:16px; margin-bottom:12px;">Pipeline Overview</h3>';
+  html += '<div class="pipeline-grid">';
+  STAGES.forEach(function(s) {
+    var sm = stageMap[s.key];
+    html += '<div class="pipeline-stage-card" style="border-top-color: ' + stageRawColor(s.key) + '">';
+    html += '<div class="stage-name" style="color: ' + stageRawColor(s.key) + '">' + s.label + '</div>';
+    html += '<div class="stage-count">' + fmtN(sm.count) + '</div>';
+    html += '<div class="stage-premium">' + fmt$(sm.premium) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // Charts
+  html += '<div class="chart-row">';
+
+  // States chart
+  html += '<div class="chart-card"><h3>Top States by Lead Volume</h3><div class="bar-chart">';
+  if (topStates.length === 0) {
+    html += '<div class="empty-state">No state data</div>';
+  } else {
+    topStates.forEach(function(s) {
+      var cnt = parseInt(s.count) || 0;
+      var pct = (cnt / maxStateCount * 100);
+      html += '<div class="bar-row">';
+      html += '<div class="bar-label">' + escHtml(s.state || 'N/A') + '</div>';
+      html += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>';
+      html += '<div class="bar-value">' + cnt + '</div>';
+      html += '</div>';
+    });
+  }
+  html += '</div></div>';
+
+  // Segments chart
+  html += '<div class="chart-card"><h3>Segment Breakdown</h3><div class="bar-chart">';
+  if (segmentData.length === 0) {
+    html += '<div class="empty-state">No segment data</div>';
+  } else {
+    segmentData.forEach(function(s) {
+      var cnt = parseInt(s.count) || 0;
+      var pct = (cnt / maxSegCount * 100);
+      html += '<div class="bar-row">';
+      html += '<div class="bar-label">' + escHtml(s.segment || 'N/A') + '</div>';
+      html += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%; background:var(--info);"></div></div>';
+      html += '<div class="bar-value">' + cnt + '</div>';
+      html += '</div>';
+    });
+  }
+  html += '</div></div>';
+  html += '</div>';
+
+  // Recent Activity
+  html += '<div class="activity-section"><h3>Recent Activity</h3>';
+  if (recentActivity.length === 0) {
+    html += '<div class="empty-state">No recent activity</div>';
+  } else {
+    recentActivity.forEach(function(a) {
+      var icon = a.type === 'call' ? '&#x1F4DE;' : a.type === 'email' ? '&#x1F4E7;' : a.type === 'sms' ? '&#x1F4AC;' : '&#x1F4DD;';
+      html += '<div class="activity-item">';
+      html += '<div class="activity-icon">' + icon + '</div>';
+      html += '<div class="activity-text"><div class="desc">' + escHtml(a.description || a.type) + '</div>';
+      html += '<div class="activity-time">' + timeAgo(a.created_at) + '</div></div>';
+      html += '</div>';
+    });
+  }
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+// ==================== PIPELINE BOARD ====================
+async function renderPipeline(el) {
+  el.innerHTML = '<div class="empty-state">Loading pipeline...</div>';
+
+  var columns = await Promise.all(STAGES.map(async function(s) {
+    var res = await sb.from('crm_leads').select('*').eq('stage', s.key).order('lead_score', { ascending: false }).limit(25);
+    return { stage: s, leads: res.data || [] };
+  }));
+
+  var html = '<div class="page-header"><h2>Pipeline Board</h2><p>Drag and drop leads between stages</p></div>';
+  html += '<div class="pipeline-board">';
+
+  columns.forEach(function(col) {
+    html += '<div class="pipeline-column">';
+    html += '<div class="pipeline-column-header" style="border-top-color: ' + stageRawColor(col.stage.key) + '">';
+    html += '<span class="col-title" style="color: ' + stageRawColor(col.stage.key) + '">' + col.stage.label + '</span>';
+    html += '<span class="col-count">' + col.leads.length + '</span>';
+    html += '</div>';
+    html += '<div class="pipeline-column-body" data-stage="' + col.stage.key + '">';
+
+    if (col.leads.length === 0) {
+      html += '<div class="empty-state">No leads</div>';
     } else {
-      pipelineData[stage] = (pipelineData[stage] || []).concat(data || []);
-      pipelineOffsets[stage] = (pipelineOffsets[stage] || 0) + (data || []).length;
-    }
-
-    const col = document.getElementById('kcol-' + stage);
-    if (!append) col.innerHTML = '';
-
-    (data || []).forEach(lead => {
-      const card = document.createElement('div');
-      card.className = 'kanban-card';
-      card.draggable = true;
-      card.dataset.id = lead.id;
-      card.innerHTML = `
-        <div class="kc-company">${escHtml(lead.company_name)}</div>
-        <div class="kc-contact">${escHtml(lead.contact_name)}</div>
-        <div class="kc-meta">
-          <span>${lead.trucks || 0} trucks &middot; Score: ${lead.lead_score || 0}</span>
-          <span class="premium">${fmt$(lead.estimated_premium)}</span>
-        </div>`;
-      card.addEventListener('dragstart', e => {
-        e.dataTransfer.setData('text/plain', lead.id);
-        e.dataTransfer.setData('from-stage', stage);
-        card.classList.add('dragging');
+      col.leads.forEach(function(l) {
+        html += '<div class="pipeline-card" draggable="true" data-id="' + l.id + '" onclick="openLeadDetail(' + l.id + ')">';
+        html += '<div class="card-company">' + escHtml(l.company_name || 'Unknown') + '</div>';
+        html += '<div class="card-contact">' + escHtml(l.contact_name) + '</div>';
+        html += '<div class="card-meta"><span class="trucks">&#x1F69B; ' + (l.trucks || l.power_units || 0) + '</span><span>' + escHtml(l.state) + '</span></div>';
+        if (l.segment) html += '<span class="badge badge-segment" style="margin-top:6px;">' + escHtml(l.segment) + '</span>';
+        html += '<div class="card-meta" style="margin-top:6px;"><span class="premium">' + fmt$(l.estimated_premium) + '</span></div>';
+        html += '</div>';
       });
-      card.addEventListener('dragend', () => card.classList.remove('dragging'));
-      card.addEventListener('click', () => openLeadModal(lead.id));
-      col.appendChild(card);
-    });
-
-    // Hide load more if all loaded
-    const moreBtn = document.getElementById('kmore-' + stage);
-    if ((pipelineOffsets[stage] || 0) >= total) {
-      moreBtn.style.display = 'none';
-    } else {
-      moreBtn.style.display = '';
-    }
-  }
-
-  // ═══════════════════════════════════════════
-  // ─── LEADS LIST ───
-  // ═══════════════════════════════════════════
-  let leadsPage = 0;
-  const LEADS_PER_PAGE = 50;
-  let leadsTotal = 0;
-
-  async function loadLeads() {
-    const loading = document.getElementById('leads-loading');
-    const tbody = document.getElementById('leads-tbody');
-    loading.style.display = 'flex';
-    tbody.innerHTML = '';
-
-    const search = document.getElementById('leads-search').value.trim();
-    const stage = document.getElementById('leads-filter-stage').value;
-    const segment = document.getElementById('leads-filter-segment').value;
-    const state = document.getElementById('leads-filter-state').value.trim();
-
-    let query = sb.from('crm_leads')
-      .select('id, company_name, contact_name, phone, email, state, trucks, stage, lead_score, estimated_premium, dot_number', { count: 'exact' });
-
-    if (stage) query = query.eq('stage', stage);
-    if (segment) query = query.eq('segment', segment);
-    if (state) query = query.ilike('state', state);
-    if (search) {
-      query = query.or(`company_name.ilike.%${search}%,contact_name.ilike.%${search}%,dot_number.ilike.%${search}%`);
     }
 
-    query = query.order('created_at', { ascending: false })
-      .range(leadsPage * LEADS_PER_PAGE, (leadsPage + 1) * LEADS_PER_PAGE - 1);
+    html += '</div></div>';
+  });
 
-    const { data, error, count } = await query;
-    loading.style.display = 'none';
+  html += '</div>';
+  el.innerHTML = html;
 
-    if (error) { console.error(error); return; }
-    leadsTotal = count || 0;
+  // Attach drag events
+  setupDragAndDrop();
+}
 
-    (data || []).forEach(lead => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${escHtml(lead.company_name)}</td>
-        <td>${escHtml(lead.contact_name)}</td>
-        <td style="font-family:'Space Mono',monospace;font-size:0.8rem;">${escHtml(lead.phone)}</td>
-        <td>${escHtml(lead.email)}</td>
-        <td>${escHtml(lead.state)}</td>
-        <td>${lead.trucks || 0}</td>
-        <td>${stageBadge(lead.stage)}</td>
-        <td>${lead.lead_score || 0}</td>
-        <td style="font-family:'Space Mono',monospace;color:var(--accent);">${fmt$(lead.estimated_premium)}</td>`;
-      tr.addEventListener('click', () => openLeadModal(lead.id));
-      tbody.appendChild(tr);
+var draggedLeadId = null;
+
+function setupDragAndDrop() {
+  document.querySelectorAll('.pipeline-card[draggable]').forEach(function(card) {
+    card.addEventListener('dragstart', function(e) {
+      draggedLeadId = parseInt(card.dataset.id);
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
     });
-
-    const totalPages = Math.ceil(leadsTotal / LEADS_PER_PAGE) || 1;
-    document.getElementById('leads-page-info').textContent = `Page ${leadsPage + 1} of ${totalPages} (${fmtN(leadsTotal)} leads)`;
-    document.getElementById('leads-prev').disabled = leadsPage === 0;
-    document.getElementById('leads-next').disabled = (leadsPage + 1) * LEADS_PER_PAGE >= leadsTotal;
-  }
-
-  document.getElementById('leads-search-btn').addEventListener('click', () => { leadsPage = 0; loadLeads(); });
-  document.getElementById('leads-search').addEventListener('keydown', e => { if (e.key === 'Enter') { leadsPage = 0; loadLeads(); } });
-  document.getElementById('leads-prev').addEventListener('click', () => { if (leadsPage > 0) { leadsPage--; loadLeads(); } });
-  document.getElementById('leads-next').addEventListener('click', () => { if ((leadsPage + 1) * LEADS_PER_PAGE < leadsTotal) { leadsPage++; loadLeads(); } });
-  // Initial load
-  loadLeads();
-
-  // ═══════════════════════════════════════════
-  // ─── LEAD DETAIL MODAL ───
-  // ═══════════════════════════════════════════
-  let currentLeadId = null;
-
-  async function openLeadModal(id) {
-    currentLeadId = id;
-    const modal = document.getElementById('lead-modal');
-    modal.classList.add('open');
-
-    // Reset tabs
-    document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.modal-tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelector('.modal-tab[data-tab="details"]').classList.add('active');
-    document.getElementById('tab-details').classList.add('active');
-
-    // Fetch lead
-    const { data: lead, error } = await sb.from('crm_leads').select('*').eq('id', id).single();
-    if (error || !lead) { console.error(error); return; }
-
-    document.getElementById('modal-title').textContent = lead.company_name || 'Lead Details';
-
-    const fields = [
-      ['Company', lead.company_name], ['DBA', lead.dba_name],
-      ['Contact', lead.contact_name], ['Contact 2', lead.contact_name_2],
-      ['Phone', lead.phone], ['Cell', lead.cell_phone],
-      ['Email', lead.email], ['DOT#', lead.dot_number],
-      ['Address', lead.address], ['City', lead.city],
-      ['State', lead.state], ['ZIP', lead.zip],
-      ['Trucks', lead.trucks], ['Power Units', lead.power_units],
-      ['Segment', SEGMENT_LABELS[lead.segment] || lead.segment], ['Score', lead.lead_score],
-      ['Est. Premium', fmt$(lead.estimated_premium)], ['Tags', lead.tags],
-      ['Created', fmtDate(lead.created_at)], ['Last Contacted', fmtDate(lead.last_contacted_at)]
-    ];
-
-    let fHtml = '';
-    fields.forEach(([label, val]) => {
-      fHtml += `<div class="modal-field"><div class="field-label">${label}</div><div class="field-value">${escHtml(String(val || '-'))}</div></div>`;
-    });
-    document.getElementById('modal-fields').innerHTML = fHtml;
-
-    document.getElementById('modal-stage').value = lead.stage || 'prospect';
-    document.getElementById('modal-notes').value = lead.notes || '';
-    document.getElementById('modal-dnc').checked = !!lead.do_not_call;
-    document.getElementById('modal-dne').checked = !!lead.do_not_email;
-    document.getElementById('modal-dnt').checked = !!lead.do_not_text;
-
-    // Load activities
-    const { data: activities } = await sb.from('crm_activities').select('*').eq('lead_id', id).order('created_at', { ascending: false }).limit(50);
-    let aHtml = '';
-    (activities || []).forEach(a => {
-      aHtml += `<div class="activity-item"><div class="activity-dot"></div><div><div class="ai-desc">${escHtml(a.description || a.type)}</div><div class="ai-time">${fmtDate(a.created_at)}</div></div></div>`;
-    });
-    document.getElementById('modal-activities').innerHTML = aHtml || '<div style="color:var(--text-dim);padding:1rem;">No activities</div>';
-
-    // Load calls
-    const { data: calls } = await sb.from('crm_calls').select('*').eq('lead_id', id).order('created_at', { ascending: false }).limit(50);
-    let cHtml = '';
-    (calls || []).forEach(c => {
-      cHtml += `<tr>
-        <td>${fmtDate(c.created_at)}</td>
-        <td>${escHtml(c.direction)}</td>
-        <td>${escHtml(c.status)}</td>
-        <td>${c.duration_seconds ? c.duration_seconds + 's' : '-'}</td>
-        <td>${escHtml(c.outcome)}</td>
-        <td>${escHtml(c.notes)}</td>
-      </tr>`;
-    });
-    document.getElementById('modal-calls-tbody').innerHTML = cHtml || '<tr><td colspan="6" style="color:var(--text-dim);text-align:center;padding:1rem;">No calls</td></tr>';
-  }
-
-  // Modal tabs
-  document.querySelectorAll('.modal-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.modal-tab-content').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    card.addEventListener('dragend', function() {
+      card.classList.remove('dragging');
     });
   });
 
-  // Close modal
-  document.getElementById('modal-close-btn').addEventListener('click', () => {
-    document.getElementById('lead-modal').classList.remove('open');
-    currentLeadId = null;
+  document.querySelectorAll('.pipeline-column-body').forEach(function(body) {
+    body.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      body.classList.add('drag-over');
+    });
+    body.addEventListener('dragleave', function() {
+      body.classList.remove('drag-over');
+    });
+    body.addEventListener('drop', function(e) {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      var newStage = body.dataset.stage;
+      if (draggedLeadId && newStage) {
+        handleDrop(draggedLeadId, newStage);
+      }
+    });
   });
-  document.getElementById('lead-modal').addEventListener('click', e => {
-    if (e.target === e.currentTarget) {
-      document.getElementById('lead-modal').classList.remove('open');
-      currentLeadId = null;
-    }
+}
+
+async function handleDrop(leadId, newStage) {
+  var res = await sb.from('crm_leads').update({ stage: newStage, updated_at: new Date().toISOString() }).eq('id', leadId);
+  if (res.error) { toast('Failed to update stage', 'error'); return; }
+
+  await sb.from('crm_activities').insert({ lead_id: leadId, type: 'stage_change', description: 'Stage changed to ' + stageLabel(newStage) });
+  toast('Moved to ' + stageLabel(newStage));
+  draggedLeadId = null;
+  await renderPipeline(document.getElementById('pageContent'));
+  updateSidebarStats();
+}
+
+// ==================== ALL LEADS ====================
+async function renderLeads(el) {
+  el.innerHTML = '<div class="empty-state">Loading leads...</div>';
+
+  var limit = 50;
+  var offset = leadsPage * limit;
+
+  var query = sb.from('crm_leads').select('*', { count: 'exact' });
+  if (leadsFilter.stage) query = query.eq('stage', leadsFilter.stage);
+  if (leadsFilter.segment) query = query.eq('segment', leadsFilter.segment);
+  if (leadsFilter.search) query = query.or('company_name.ilike.%' + leadsFilter.search + '%,contact_name.ilike.%' + leadsFilter.search + '%');
+
+  var res = await query.order('lead_score', { ascending: false }).range(offset, offset + limit - 1);
+  var leads = res.data || [];
+  var count = res.count || 0;
+  var totalPages = Math.ceil(count / limit) || 1;
+
+  var html = '<div class="page-header"><h2>All Leads</h2><p>' + fmtN(count) + ' leads found</p></div>';
+
+  // Filter bar
+  html += '<div class="filter-bar">';
+  html += '<select id="filterStage" onchange="leadsFilter.stage=this.value; leadsPage=0; renderLeads(document.getElementById(\'pageContent\'))">';
+  html += '<option value="">All Stages</option>';
+  STAGES.forEach(function(s) {
+    html += '<option value="' + s.key + '"' + (leadsFilter.stage === s.key ? ' selected' : '') + '>' + s.label + '</option>';
   });
+  html += '</select>';
 
-  // Save lead
-  document.getElementById('modal-save-btn').addEventListener('click', async () => {
-    if (!currentLeadId) return;
-    const updates = {
-      stage: document.getElementById('modal-stage').value,
-      notes: document.getElementById('modal-notes').value,
-      do_not_call: document.getElementById('modal-dnc').checked,
-      do_not_email: document.getElementById('modal-dne').checked,
-      do_not_text: document.getElementById('modal-dnt').checked,
-      updated_at: new Date().toISOString()
-    };
-    const { error } = await sb.from('crm_leads').update(updates).eq('id', currentLeadId);
-    if (error) { alert('Error saving: ' + error.message); return; }
-    await sb.from('crm_activities').insert({ lead_id: currentLeadId, type: 'lead_updated', description: 'Lead details updated' });
-    alert('Saved successfully!');
-    // Refresh data
-    pipelineLoaded = false;
-    dashLoaded = false;
+  html += '<select id="filterSegment" onchange="leadsFilter.segment=this.value; leadsPage=0; renderLeads(document.getElementById(\'pageContent\'))">';
+  html += '<option value="">All Segments</option>';
+  ['long_haul','short_haul','local','specialized','intermodal','hotshot'].forEach(function(seg) {
+    html += '<option value="' + seg + '"' + (leadsFilter.segment === seg ? ' selected' : '') + '>' + seg.replace(/_/g,' ') + '</option>';
   });
+  html += '</select>';
 
-  // ═══════════════════════════════════════════
-  // ─── PARALLEL DIALER ───
-  // ═══════════════════════════════════════════
-  let dialerActive = false;
-  let dialerSessionId = null;
-  let dialerStats = { total: 0, connected: 0 };
-  let dialerUsedIds = new Set();
-  const lineLeads = [null, null, null];
+  html += '<input type="text" placeholder="Search leads..." value="' + escHtml(leadsFilter.search) + '" id="leadsSearchInput">';
+  html += '</div>';
 
-  document.getElementById('dialer-start-btn').addEventListener('click', startDialer);
-  document.getElementById('dialer-stop-btn').addEventListener('click', stopDialer);
+  // Table
+  html += '<div class="leads-table-container"><table class="leads-table"><thead><tr>';
+  html += '<th>Company</th><th>Contact</th><th>Phone</th><th>State</th><th>Trucks</th><th>Stage</th><th>Segment</th><th>Score</th><th>Est. Premium</th><th>Actions</th>';
+  html += '</tr></thead><tbody>';
 
-  async function startDialer() {
-    dialerActive = true;
-    dialerStats = { total: 0, connected: 0 };
-    dialerUsedIds = new Set();
-    document.getElementById('dialer-start-btn').style.display = 'none';
-    document.getElementById('dialer-stop-btn').style.display = '';
-    document.getElementById('ds-status').textContent = 'ACTIVE';
-    document.getElementById('ds-status').style.color = 'var(--accent)';
-
-    // Create session
-    const { data: sess } = await sb.from('crm_dialer_sessions').insert({ status: 'active', lines_active: 3, total_calls: 0, connected_calls: 0 }).select().single();
-    if (sess) dialerSessionId = sess.id;
-
-    // Load 3 leads
-    await Promise.all([loadDialerLine(0), loadDialerLine(1), loadDialerLine(2)]);
+  if (leads.length === 0) {
+    html += '<tr><td colspan="10" class="empty-state">No leads found</td></tr>';
+  } else {
+    leads.forEach(function(l) {
+      var sc = stageRawColor(l.stage);
+      html += '<tr>';
+      html += '<td style="font-weight:600; cursor:pointer;" onclick="openLeadDetail(' + l.id + ')">' + escHtml(l.company_name || 'Unknown') + '</td>';
+      html += '<td>' + escHtml(l.contact_name) + '</td>';
+      html += '<td>' + escHtml(l.phone) + '</td>';
+      html += '<td>' + escHtml(l.state) + '</td>';
+      html += '<td>' + (l.trucks || l.power_units || 0) + '</td>';
+      html += '<td><span class="badge badge-stage" style="background:' + sc + '20; color:' + sc + '">' + stageLabel(l.stage) + '</span></td>';
+      html += '<td>' + (l.segment ? '<span class="badge badge-segment">' + escHtml(l.segment) + '</span>' : '') + '</td>';
+      html += '<td>' + (l.lead_score || 0) + '</td>';
+      html += '<td>' + fmt$(l.estimated_premium) + '</td>';
+      html += '<td><button class="btn btn-sm btn-secondary" onclick="openLeadDetail(' + l.id + ')">View</button></td>';
+      html += '</tr>';
+    });
   }
 
-  function stopDialer() {
-    dialerActive = false;
-    document.getElementById('dialer-start-btn').style.display = '';
-    document.getElementById('dialer-stop-btn').style.display = 'none';
-    document.getElementById('ds-status').textContent = 'IDLE';
-    document.getElementById('ds-status').style.color = '';
+  html += '</tbody></table>';
 
-    if (dialerSessionId) {
-      sb.from('crm_dialer_sessions').update({ status: 'completed', total_calls: dialerStats.total, connected_calls: dialerStats.connected }).eq('id', dialerSessionId);
-    }
+  // Pagination
+  html += '<div class="pagination">';
+  html += '<div class="info">Page ' + (leadsPage + 1) + ' of ' + totalPages + ' (' + fmtN(count) + ' leads)</div>';
+  html += '<div class="buttons">';
+  html += '<button class="btn btn-sm btn-secondary" onclick="leadsPage=Math.max(0,leadsPage-1); renderLeads(document.getElementById(\'pageContent\'))"' + (leadsPage === 0 ? ' disabled' : '') + '>&larr; Prev</button>';
+  html += '<button class="btn btn-sm btn-secondary" onclick="leadsPage++; renderLeads(document.getElementById(\'pageContent\'))"' + (leadsPage >= totalPages - 1 ? ' disabled' : '') + '>Next &rarr;</button>';
+  html += '</div></div></div>';
 
-    for (let i = 0; i < 3; i++) {
-      lineLeads[i] = null;
-      renderDialerLine(i, null);
-    }
+  el.innerHTML = html;
+
+  // Attach search listener
+  var searchInput = document.getElementById('leadsSearchInput');
+  if (searchInput) {
+    var leadsSearchTimer;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(leadsSearchTimer);
+      var val = searchInput.value;
+      leadsSearchTimer = setTimeout(function() {
+        leadsFilter.search = val;
+        leadsPage = 0;
+        renderLeads(document.getElementById('pageContent'));
+      }, 400);
+    });
+  }
+}
+
+// ==================== PARALLEL DIALER ====================
+async function renderDialer(el) {
+  var html = '<div class="page-header"><h2>Parallel Dialer</h2><p>Power dial through leads with 3 simultaneous lines</p></div>';
+
+  html += '<div class="dialer-controls">';
+  html += '<select id="dialerSegment"><option value="">All Segments</option>';
+  ['long_haul','short_haul','local','specialized','intermodal','hotshot'].forEach(function(seg) {
+    html += '<option value="' + seg + '">' + seg.replace(/_/g,' ') + '</option>';
+  });
+  html += '</select>';
+
+  html += '<select id="dialerStage"><option value="">All Stages</option>';
+  STAGES.forEach(function(s) { html += '<option value="' + s.key + '">' + s.label + '</option>'; });
+  html += '</select>';
+
+  html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">&#x25B6; Start Dialing</button>';
+  html += '<button class="btn btn-danger" id="dialerStopBtn" onclick="stopDialer()" style="display:none;">&#x23F9; Stop</button>';
+  html += '</div>';
+
+  html += '<div class="dialer-layout"><div><div class="dialer-lines" id="dialerLines">';
+
+  for (var n = 1; n <= 3; n++) {
+    html += '<div class="dialer-line" id="dialerLine' + n + '">';
+    html += '<div class="line-header"><span class="line-number">Line ' + n + '</span><span class="line-status" id="lineStatus' + n + '">Idle</span></div>';
+    html += '<div class="lead-name" id="lineName' + n + '">&mdash;</div>';
+    html += '<div class="lead-company" id="lineCompany' + n + '">Waiting...</div>';
+    html += '<div class="lead-phone" id="linePhone' + n + '">&mdash;</div>';
+    html += '<div class="lead-details" id="lineDetails' + n + '">&mdash;</div>';
+    html += '<div class="outcome-buttons" id="lineOutcomes' + n + '" style="display:none;">';
+    html += '<button class="outcome-btn connected" onclick="dialOutcome(' + n + ', \'connected\')">&#x2713; Connected</button>';
+    html += '<button class="outcome-btn no-answer" onclick="dialOutcome(' + n + ', \'no_answer\')">&#x2717; No Answer</button>';
+    html += '<button class="outcome-btn voicemail" onclick="dialOutcome(' + n + ', \'voicemail\')">&#x1F4E9; Voicemail</button>';
+    html += '<button class="outcome-btn busy" onclick="dialOutcome(' + n + ', \'busy\')">&#x1F534; Busy</button>';
+    html += '</div>';
+    html += '<div class="connected-form" id="lineForm' + n + '">';
+    html += '<select id="lineOutcomeSelect' + n + '">';
+    html += '<option value="interested">Interested</option><option value="callback">Callback Requested</option>';
+    html += '<option value="not_interested">Not Interested</option><option value="wrong_number">Wrong Number</option>';
+    html += '</select>';
+    html += '<textarea id="lineNotes' + n + '" placeholder="Call notes..."></textarea>';
+    html += '<button class="btn btn-primary btn-sm" onclick="saveCallResult(' + n + ')">Save &amp; Next</button>';
+    html += '</div></div>';
   }
 
-  async function loadDialerLine(lineIdx) {
-    if (!dialerActive) return;
-    const segment = document.getElementById('dialer-segment').value;
-    const stage = document.getElementById('dialer-stage').value;
-    const state = document.getElementById('dialer-state').value.trim();
+  html += '</div></div>';
 
-    let query = sb.from('crm_leads')
-      .select('id, company_name, contact_name, phone, stage, do_not_call')
-      .eq('do_not_call', false);
+  // Sidebar
+  html += '<div class="dialer-sidebar">';
 
-    if (segment) query = query.eq('segment', segment);
-    if (stage) query = query.eq('stage', stage);
-    if (state) query = query.ilike('state', state);
+  // Session Stats
+  html += '<div class="session-stats"><h3>Session Stats</h3>';
+  html += '<div class="stat-row"><span class="stat-label">Total Dialed</span><span class="stat-value" id="statTotal">0</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">Connected</span><span class="stat-value" id="statConnected" style="color:var(--success)">0</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">No Answer</span><span class="stat-value" id="statNoAnswer" style="color:var(--warning)">0</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">Voicemail</span><span class="stat-value" id="statVoicemail" style="color:var(--info)">0</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">Interested</span><span class="stat-value" id="statInterested" style="color:var(--accent)">0</span></div>';
+  html += '</div>';
 
-    // Get a random lead not already used
-    query = query.limit(50);
-    const { data } = await query;
-    const available = (data || []).filter(l => !dialerUsedIds.has(l.id));
+  // Call Script
+  html += '<div class="call-script"><h3>Call Script</h3>';
+  html += '<div class="script-section"><div class="script-label">Intro</div><p>Hi, this is [Your Name] from Advanced Insurance Solutions. Am I speaking with [Contact Name]?</p></div>';
+  html += '<div class="script-section"><div class="script-label">Hook</div><p>I\'m reaching out because we specialize in commercial trucking insurance and noticed your company may benefit from our competitive rates.</p></div>';
+  html += '<div class="script-section"><div class="script-label">Question</div><p>When does your current policy renew? How many power units are you currently running?</p></div>';
+  html += '<div class="script-section"><div class="script-label">Close</div><p>I\'d love to put together a no-obligation quote for you. Can I get your current policy info to see if we can save you money?</p></div>';
+  html += '<div class="script-section"><div class="script-label">CTA</div><p>Let me send you our information packet and schedule a 15-minute follow-up call. What email works best for you?</p></div>';
+  html += '</div>';
 
-    if (available.length === 0) {
-      renderDialerLine(lineIdx, null, 'No more leads');
-      return;
-    }
+  html += '</div></div>';
 
-    const lead = available[Math.floor(Math.random() * available.length)];
+  el.innerHTML = html;
+}
+
+async function startDialer() {
+  dialerRunning = true;
+  dialerStats = { total: 0, connected: 0, noAnswer: 0, voicemail: 0, interested: 0 };
+  dialerUsedIds = new Set();
+  dialerSessionId = 'session_' + Date.now();
+  document.getElementById('dialerStartBtn').style.display = 'none';
+  document.getElementById('dialerStopBtn').style.display = '';
+
+  try {
+    await sb.from('crm_dialer_sessions').insert({ id: dialerSessionId, status: 'active', started_at: new Date().toISOString() });
+  } catch(e) {}
+
+  await loadDialerLeads();
+}
+
+function stopDialer() {
+  dialerRunning = false;
+  document.getElementById('dialerStartBtn').style.display = '';
+  document.getElementById('dialerStopBtn').style.display = 'none';
+  for (var n = 1; n <= 3; n++) {
+    document.getElementById('lineStatus' + n).textContent = 'Idle';
+    document.getElementById('lineStatus' + n).classList.remove('active');
+    document.getElementById('lineOutcomes' + n).style.display = 'none';
+    document.getElementById('lineForm' + n).classList.remove('active');
+  }
+  toast('Dialer stopped');
+}
+
+async function loadDialerLeads() {
+  if (!dialerRunning) return;
+
+  var segment = document.getElementById('dialerSegment').value;
+  var stage = document.getElementById('dialerStage').value;
+
+  var query = sb.from('crm_leads').select('*').not('phone', 'is', null);
+  if (segment) query = query.eq('segment', segment);
+  if (stage) query = query.eq('stage', stage);
+
+  var res = await query.order('lead_score', { ascending: false }).limit(20);
+  var data = (res.data || []).filter(function(l) { return !dialerUsedIds.has(l.id); }).slice(0, 3);
+
+  data.forEach(function(lead, i) {
+    var n = i + 1;
+    dialerLeadMap[n] = lead;
     dialerUsedIds.add(lead.id);
-    lineLeads[lineIdx] = lead;
-    renderDialerLine(lineIdx, lead);
-  }
-
-  function renderDialerLine(idx, lead, msg) {
-    const el = document.getElementById('line-' + idx);
-    if (!lead) {
-      el.className = 'dialer-line idle';
-      el.innerHTML = `<div class="line-number">Line ${idx+1}</div><div style="color:var(--text-dim);">${msg || 'Start dialing to load leads'}</div>`;
-      return;
-    }
-    el.className = 'dialer-line';
-    el.innerHTML = `
-      <div class="line-number">Line ${idx+1}</div>
-      <div class="line-company">${escHtml(lead.company_name)}</div>
-      <div class="line-contact">${escHtml(lead.contact_name)}</div>
-      <div class="line-phone">${escHtml(lead.phone) || 'No phone'}</div>
-      <div class="line-stage">${stageBadge(lead.stage)}</div>
-      <div class="line-actions">
-        <button class="btn btn-primary btn-sm" onclick="window._dialerOutcome(${idx},'connected')">Connected</button>
-        <button class="btn btn-secondary btn-sm" onclick="window._dialerOutcome(${idx},'no_answer')">No Answer</button>
-        <button class="btn btn-secondary btn-sm" onclick="window._dialerOutcome(${idx},'voicemail')">Voicemail</button>
-        <button class="btn btn-secondary btn-sm" onclick="window._dialerOutcome(${idx},'busy')">Busy</button>
-        <button class="btn btn-danger btn-sm" onclick="window._dialerOutcome(${idx},'wrong_number')">Wrong #</button>
-      </div>`;
-  }
-
-  window._dialerOutcome = async function(lineIdx, outcome) {
-    const lead = lineLeads[lineIdx];
-    if (!lead || !dialerActive) return;
-
-    dialerStats.total++;
-    if (outcome === 'connected') dialerStats.connected++;
-
-    // Update UI
-    document.getElementById('ds-total').textContent = dialerStats.total;
-    document.getElementById('ds-connected').textContent = dialerStats.connected;
-    document.getElementById('ds-rate').textContent = dialerStats.total > 0 ? Math.round((dialerStats.connected / dialerStats.total) * 100) + '%' : '0%';
-
-    // Create call record
-    await sb.from('crm_calls').insert({
-      lead_id: lead.id,
-      direction: 'outbound',
-      status: outcome === 'connected' ? 'completed' : outcome,
-      outcome: outcome,
-      notes: `Parallel dialer - Line ${lineIdx + 1}`,
-      dialer_line: lineIdx + 1
-    });
-
-    // Create activity
-    await sb.from('crm_activities').insert({
-      lead_id: lead.id,
-      type: 'call',
-      description: `Outbound call: ${outcome.replace('_', ' ')}`,
-      metadata: { outcome, dialer_line: lineIdx + 1, session_id: dialerSessionId }
-    });
-
-    // Update last contacted
-    await sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', lead.id);
-
-    // Update session stats
-    if (dialerSessionId) {
-      await sb.from('crm_dialer_sessions').update({ total_calls: dialerStats.total, connected_calls: dialerStats.connected }).eq('id', dialerSessionId);
-    }
-
-    // Load next lead for this line
-    await loadDialerLine(lineIdx);
-  };
-
-  // ═══════════════════════════════════════════
-  // ─── EMAIL CAMPAIGNS ───
-  // ═══════════════════════════════════════════
-  const emailTemplates = [
-    { name: 'Owner-Operator Welcome', subject: 'Exclusive Owner-Operator Rates from AdvancedIns.ai', body: '<h2>Welcome, Owner-Operator!</h2><p>At AdvancedIns.ai, we specialize in providing affordable, comprehensive insurance for independent owner-operators like you.</p><p>Our rates start as low as <strong>$9,000/year</strong> for full coverage including:</p><ul><li>Primary Liability</li><li>Physical Damage</li><li>Cargo Insurance</li><li>Bobtail Coverage</li></ul><p>Reply to this email or call us at <strong>(657) 366-5312</strong> to get your free, no-obligation quote today!</p>' },
-    { name: 'Small Fleet Bundle Offer', subject: 'Bundle & Save: Fleet Insurance Packages', body: '<h2>Fleet Insurance That Works for You</h2><p>Managing a small fleet? Let us bundle your policies and save you up to <strong>25%</strong> on your annual premiums.</p><p>Our fleet packages include:</p><ul><li>Multi-vehicle discounts</li><li>Flexible payment plans</li><li>24/7 claims support</li><li>DOT compliance assistance</li></ul><p>Contact us today for a custom fleet quote: <strong>(657) 366-5312</strong></p>' },
-    { name: 'DOT Compliance Tips', subject: 'Stay Compliant: DOT Audit Preparation Checklist', body: '<h2>Is Your Fleet DOT Audit-Ready?</h2><p>A DOT audit can happen at any time. Make sure you are prepared with our comprehensive checklist:</p><ol><li>Verify all driver qualifications and MVRs</li><li>Review hours of service logs</li><li>Inspect vehicle maintenance records</li><li>Confirm insurance filings are current</li><li>Check drug and alcohol testing compliance</li></ol><p>Need help ensuring your insurance meets DOT requirements? We are here to help: <strong>(657) 366-5312</strong></p>' },
-    { name: 'Review Request', subject: "How's Your Coverage? Quick Review from AdvancedIns.ai", body: '<h2>Time for a Coverage Check-Up</h2><p>When was the last time you reviewed your trucking insurance? Rates and regulations change frequently, and you might be overpaying or underinsured.</p><p>Our free coverage review takes just <strong>15 minutes</strong> and could save you thousands.</p><p>Schedule your review today: <strong>(657) 366-5312</strong></p>' },
-    { name: 'Referral Program', subject: 'Earn Rewards: Refer a Fellow Trucker', body: '<h2>Share the Savings, Earn Rewards!</h2><p>Know a fellow trucker who needs better insurance? Refer them to AdvancedIns.ai and earn a <strong>$100 gift card</strong> for every successful referral!</p><p>How it works:</p><ol><li>Share our contact info with a friend</li><li>They get a quote and sign up</li><li>You receive your $100 gift card!</li></ol><p>There is no limit to how many people you can refer. Start sharing today!</p>' }
-  ];
-
-  function renderEmailTemplates() {
-    const grid = document.getElementById('email-templates');
-    grid.innerHTML = emailTemplates.map(t => `
-      <div class="template-card" onclick="window._useEmailTemplate('${t.name}')">
-        <div class="tc-name">${t.name}</div>
-        <div class="tc-subject">${t.subject}</div>
-      </div>`).join('');
-  }
-  renderEmailTemplates();
-
-  window._useEmailTemplate = function(name) {
-    const tmpl = emailTemplates.find(t => t.name === name);
-    if (!tmpl) return;
-    document.getElementById('email-name').value = tmpl.name;
-    document.getElementById('email-subject').value = tmpl.subject;
-    document.getElementById('email-body').value = tmpl.body;
-  };
-
-  let emailLoaded = false;
-  async function loadEmailCampaigns() {
-    if (emailLoaded) return;
-    const loading = document.getElementById('email-campaigns-loading');
-    const list = document.getElementById('email-campaigns-list');
-
-    const { data, error } = await sb.from('crm_email_campaigns').select('*').order('created_at', { ascending: false });
-    loading.style.display = 'none';
-
-    if (error) { console.error(error); return; }
-
-    list.innerHTML = (data || []).map(c => `
-      <div class="campaign-item">
-        <div>
-          <div class="ci-name">${escHtml(c.name)}</div>
-          <div class="ci-meta">${escHtml(c.subject)} &middot; ${c.target_segment || 'All segments'} &middot; ${c.target_stage || 'All stages'}</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="badge badge-${c.status === 'sent' ? 'client' : c.status === 'draft' ? 'prospect' : 'lead'}">${c.status || 'draft'}</div>
-          <div class="ci-meta" style="margin-top:0.25rem;">${fmtN(c.sent_count || 0)} / ${fmtN(c.total_recipients || 0)} sent &middot; ${fmtDate(c.created_at)}</div>
-        </div>
-      </div>`).join('') || '<div style="color:var(--text-dim);padding:1rem;">No campaigns yet</div>';
-
-    emailLoaded = true;
-  }
-
-  document.getElementById('email-create-btn').addEventListener('click', async () => {
-    const name = document.getElementById('email-name').value.trim();
-    const subject = document.getElementById('email-subject').value.trim();
-    const body = document.getElementById('email-body').value.trim();
-    const segment = document.getElementById('email-segment').value || null;
-    const stage = document.getElementById('email-stage').value || null;
-
-    if (!name || !subject) { alert('Name and Subject are required'); return; }
-
-    const { error } = await sb.from('crm_email_campaigns').insert({
-      name, subject, body_html: body,
-      target_segment: segment, target_stage: stage,
-      status: 'draft', campaign_type: 'manual',
-      total_recipients: 0, sent_count: 0
-    });
-
-    if (error) { alert('Error: ' + error.message); return; }
-
-    // Reset form
-    document.getElementById('email-name').value = '';
-    document.getElementById('email-subject').value = '';
-    document.getElementById('email-body').value = '';
-    document.getElementById('email-segment').value = '';
-    document.getElementById('email-stage').value = '';
-
-    emailLoaded = false;
-    loadEmailCampaigns();
-    alert('Campaign created!');
+    document.getElementById('lineName' + n).textContent = lead.contact_name || 'Unknown';
+    document.getElementById('lineCompany' + n).textContent = lead.company_name || '';
+    document.getElementById('linePhone' + n).textContent = lead.phone || '\u2014';
+    document.getElementById('lineDetails' + n).textContent = (lead.trucks || lead.power_units || 0) + ' trucks | ' + (lead.state || 'N/A') + ' | Score: ' + (lead.lead_score || 0);
+    document.getElementById('lineStatus' + n).textContent = 'Dialing';
+    document.getElementById('lineStatus' + n).classList.add('active');
+    document.getElementById('lineOutcomes' + n).style.display = 'grid';
+    document.getElementById('lineForm' + n).classList.remove('active');
   });
+}
 
-  // ═══════════════════════════════════════════
-  // ─── SMS CAMPAIGNS ───
-  // ═══════════════════════════════════════════
-  const smsTemplates = [
-    { name: 'Introduction', message: 'Hi {name}, this is AdvancedIns.ai. We specialize in trucking insurance with rates starting at $9,000/yr. Reply YES for a free quote!' },
-    { name: 'Follow Up', message: 'Hi {name}, just following up on your trucking insurance quote. We have competitive rates for your fleet. Reply or call (657) 366-5312' },
-    { name: 'Quote Ready', message: 'Great news {name}! Your trucking insurance quote is ready. Call us at (657) 366-5312 to review your options.' },
-    { name: 'Review Request', message: 'Hi {name}, how\'s your coverage? If your policy is renewing soon, let us find you a better rate. Reply INFO' },
-    { name: 'Referral', message: 'Hi {name}, love your coverage? Refer a trucker friend and earn a $100 gift card! Reply REFER for details.' }
-  ];
+async function dialOutcome(line, outcome) {
+  var lead = dialerLeadMap[line];
+  if (!lead) return;
 
-  function renderSmsTemplates() {
-    const grid = document.getElementById('sms-templates');
-    grid.innerHTML = smsTemplates.map(t => `
-      <div class="template-card" onclick="window._useSmsTemplate('${t.name}')">
-        <div class="tc-name">${t.name}</div>
-        <div class="tc-subject" style="font-size:0.7rem;margin-top:0.25rem;">${escHtml(t.message)}</div>
-      </div>`).join('');
+  dialerStats.total++;
+  if (outcome === 'connected') dialerStats.connected++;
+  else if (outcome === 'no_answer') dialerStats.noAnswer++;
+  else if (outcome === 'voicemail') dialerStats.voicemail++;
+
+  updateDialerStatsUI();
+
+  if (outcome === 'connected') {
+    document.getElementById('lineOutcomes' + line).style.display = 'none';
+    document.getElementById('lineForm' + line).classList.add('active');
+    document.getElementById('lineStatus' + line).textContent = 'Connected';
+  } else {
+    await sb.from('crm_calls').insert({ lead_id: lead.id, status: outcome, session_id: dialerSessionId });
+    await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: ' + outcome });
+    loadNextLead(line);
   }
-  renderSmsTemplates();
+}
 
-  window._useSmsTemplate = function(name) {
-    const tmpl = smsTemplates.find(t => t.name === name);
-    if (!tmpl) return;
-    document.getElementById('sms-name').value = tmpl.name;
-    document.getElementById('sms-message').value = tmpl.message;
+async function saveCallResult(line) {
+  var lead = dialerLeadMap[line];
+  if (!lead) return;
+
+  var outcome = document.getElementById('lineOutcomeSelect' + line).value;
+  var notes = document.getElementById('lineNotes' + line).value;
+
+  if (outcome === 'interested') dialerStats.interested++;
+  updateDialerStatsUI();
+
+  await sb.from('crm_calls').insert({ lead_id: lead.id, status: 'connected', outcome: outcome, notes: notes, session_id: dialerSessionId });
+  await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call connected: ' + outcome + (notes ? ' - ' + notes : '') });
+
+  document.getElementById('lineForm' + line).classList.remove('active');
+  document.getElementById('lineNotes' + line).value = '';
+  toast('Call saved');
+  loadNextLead(line);
+}
+
+async function loadNextLead(line) {
+  if (!dialerRunning) return;
+
+  var segment = document.getElementById('dialerSegment').value;
+  var stage = document.getElementById('dialerStage').value;
+
+  var query = sb.from('crm_leads').select('*').not('phone', 'is', null);
+  if (segment) query = query.eq('segment', segment);
+  if (stage) query = query.eq('stage', stage);
+
+  var res = await query.order('lead_score', { ascending: false }).limit(50);
+  var next = (res.data || []).find(function(l) { return !dialerUsedIds.has(l.id); });
+
+  if (next) {
+    dialerLeadMap[line] = next;
+    dialerUsedIds.add(next.id);
+    document.getElementById('lineName' + line).textContent = next.contact_name || 'Unknown';
+    document.getElementById('lineCompany' + line).textContent = next.company_name || '';
+    document.getElementById('linePhone' + line).textContent = next.phone || '\u2014';
+    document.getElementById('lineDetails' + line).textContent = (next.trucks || next.power_units || 0) + ' trucks | ' + (next.state || 'N/A') + ' | Score: ' + (next.lead_score || 0);
+    document.getElementById('lineStatus' + line).textContent = 'Dialing';
+    document.getElementById('lineOutcomes' + line).style.display = 'grid';
+  } else {
+    dialerLeadMap[line] = null;
+    document.getElementById('lineName' + line).textContent = '\u2014';
+    document.getElementById('lineCompany' + line).textContent = 'No more leads';
+    document.getElementById('linePhone' + line).textContent = '\u2014';
+    document.getElementById('lineDetails' + line).textContent = '\u2014';
+    document.getElementById('lineStatus' + line).textContent = 'Done';
+    document.getElementById('lineStatus' + line).classList.remove('active');
+    document.getElementById('lineOutcomes' + line).style.display = 'none';
+  }
+}
+
+function updateDialerStatsUI() {
+  document.getElementById('statTotal').textContent = dialerStats.total;
+  document.getElementById('statConnected').textContent = dialerStats.connected;
+  document.getElementById('statNoAnswer').textContent = dialerStats.noAnswer;
+  document.getElementById('statVoicemail').textContent = dialerStats.voicemail;
+  document.getElementById('statInterested').textContent = dialerStats.interested;
+}
+
+// ==================== EMAIL CAMPAIGNS ====================
+async function renderEmailCampaigns(el) {
+  el.innerHTML = '<div class="empty-state">Loading campaigns...</div>';
+  var res = await sb.from('crm_email_campaigns').select('*').order('created_at', { ascending: false });
+  var campaigns = res.data || [];
+
+  var html = '<div class="page-header"><h2>Email Campaigns</h2><p>Manage and send email campaigns to leads</p></div>';
+  html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">';
+  html += '<div class="campaign-tabs"><div class="campaign-tab active">Campaigns</div><div class="campaign-tab">Templates</div></div>';
+  html += '<button class="btn btn-primary" onclick="showCreateEmailCampaignModal()">+ Create Campaign</button>';
+  html += '</div>';
+
+  html += '<div class="campaign-grid">';
+  if (campaigns.length === 0) {
+    html += '<div class="empty-state">No campaigns yet. Create your first campaign!</div>';
+  } else {
+    campaigns.forEach(function(c) {
+      html += '<div class="campaign-card">';
+      html += '<div class="campaign-name">' + escHtml(c.name || 'Untitled') + '</div>';
+      html += '<div class="campaign-date">' + fmtDate(c.created_at) + ' &middot; ' + escHtml(c.status || 'draft') + '</div>';
+      html += '<div class="campaign-stats">';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.recipients_count || 0) + '</div><div class="cs-label">Recipients</div></div>';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.sent_count || 0) + '</div><div class="cs-label">Sent</div></div>';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.opened_count || 0) + '</div><div class="cs-label">Opened</div></div>';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.clicked_count || 0) + '</div><div class="cs-label">Clicked</div></div>';
+      html += '</div></div>';
+    });
+  }
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+function showCreateEmailCampaignModal() {
+  var modal = document.getElementById('modalContent');
+  var html = '<div class="modal-header"><h2>Create Email Campaign</h2><button class="modal-close" onclick="closeModal()">&times;</button></div>';
+  html += '<div class="form-group"><label>Campaign Name</label><input type="text" id="ecName" placeholder="e.g., Q1 Renewal Outreach"></div>';
+  html += '<div class="form-group"><label>Template</label><select id="ecTemplate">';
+  html += '<option value="intro">Introduction</option><option value="followup">Follow-Up</option><option value="quote">Quote Ready</option><option value="renewal">Renewal Reminder</option>';
+  html += '</select></div>';
+  html += '<div class="form-group"><label>Subject Line</label><input type="text" id="ecSubject" placeholder="Email subject..."></div>';
+  html += '<div class="form-group"><label>Body</label><textarea id="ecBody" placeholder="Email body HTML..."></textarea></div>';
+  html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">';
+  html += '<div class="form-group"><label>Target Segment</label><select id="ecSegment"><option value="">All Segments</option>';
+  ['long_haul','short_haul','local','specialized'].forEach(function(s) { html += '<option value="' + s + '">' + s.replace(/_/g,' ') + '</option>'; });
+  html += '</select></div>';
+  html += '<div class="form-group"><label>Target Stage</label><select id="ecStage"><option value="">All Stages</option>';
+  STAGES.forEach(function(s) { html += '<option value="' + s.key + '">' + s.label + '</option>'; });
+  html += '</select></div></div>';
+  html += '<button class="btn btn-primary" onclick="createEmailCampaign()">Create Campaign</button>';
+
+  modal.innerHTML = html;
+  openModal();
+}
+
+async function createEmailCampaign() {
+  var name = document.getElementById('ecName').value;
+  var subject = document.getElementById('ecSubject').value;
+  var body_html = document.getElementById('ecBody').value;
+  var target_segment = document.getElementById('ecSegment').value || null;
+  var target_stage = document.getElementById('ecStage').value || null;
+  var campaign_type = document.getElementById('ecTemplate').value;
+
+  if (!name) { toast('Name is required', 'error'); return; }
+
+  var res = await sb.from('crm_email_campaigns').insert({ name: name, subject: subject, body_html: body_html, target_segment: target_segment, target_stage: target_stage, campaign_type: campaign_type, status: 'draft' });
+  if (res.error) { toast('Failed to create campaign', 'error'); return; }
+
+  toast('Campaign created!');
+  closeModal();
+  renderEmailCampaigns(document.getElementById('pageContent'));
+}
+
+// ==================== SMS CAMPAIGNS ====================
+async function renderSMSCampaigns(el) {
+  el.innerHTML = '<div class="empty-state">Loading campaigns...</div>';
+  var res = await sb.from('crm_sms_campaigns').select('*').order('created_at', { ascending: false });
+  var campaigns = res.data || [];
+
+  var html = '<div class="page-header"><h2>SMS Campaigns</h2><p>Manage SMS outreach to leads</p></div>';
+  html += '<div class="compliance-banner">&#x26A0;&#xFE0F; All SMS messages must comply with TCPA regulations. Ensure you have proper consent before sending messages.</div>';
+  html += '<div style="display:flex; justify-content:flex-end; margin-bottom:16px;">';
+  html += '<button class="btn btn-primary" onclick="showCreateSMSCampaignModal()">+ Create SMS Campaign</button></div>';
+
+  html += '<div class="campaign-grid">';
+  if (campaigns.length === 0) {
+    html += '<div class="empty-state">No SMS campaigns yet.</div>';
+  } else {
+    campaigns.forEach(function(c) {
+      html += '<div class="campaign-card">';
+      html += '<div class="campaign-name">' + escHtml(c.name || 'Untitled') + '</div>';
+      html += '<div class="campaign-date">' + fmtDate(c.created_at) + ' &middot; ' + escHtml(c.status || 'draft') + '</div>';
+      html += '<div class="campaign-stats">';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.recipients_count || 0) + '</div><div class="cs-label">Recipients</div></div>';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.sent_count || 0) + '</div><div class="cs-label">Sent</div></div>';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.delivered_count || 0) + '</div><div class="cs-label">Delivered</div></div>';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.replied_count || 0) + '</div><div class="cs-label">Replied</div></div>';
+      html += '</div></div>';
+    });
+  }
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+function showCreateSMSCampaignModal() {
+  var modal = document.getElementById('modalContent');
+  var html = '<div class="modal-header"><h2>Create SMS Campaign</h2><button class="modal-close" onclick="closeModal()">&times;</button></div>';
+  html += '<div class="form-group"><label>Campaign Name</label><input type="text" id="scName" placeholder="e.g., Quick follow-up batch"></div>';
+  html += '<div class="form-group"><label>Template</label><select id="scTemplate">';
+  html += '<option value="intro">Introduction</option><option value="followup">Follow-Up</option><option value="quote_ready">Quote Ready</option>';
+  html += '</select></div>';
+  html += '<div class="form-group"><label>Message</label><textarea id="scMessage" placeholder="SMS message..." maxlength="160" oninput="document.getElementById(\'charCount\').textContent=this.value.length+\'/160\'"></textarea>';
+  html += '<div class="char-counter" id="charCount">0/160</div></div>';
+  html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">';
+  html += '<div class="form-group"><label>Target Segment</label><select id="scSegment"><option value="">All Segments</option>';
+  ['long_haul','short_haul','local','specialized'].forEach(function(s) { html += '<option value="' + s + '">' + s.replace(/_/g,' ') + '</option>'; });
+  html += '</select></div>';
+  html += '<div class="form-group"><label>Target Stage</label><select id="scStage"><option value="">All Stages</option>';
+  STAGES.forEach(function(s) { html += '<option value="' + s.key + '">' + s.label + '</option>'; });
+  html += '</select></div></div>';
+  html += '<div class="form-group"><label>Batch Size</label><input type="number" id="scBatch" value="50" min="1" max="500"></div>';
+  html += '<button class="btn btn-primary" onclick="createSMSCampaign()">Create Campaign</button>';
+
+  modal.innerHTML = html;
+  openModal();
+}
+
+async function createSMSCampaign() {
+  var name = document.getElementById('scName').value;
+  var message = document.getElementById('scMessage').value;
+  var target_segment = document.getElementById('scSegment').value || null;
+  var target_stage = document.getElementById('scStage').value || null;
+  var batch_size = parseInt(document.getElementById('scBatch').value) || 50;
+
+  if (!name || !message) { toast('Name and message are required', 'error'); return; }
+
+  var res = await sb.from('crm_sms_campaigns').insert({ name: name, message: message, target_segment: target_segment, target_stage: target_stage, batch_size: batch_size, status: 'draft' });
+  if (res.error) { toast('Failed to create campaign', 'error'); return; }
+
+  toast('SMS campaign created!');
+  closeModal();
+  renderSMSCampaigns(document.getElementById('pageContent'));
+}
+
+// ==================== SETTINGS ====================
+function renderSettings(el) {
+  var html = '<div class="page-header"><h2>Settings</h2><p>Configure your CRM integrations and targets</p></div>';
+  html += '<div class="settings-grid">';
+
+  html += '<div class="settings-card"><h3>&#x1F4DE; Twilio Settings</h3>';
+  html += '<div class="setting-field"><label>Account SID</label><input type="text" placeholder="ACxxxxxxxxxxxxxxx"></div>';
+  html += '<div class="setting-field"><label>Auth Token</label><input type="password" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;"></div>';
+  html += '<div class="setting-field"><label>Phone Number</label><input type="text" placeholder="+1XXXXXXXXXX"></div>';
+  html += '<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="toast(\'Settings saved\')">Save</button></div>';
+
+  html += '<div class="settings-card"><h3>&#x1F4E7; Email SMTP</h3>';
+  html += '<div class="setting-field"><label>SMTP Host</label><input type="text" placeholder="smtp.example.com"></div>';
+  html += '<div class="setting-field"><label>Port</label><input type="text" placeholder="587"></div>';
+  html += '<div class="setting-field"><label>Username</label><input type="text" placeholder="user@example.com"></div>';
+  html += '<div class="setting-field"><label>Password</label><input type="password" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;"></div>';
+  html += '<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="toast(\'Settings saved\')">Save</button></div>';
+
+  html += '<div class="settings-card"><h3>&#x1F3E2; Company Info</h3>';
+  html += '<div class="setting-field"><label>Company Name</label><input type="text" value="Advanced Insurance Solutions"></div>';
+  html += '<div class="setting-field"><label>Agent Name</label><input type="text" placeholder="Your Name"></div>';
+  html += '<div class="setting-field"><label>License Number</label><input type="text" placeholder="License #"></div>';
+  html += '<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="toast(\'Settings saved\')">Save</button></div>';
+
+  html += '<div class="settings-card"><h3>&#x1F3AF; $10M GWP Targets</h3>';
+  html += '<div class="setting-field"><label>GWP Target</label><input type="text" value="10,000,000"></div>';
+  html += '<div class="setting-field"><label>Policy Target</label><input type="text" value="820"></div>';
+  html += '<div class="setting-field"><label>Commission Target</label><input type="text" value="1,000,000"></div>';
+  html += '<div class="setting-field"><label>Avg Premium</label><input type="text" value="12,195"></div>';
+  html += '<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="toast(\'Settings saved\')">Save</button></div>';
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ==================== LEAD DETAIL MODAL ====================
+async function openLeadDetail(id) {
+  var leadRes = await sb.from('crm_leads').select('*').eq('id', id).single();
+  var lead = leadRes.data;
+  if (!lead) { toast('Lead not found', 'error'); return; }
+
+  var actRes = await sb.from('crm_activities').select('*').eq('lead_id', id).order('created_at', { ascending: false }).limit(20);
+  var activities = actRes.data || [];
+
+  var modal = document.getElementById('modalContent');
+  var html = '<div class="modal-header"><h2>' + escHtml(lead.company_name || 'Unknown Company') + '</h2><button class="modal-close" onclick="closeModal()">&times;</button></div>';
+
+  html += '<div class="modal-grid">';
+
+  // Contact Info
+  html += '<div class="modal-section"><h3>Contact Info</h3>';
+  var contactFields = [
+    ['Contact', lead.contact_name],
+    ['Phone', lead.phone],
+    ['Cell', lead.cell_phone],
+    ['Email', lead.email],
+    ['Contact 2', lead.contact_name_2],
+    ['Address', lead.address],
+    ['City/State/Zip', (lead.city || '') + ', ' + (lead.state || '') + ' ' + (lead.zip || '')]
+  ];
+  contactFields.forEach(function(f) {
+    html += '<div class="info-row"><span class="info-label">' + f[0] + '</span><span class="info-value">' + escHtml(f[1] || 'N/A') + '</span></div>';
+  });
+  html += '</div>';
+
+  // Business Info
+  html += '<div class="modal-section"><h3>Business Info</h3>';
+  var sc = stageRawColor(lead.stage);
+  html += '<div class="info-row"><span class="info-label">DBA</span><span class="info-value">' + escHtml(lead.dba_name || 'N/A') + '</span></div>';
+  html += '<div class="info-row"><span class="info-label">DOT Number</span><span class="info-value">' + escHtml(lead.dot_number || 'N/A') + '</span></div>';
+  html += '<div class="info-row"><span class="info-label">Trucks</span><span class="info-value">' + (lead.trucks || 'N/A') + '</span></div>';
+  html += '<div class="info-row"><span class="info-label">Power Units</span><span class="info-value">' + (lead.power_units || 'N/A') + '</span></div>';
+  html += '<div class="info-row"><span class="info-label">Stage</span><span class="info-value"><span class="badge badge-stage" style="background:' + sc + '20; color:' + sc + '">' + stageLabel(lead.stage) + '</span></span></div>';
+  html += '<div class="info-row"><span class="info-label">Segment</span><span class="info-value">' + (lead.segment ? '<span class="badge badge-segment">' + escHtml(lead.segment) + '</span>' : 'N/A') + '</span></div>';
+  html += '<div class="info-row"><span class="info-label">Lead Score</span><span class="info-value">' + (lead.lead_score || 0) + '</span></div>';
+  html += '<div class="info-row"><span class="info-label">Est. Premium</span><span class="info-value">' + fmt$(lead.estimated_premium) + '</span></div>';
+  html += '<div class="info-row"><span class="info-label">Source</span><span class="info-value">' + escHtml(lead.source || 'N/A') + '</span></div>';
+  html += '<div class="info-row"><span class="info-label">Last Contacted</span><span class="info-value">' + (lead.last_contacted_at ? fmtDate(lead.last_contacted_at) : 'Never') + '</span></div>';
+  html += '</div></div>';
+
+  // Quick Actions
+  html += '<div class="quick-actions">';
+  html += '<button class="btn btn-primary btn-sm" onclick="if(\''+escHtml(lead.phone)+'\') window.open(\'tel:'+escHtml(lead.phone)+'\')">&#x1F4DE; Call</button>';
+  html += '<select class="btn btn-secondary btn-sm" style="appearance:auto; padding-right:24px;" onchange="changeLeadStage(' + lead.id + ', this.value)">';
+  html += '<option value="">Change Stage...</option>';
+  STAGES.forEach(function(s) { html += '<option value="' + s.key + '"' + (lead.stage === s.key ? ' selected' : '') + '>' + s.label + '</option>'; });
+  html += '</select></div>';
+
+  // Notes
+  html += '<div class="notes-area"><textarea id="leadNoteInput" placeholder="Add a note..."></textarea>';
+  html += '<button class="btn btn-primary btn-sm" onclick="saveLeadNote(' + lead.id + ')">Add Note</button></div>';
+
+  // Activity History
+  html += '<div class="modal-section"><h3>Activity History</h3>';
+  if (activities.length === 0) {
+    html += '<div class="empty-state">No activity yet</div>';
+  } else {
+    activities.forEach(function(a) {
+      var icon = a.type === 'call' ? '&#x1F4DE;' : a.type === 'email' ? '&#x1F4E7;' : a.type === 'stage_change' ? '&#x1F504;' : '&#x1F4DD;';
+      html += '<div class="activity-item">';
+      html += '<div class="activity-icon">' + icon + '</div>';
+      html += '<div class="activity-text"><div class="desc">' + escHtml(a.description || a.type) + '</div>';
+      html += '<div class="activity-time">' + fmtDate(a.created_at) + '</div></div>';
+      html += '</div>';
+    });
+  }
+  html += '</div>';
+
+  modal.innerHTML = html;
+  openModal();
+}
+
+async function changeLeadStage(id, newStage) {
+  if (!newStage) return;
+  var res = await sb.from('crm_leads').update({ stage: newStage, updated_at: new Date().toISOString() }).eq('id', id);
+  if (res.error) { toast('Failed to update', 'error'); return; }
+  await sb.from('crm_activities').insert({ lead_id: id, type: 'stage_change', description: 'Stage changed to ' + stageLabel(newStage) });
+  toast('Stage updated to ' + stageLabel(newStage));
+  updateSidebarStats();
+}
+
+async function saveLeadNote(id) {
+  var note = document.getElementById('leadNoteInput').value.trim();
+  if (!note) { toast('Please enter a note', 'error'); return; }
+
+  var res = await sb.from('crm_activities').insert({ lead_id: id, type: 'note', description: note });
+  if (res.error) { toast('Failed to save note', 'error'); return; }
+
+  toast('Note saved');
+  openLeadDetail(id);
+}
+
+// ==================== ADD LEAD MODAL ====================
+function showAddLeadModal() {
+  var modal = document.getElementById('modalContent');
+  var html = '<div class="modal-header"><h2>Add New Lead</h2><button class="modal-close" onclick="closeModal()">&times;</button></div>';
+  html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">';
+  html += '<div class="form-group"><label>Company Name *</label><input type="text" id="nlCompany"></div>';
+  html += '<div class="form-group"><label>DBA Name</label><input type="text" id="nlDba"></div>';
+  html += '<div class="form-group"><label>Contact Name</label><input type="text" id="nlContact"></div>';
+  html += '<div class="form-group"><label>Phone</label><input type="text" id="nlPhone"></div>';
+  html += '<div class="form-group"><label>Email</label><input type="text" id="nlEmail"></div>';
+  html += '<div class="form-group"><label>DOT Number</label><input type="text" id="nlDot"></div>';
+  html += '<div class="form-group"><label>Address</label><input type="text" id="nlAddress"></div>';
+  html += '<div class="form-group"><label>City</label><input type="text" id="nlCity"></div>';
+  html += '<div class="form-group"><label>State</label><input type="text" id="nlState"></div>';
+  html += '<div class="form-group"><label>Zip</label><input type="text" id="nlZip"></div>';
+  html += '<div class="form-group"><label>Trucks</label><input type="number" id="nlTrucks"></div>';
+  html += '<div class="form-group"><label>Power Units</label><input type="number" id="nlPU"></div>';
+  html += '<div class="form-group"><label>Stage</label><select id="nlStage">';
+  STAGES.forEach(function(s) { html += '<option value="' + s.key + '">' + s.label + '</option>'; });
+  html += '</select></div>';
+  html += '<div class="form-group"><label>Segment</label><select id="nlSegment"><option value="">Select...</option>';
+  ['long_haul','short_haul','local','specialized','intermodal','hotshot'].forEach(function(s) {
+    html += '<option value="' + s + '">' + s.replace(/_/g,' ') + '</option>';
+  });
+  html += '</select></div>';
+  html += '<div class="form-group"><label>Estimated Premium</label><input type="number" id="nlPremium"></div>';
+  html += '<div class="form-group"><label>Source</label><input type="text" id="nlSource" placeholder="e.g., FMCSA, referral"></div>';
+  html += '</div>';
+  html += '<div class="form-group"><label>Notes</label><textarea id="nlNotes" placeholder="Initial notes..."></textarea></div>';
+  html += '<button class="btn btn-primary" onclick="addNewLead()">Add Lead</button>';
+
+  modal.innerHTML = html;
+  openModal();
+}
+
+async function addNewLead() {
+  var company_name = document.getElementById('nlCompany').value.trim();
+  if (!company_name) { toast('Company name is required', 'error'); return; }
+
+  var lead = {
+    company_name: company_name,
+    dba_name: document.getElementById('nlDba').value || null,
+    contact_name: document.getElementById('nlContact').value || null,
+    phone: document.getElementById('nlPhone').value || null,
+    email: document.getElementById('nlEmail').value || null,
+    dot_number: document.getElementById('nlDot').value || null,
+    address: document.getElementById('nlAddress').value || null,
+    city: document.getElementById('nlCity').value || null,
+    state: document.getElementById('nlState').value || null,
+    zip: document.getElementById('nlZip').value || null,
+    trucks: parseInt(document.getElementById('nlTrucks').value) || null,
+    power_units: parseInt(document.getElementById('nlPU').value) || null,
+    stage: document.getElementById('nlStage').value || 'prospect',
+    segment: document.getElementById('nlSegment').value || null,
+    estimated_premium: parseFloat(document.getElementById('nlPremium').value) || null,
+    source: document.getElementById('nlSource').value || null,
+    notes: document.getElementById('nlNotes').value || null,
+    lead_score: 0
   };
 
-  let smsLoaded = false;
-  async function loadSmsCampaigns() {
-    if (smsLoaded) return;
-    const loading = document.getElementById('sms-campaigns-loading');
-    const list = document.getElementById('sms-campaigns-list');
+  var res = await sb.from('crm_leads').insert(lead);
+  if (res.error) { toast('Failed to add lead: ' + res.error.message, 'error'); return; }
 
-    const { data, error } = await sb.from('crm_sms_campaigns').select('*').order('created_at', { ascending: false });
-    loading.style.display = 'none';
+  toast('Lead added successfully!');
+  closeModal();
+  updateSidebarStats();
+  if (currentPage === 'leads') renderLeads(document.getElementById('pageContent'));
+  if (currentPage === 'dashboard') renderDashboard(document.getElementById('pageContent'));
+}
 
-    if (error) { console.error(error); return; }
+// ==================== MODAL HELPERS ====================
+function openModal() { document.getElementById('modalOverlay').classList.add('active'); }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('active'); }
 
-    list.innerHTML = (data || []).map(c => `
-      <div class="campaign-item">
-        <div>
-          <div class="ci-name">${escHtml(c.name)}</div>
-          <div class="ci-meta">${escHtml((c.message || '').substring(0, 60))}... &middot; Batch: ${c.batch_size || 100}</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="badge badge-${c.status === 'sent' ? 'client' : c.status === 'draft' ? 'prospect' : 'lead'}">${c.status || 'draft'}</div>
-          <div class="ci-meta" style="margin-top:0.25rem;">${fmtN(c.sent_count || 0)} / ${fmtN(c.total_recipients || 0)} sent &middot; ${fmtDate(c.created_at)}</div>
-        </div>
-      </div>`).join('') || '<div style="color:var(--text-dim);padding:1rem;">No campaigns yet</div>';
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
 
-    smsLoaded = true;
-  }
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
 
-  document.getElementById('sms-create-btn').addEventListener('click', async () => {
-    const name = document.getElementById('sms-name').value.trim();
-    const message = document.getElementById('sms-message').value.trim();
-    const segment = document.getElementById('sms-segment').value || null;
-    const stage = document.getElementById('sms-stage').value || null;
-    const batchSize = parseInt(document.getElementById('sms-batch').value) || 100;
+// ==================== INIT ====================
+async function init() {
+  var authed = await checkAuth();
+  if (!authed) return;
+  updateSidebarStats();
+  loadPage('dashboard');
+}
 
-    if (!name || !message) { alert('Name and Message are required'); return; }
-
-    const { error } = await sb.from('crm_sms_campaigns').insert({
-      name, message,
-      target_segment: segment, target_stage: stage,
-      status: 'draft', batch_size: batchSize,
-      total_recipients: 0, sent_count: 0
-    });
-
-    if (error) { alert('Error: ' + error.message); return; }
-
-    document.getElementById('sms-name').value = '';
-    document.getElementById('sms-message').value = '';
-    document.getElementById('sms-segment').value = '';
-    document.getElementById('sms-stage').value = '';
-    document.getElementById('sms-batch').value = '100';
-
-    smsLoaded = false;
-    loadSmsCampaigns();
-    alert('SMS Campaign created!');
-  });
-
-})();
+init();
 </script>
 </body>
 </html>
