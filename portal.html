@@ -1751,12 +1751,24 @@ async function hangupOtherLines(keepLine) {
 }
 
 async function renderDialer(el) {
-  // Load available states for the dropdown
+  // Load available states for the dropdown with accurate counts
   var stateOptions = '';
   try {
-    var stRes = await sb.from('crm_leads').select('state').not('state', 'is', null).neq('state', '').not('phone', 'is', null).neq('phone', '');
+    // Step 1: Get distinct state values (small sample to find all unique states)
+    var stRes = await sb.from('crm_leads').select('state').not('state', 'is', null).neq('state', '').not('phone', 'is', null).neq('phone', '').limit(1000);
+    var uniqueStates = {};
+    (stRes.data || []).forEach(function(r) { uniqueStates[r.state] = true; });
+    var stateList = Object.keys(uniqueStates);
+
+    // Step 2: Get accurate count for each state using server-side count
     var stateCounts = {};
-    (stRes.data || []).forEach(function(r) { stateCounts[r.state] = (stateCounts[r.state] || 0) + 1; });
+    var countPromises = stateList.map(function(st) {
+      return sb.from('crm_leads').select('*', { count: 'exact', head: true })
+        .eq('state', st).not('phone', 'is', null).neq('phone', '')
+        .then(function(r) { stateCounts[st] = r.count || 0; });
+    });
+    await Promise.all(countPromises);
+
     var sortedStates = Object.entries(stateCounts).sort(function(a,b) { return b[1] - a[1]; });
     sortedStates.forEach(function(s) {
       var selected = s[0] === 'CA' ? ' selected' : '';
