@@ -1555,7 +1555,7 @@ async function initTwilioDevice() {
 
     // Voice SDK v2.x — constructor is synchronous, must call .register() explicitly
     twilioDevice = new Twilio.Device(data.token, {
-      codecPreferences: [Twilio.Device.Codec.Opus, Twilio.Device.Codec.PCMU],
+      codecPreferences: ['opus', 'pcmu'],
       logLevel: 1
     });
 
