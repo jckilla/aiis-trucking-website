@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIIS CRM Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://sdk.twilio.com/js/client/releases/1.14.3/twilio.min.js"></script>
+<script src="https://sdk.twilio.com/js/client/releases/1.14.3/twilio.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -1525,8 +1525,11 @@ function formatCallTime(seconds) {
 }
 
 async function initTwilioDevice() {
-  if (twilioDevice) return true;
+  if (twilioDevice && twilioReady) return true;
+  // If device exists but not ready, destroy and retry
+  if (twilioDevice) { try { twilioDevice.destroy(); } catch(e){} twilioDevice = null; twilioReady = false; }
   try {
+    console.log('Fetching Twilio access token...');
     var resp = await fetch('/api/twilio/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1535,31 +1538,84 @@ async function initTwilioDevice() {
     var data = await resp.json();
     if (data.error) {
       console.error('Twilio token error:', data.error);
+      toast('Twilio token error: ' + data.error, 'error');
       return false;
     }
-    twilioDevice = new Twilio.Device(data.token, {
-      codecPreferences: ['opus', 'pcmu'],
-      enableRingingState: true
-    });
-    twilioDevice.on('ready', function() { twilioReady = true; console.log('Twilio Device ready'); });
-    twilioDevice.on('error', function(err) { console.error('Twilio Device error:', err); toast('Twilio error: ' + err.message, 'error'); });
-    twilioDevice.on('incoming', function(conn) {
-      console.log('Incoming call from lead, auto-accepting');
-      conn.accept();
-      // Find which line this belongs to and update UI
-      for (var n = 1; n <= 3; n++) {
-        var lead = dialerLeadMap[n];
-        if (lead && lineCallSids[n]) {
-          setLineState(n, 'on-call');
-          startCallTimer(n);
-          break;
+    console.log('Got Twilio token for identity:', data.identity);
+
+    // Create Device and WAIT for it to be ready
+    return await new Promise(function(resolve) {
+      var timeoutId = setTimeout(function() {
+        console.error('Twilio Device timed out waiting for ready event');
+        toast('Twilio Device failed to connect. Check browser permissions for microphone.', 'error');
+        resolve(false);
+      }, 15000); // 15 second timeout
+
+      twilioDevice = new Twilio.Device(data.token, {
+        codecPreferences: ['opus', 'pcmu'],
+        enableRingingState: true,
+        debug: true
+      });
+
+      twilioDevice.on('ready', function(device) {
+        clearTimeout(timeoutId);
+        twilioReady = true;
+        console.log('Twilio Device READY — registered as client:aiis-agent');
+        toast('Twilio softphone connected!', 'success');
+        resolve(true);
+      });
+
+      twilioDevice.on('error', function(err) {
+        console.error('Twilio Device error:', err);
+        toast('Twilio error: ' + (err.message || err.code || 'Unknown'), 'error');
+      });
+
+      twilioDevice.on('incoming', function(conn) {
+        console.log('Incoming connection from Twilio — auto-accepting. CallSid:', conn.parameters.CallSid);
+        conn.accept();
+        // Find which line this belongs to and update UI
+        var matched = false;
+        for (var n = 1; n <= 3; n++) {
+          if (lineCallSids[n]) {
+            setLineState(n, 'on-call');
+            startCallTimer(n);
+            matched = true;
+            console.log('Matched incoming call to line ' + n);
+            break;
+          }
         }
-      }
+        if (!matched) {
+          console.log('Incoming call accepted but could not match to a dialer line');
+        }
+      });
+
+      twilioDevice.on('connect', function(conn) {
+        console.log('Twilio connection established. CallSid:', conn.parameters.CallSid);
+      });
+
+      twilioDevice.on('disconnect', function(conn) {
+        console.log('Twilio call disconnected. CallSid:', conn.parameters.CallSid);
+        // Find and update the matching line
+        for (var n = 1; n <= 3; n++) {
+          if (lineCallSids[n]) {
+            stopCallTimer(n);
+            setLineState(n, 'call-ended');
+          }
+        }
+      });
+
+      twilioDevice.on('cancel', function(conn) {
+        console.log('Twilio call cancelled');
+      });
+
+      twilioDevice.on('offline', function(device) {
+        console.log('Twilio Device went offline');
+        twilioReady = false;
+      });
     });
-    twilioDevice.on('disconnect', function(conn) { console.log('Call disconnected'); });
-    return true;
   } catch(e) {
     console.error('Twilio init failed:', e);
+    toast('Twilio init failed: ' + e.message, 'error');
     return false;
   }
 }
@@ -1722,12 +1778,13 @@ async function renderDialer(el) {
 
 var powerDialerEnabled = false;
 
-function togglePowerDialer(enabled) {
+async function togglePowerDialer(enabled) {
   powerDialerEnabled = enabled;
   var track = document.getElementById('toggleTrack');
   var thumb = document.getElementById('toggleThumb');
   var label = document.getElementById('powerDialerLabel');
   var startBtn = document.getElementById('dialerStartBtn');
+  var statusEl = document.getElementById('twilioStatus');
   if (enabled) {
     track.style.background = 'var(--accent-dim)';
     track.style.borderColor = 'var(--accent)';
@@ -1736,6 +1793,24 @@ function togglePowerDialer(enabled) {
     label.textContent = 'Power Dialer (Twilio)';
     label.style.color = 'var(--accent)';
     startBtn.innerHTML = '&#x1F4DE; Start Power Dialer (3 Lines)';
+
+    // Pre-request microphone permission and pre-init Twilio Device
+    if (statusEl) statusEl.textContent = 'Requesting microphone access...';
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Microphone permission granted');
+      if (statusEl) statusEl.textContent = 'Microphone OK — connecting to Twilio...';
+      var ok = await initTwilioDevice();
+      if (ok) {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--accent)">&#x2705; Twilio connected — ready to power dial</span>';
+      } else {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger)">&#x274C; Twilio connection failed — check console</span>';
+      }
+    } catch(e) {
+      console.error('Microphone access denied:', e);
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger)">&#x274C; Microphone access denied — power dialer needs mic permission</span>';
+      toast('Microphone access is required for the power dialer', 'error');
+    }
   } else {
     track.style.background = 'var(--bg-input)';
     track.style.borderColor = 'var(--border)';
@@ -1744,6 +1819,7 @@ function togglePowerDialer(enabled) {
     label.textContent = 'Manual Dialer';
     label.style.color = 'var(--text-secondary)';
     startBtn.innerHTML = '&#x1F4DE; Start Dialing (3 Lines)';
+    if (statusEl) statusEl.textContent = 'Manual mode — use outcome buttons to log calls';
   }
 }
 
@@ -1891,12 +1967,20 @@ async function loadDialerLeads() {
 }
 
 async function dialLeadViaTwilio(line, lead, phone) {
-  if (!powerDialerEnabled || !twilioReady) {
+  if (!powerDialerEnabled) {
     console.log('Line ' + line + ': Manual mode for ' + phone);
     return; // Manual mode — agent uses outcome buttons
   }
+  if (!twilioReady || !twilioDevice) {
+    console.warn('Line ' + line + ': Power dialer enabled but Twilio not ready. Falling back to manual.');
+    toast('Twilio not connected — using manual mode for line ' + line, 'error');
+    return;
+  }
 
   try {
+    console.log('Line ' + line + ': Dialing ' + phone + ' via Twilio...');
+    document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge match">Connecting via Twilio...</span>';
+
     var resp = await fetch('/api/twilio/dial', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1910,20 +1994,24 @@ async function dialLeadViaTwilio(line, lead, phone) {
     var data = await resp.json();
     if (data.error) {
       console.error('Dial error line ' + line + ':', data.error);
-      document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Manual dial</span>';
+      document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Dial failed: ' + data.error + '</span>';
+      toast('Line ' + line + ' dial error: ' + data.error, 'error');
       return;
     }
 
     lineCallSids[line] = data.callSid;
     var matchLabel = data.areaCodeMatch
-      ? '<span class="area-code-badge match">&#x2705; Area ' + data.fromAreaCode + ' &rarr; ' + data.toAreaCode + '</span>'
-      : '<span class="area-code-badge fallback">&#x26A0; From ' + data.fromAreaCode + ' &rarr; ' + data.toAreaCode + '</span>';
+      ? '<span class="area-code-badge match">&#x2705; Calling from (' + data.fromAreaCode + ') &rarr; (' + data.toAreaCode + ')</span>'
+      : '<span class="area-code-badge fallback">&#x26A0; From (' + data.fromAreaCode + ') &rarr; (' + data.toAreaCode + ')</span>';
     document.getElementById('lineAreaBadge' + line).innerHTML = matchLabel;
     document.getElementById('lineHangup' + line).style.display = 'block';
 
     console.log('Line ' + line + ': Call initiated ' + data.callSid + ' from ' + data.from + ' to ' + data.to);
+    toast('Line ' + line + ': Calling ' + (lead.company_name || phone), 'success');
   } catch(e) {
     console.error('Twilio dial failed line ' + line + ':', e);
+    document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Connection error</span>';
+    toast('Line ' + line + ' connection error', 'error');
   }
 }
 
