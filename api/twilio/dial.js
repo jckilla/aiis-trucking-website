@@ -137,20 +137,12 @@ module.exports = async function handler(req, res) {
     }
 
     const targetAreaCode = extractAreaCode(e164To);
-    const defaultNum = TWILIO_DEFAULT_NUMBER || null;
 
-    // Find the best caller ID (matching area code)
-    let callerId;
-    if (TWILIO_AUTO_PROVISION === 'false') {
-      // Just use default number if auto-provision is disabled
-      callerId = defaultNum;
-    } else {
-      callerId = await findOrProvisionNumber(client, targetAreaCode, defaultNum);
-    }
+    // Fixed caller ID — always use the 213 number
+    // Auto-provisioning disabled to prevent unexpected charges
+    const callerId = TWILIO_DEFAULT_NUMBER || '+12137211724';
 
-    if (!callerId) {
-      return res.status(400).json({ error: 'No Twilio phone number available. Set TWILIO_DEFAULT_NUMBER or enable auto-provisioning.' });
-    }
+    console.log(`Using fixed caller ID: ${callerId} (213 area code)`);
 
     const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
