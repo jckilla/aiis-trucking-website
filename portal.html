@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIIS CRM Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://sdk.twilio.com/js/client/releases/1.14.3/twilio.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2/dist/twilio.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -1553,95 +1553,122 @@ async function initTwilioDevice() {
     }
     console.log('Got Twilio token for identity:', data.identity);
 
-    return await new Promise(function(resolve) {
-      var timeoutId = setTimeout(function() {
-        console.error('Twilio Device timed out');
-        toast('Twilio failed to connect. Allow microphone access and try again.', 'error');
-        resolve(false);
-      }, 15000);
+    // Voice SDK v2.x — constructor is synchronous, must call .register() explicitly
+    twilioDevice = new Twilio.Device(data.token, {
+      codecPreferences: [Twilio.Device.Codec.Opus, Twilio.Device.Codec.PCMU],
+      logLevel: 1
+    });
 
-      twilioDevice = new Twilio.Device(data.token, {
-        codecPreferences: ['opus', 'pcmu'],
-        enableRingingState: true
-      });
+    // Set up event handlers BEFORE registering
+    twilioDevice.on('error', function(err) {
+      console.error('Twilio Device error:', err);
+      toast('Twilio error: ' + (err.message || 'Unknown'), 'error');
+    });
 
-      twilioDevice.on('ready', function() {
-        clearTimeout(timeoutId);
-        twilioReady = true;
-        console.log('Twilio Device READY — registered as client:aiis-agent');
-        resolve(true);
-      });
+    // CRITICAL: When a lead answers and connect.js bridges them to the browser
+    twilioDevice.on('incoming', function(call) {
+      console.log('Incoming call! customParameters:', call.customParameters);
+      console.log('Incoming call params:', JSON.stringify(call.parameters));
 
-      twilioDevice.on('error', function(err) {
-        console.error('Twilio Device error:', err);
-      });
-
-      // CRITICAL: When a lead answers and connect.js bridges them here
-      twilioDevice.on('incoming', function(conn) {
-        console.log('Incoming connection! Params:', JSON.stringify(conn.parameters));
-        console.log('Custom params:', conn.customParameters);
-
-        // Try to identify which line from custom parameters or From number
-        var connLine = null;
-        if (conn.customParameters && conn.customParameters.get) {
-          connLine = parseInt(conn.customParameters.get('line'));
-        }
-        if (!connLine) {
-          // Fall back to matching by From phone number
-          var fromNum = conn.parameters.From || '';
-          console.log('Matching by From number:', fromNum);
-          for (var n = 1; n <= 3; n++) {
-            if (dialerLeadMap[n]) {
-              var leadPhone = normalizePhoneForMatch(dialerLeadMap[n].phone || dialerLeadMap[n].cell_phone || '');
-              if (leadPhone === fromNum || fromNum.indexOf(leadPhone.replace('+1','')) > -1) {
-                connLine = n;
-                break;
-              }
+      // Identify which line from custom parameters
+      var connLine = null;
+      if (call.customParameters && call.customParameters.get) {
+        var lineParam = call.customParameters.get('line');
+        if (lineParam) connLine = parseInt(lineParam);
+      }
+      if (!connLine) {
+        // Fall back to matching by From phone number
+        var fromNum = call.parameters.From || '';
+        console.log('Matching by From number:', fromNum);
+        for (var n = 1; n <= 3; n++) {
+          if (dialerLeadMap[n]) {
+            var leadPhone = normalizePhoneForMatch(dialerLeadMap[n].phone || dialerLeadMap[n].cell_phone || '');
+            if (leadPhone === fromNum || fromNum.indexOf(leadPhone.replace('+1','')) > -1) {
+              connLine = n;
+              break;
             }
           }
         }
-        // If still no match, pick first ringing line
-        if (!connLine) {
-          for (var n = 1; n <= 3; n++) {
-            if (lineCallSids[n] && !activeLiveCall) { connLine = n; break; }
-          }
+      }
+      // If still no match, pick first active line
+      if (!connLine) {
+        for (var n = 1; n <= 3; n++) {
+          if (lineCallSids[n] && activeLiveCall !== n) { connLine = n; break; }
         }
+      }
 
-        if (activeLiveCall) {
-          // Already on a call — reject this one
-          console.log('Already on line ' + activeLiveCall + ', rejecting incoming on line ' + connLine);
-          conn.reject();
-          return;
-        }
+      if (activeLiveCall) {
+        console.log('Already on line ' + activeLiveCall + ', rejecting incoming on line ' + connLine);
+        call.reject();
+        return;
+      }
 
-        console.log('Accepting call on line ' + connLine);
-        conn.accept();
-        activeLiveCall = connLine || 1;
+      console.log('ACCEPTING call on line ' + connLine);
+      call.accept();
+      activeLiveCall = connLine || 1;
 
-        // Mark this line as live
-        setLineState(activeLiveCall, 'on-call');
-        startCallTimer(activeLiveCall);
-        document.getElementById('lineOutcomes' + activeLiveCall).style.display = 'none';
-        document.getElementById('lineForm' + activeLiveCall).classList.add('active');
-        document.getElementById('lineHangup' + activeLiveCall).style.display = 'block';
-        toast('CONNECTED — Line ' + activeLiveCall + ': ' + (dialerLeadMap[activeLiveCall] ? dialerLeadMap[activeLiveCall].company_name : 'Lead'), 'success');
+      // Mark this line as live
+      setLineState(activeLiveCall, 'on-call');
+      startCallTimer(activeLiveCall);
+      document.getElementById('lineOutcomes' + activeLiveCall).style.display = 'none';
+      document.getElementById('lineForm' + activeLiveCall).classList.add('active');
+      document.getElementById('lineHangup' + activeLiveCall).style.display = 'block';
+      toast('CONNECTED — Line ' + activeLiveCall + ': ' + (dialerLeadMap[activeLiveCall] ? dialerLeadMap[activeLiveCall].company_name : 'Lead'), 'success');
 
-        // Hang up and clear ALL other lines
-        hangupOtherLines(activeLiveCall);
-      });
-
-      twilioDevice.on('disconnect', function(conn) {
-        console.log('Twilio call disconnected');
+      // When the call ends
+      call.on('disconnect', function() {
+        console.log('Call disconnected on line ' + activeLiveCall);
         if (activeLiveCall) {
           stopCallTimer(activeLiveCall);
-          // Don't auto-clear — let agent save the call result
+          setLineState(activeLiveCall, 'call-ended');
         }
       });
 
-      twilioDevice.on('offline', function() {
-        console.log('Twilio Device offline');
+      call.on('cancel', function() {
+        console.log('Call cancelled on line ' + activeLiveCall);
+      });
+
+      // Hang up and clear ALL other lines
+      hangupOtherLines(activeLiveCall);
+    });
+
+    twilioDevice.on('tokenWillExpire', function() {
+      console.log('Twilio token expiring, refreshing...');
+      fetch('/api/twilio/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity: 'aiis-agent' })
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.token) twilioDevice.updateToken(d.token);
+      });
+    });
+
+    // Register the device — this opens the WebSocket to Twilio
+    return await new Promise(function(resolve) {
+      var timeoutId = setTimeout(function() {
+        console.error('Twilio Device registration timed out');
+        toast('Twilio registration timed out. Try refreshing the page.', 'error');
+        resolve(false);
+      }, 15000);
+
+      twilioDevice.on('registered', function() {
+        clearTimeout(timeoutId);
+        twilioReady = true;
+        console.log('Twilio Device REGISTERED — ready for incoming calls as client:aiis-agent');
+        resolve(true);
+      });
+
+      twilioDevice.on('unregistered', function() {
+        console.log('Twilio Device unregistered');
         twilioReady = false;
       });
+
+      twilioDevice.on('registering', function() {
+        console.log('Twilio Device registering...');
+      });
+
+      // Explicitly register (v2.x requirement)
+      twilioDevice.register();
     });
   } catch(e) {
     console.error('Twilio init failed:', e);
