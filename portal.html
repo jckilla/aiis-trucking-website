@@ -978,6 +978,33 @@ let leadsFilter = { stage: '', segment: '', search: '' };
 let dialerRunning = false;
 let dialerSessionId = null;
 let dialerStats = { total: 0, connected: 0, noAnswer: 0, voicemail: 0, interested: 0 };
+
+function getWeekStartSunday() {
+  var now = new Date();
+  var day = now.getDay(); // 0=Sunday
+  var start = new Date(now);
+  start.setDate(now.getDate() - day);
+  start.setHours(0, 0, 0, 0);
+  return start.toISOString();
+}
+
+async function loadWeeklyDialerStats() {
+  var weekStart = getWeekStartSunday();
+  try {
+    var res = await sb.from('crm_calls').select('status, outcome').gte('created_at', weekStart);
+    var calls = res.data || [];
+    var stats = { total: calls.length, connected: 0, noAnswer: 0, voicemail: 0, interested: 0 };
+    calls.forEach(function(c) {
+      if (c.status === 'completed') stats.connected++;
+      if (c.status === 'no_answer') stats.noAnswer++;
+      if (c.status === 'voicemail') stats.voicemail++;
+      if (c.outcome === 'interested' || c.outcome === 'quote_requested') stats.interested++;
+    });
+    dialerStats = stats;
+  } catch(e) {
+    console.error('Failed to load weekly stats:', e);
+  }
+}
 let dialerLeadMap = {};
 let dialerUsedIds = new Set();
 
@@ -1838,8 +1865,10 @@ async function renderDialer(el) {
   // Sidebar
   html += '<div class="dialer-sidebar">';
 
-  // Session Stats
-  html += '<div class="session-stats"><h3>&#x1F4CA; Session Stats</h3>';
+  // Weekly Stats (resets every Sunday)
+  var weekLabel = 'Week of ' + new Date(getWeekStartSunday()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  html += '<div class="session-stats"><h3>&#x1F4CA; Weekly Stats</h3>';
+  html += '<div style="font-size:10px;color:var(--text-muted);margin:-4px 0 8px;">' + weekLabel + ' &mdash; resets Sunday</div>';
   html += '<div class="stat-row"><span class="stat-label">Total Dialed</span><span class="stat-value" id="statTotal">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Connected</span><span class="stat-value" id="statConnected" style="color:var(--success)">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">No Answer</span><span class="stat-value" id="statNoAnswer" style="color:var(--warning)">0</span></div>';
@@ -1873,6 +1902,9 @@ async function renderDialer(el) {
   });
   updateDialerLeadCount();
 
+  // Load persistent weekly stats from database
+  await loadWeeklyDialerStats();
+  updateDialerStatsUI();
 }
 
 async function updateDialerLeadCount() {
@@ -1919,7 +1951,7 @@ async function startDialer() {
 
   dialerRunning = true;
   activeLiveCall = null;
-  dialerStats = { total: 0, connected: 0, noAnswer: 0, voicemail: 0, interested: 0 };
+  // Don't reset stats — they persist across sessions for the week
   dialerUsedIds = new Set();
   document.getElementById('dialerStartBtn').style.display = 'none';
   document.getElementById('dialerStopBtn').style.display = '';
