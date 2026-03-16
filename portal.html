@@ -1470,8 +1470,8 @@ async function renderDialer(el) {
 
   html += '<div class="dialer-controls">';
   html += '<select id="dialerSegment"><option value="">All Segments</option>';
-  ['long_haul','short_haul','local','specialized','intermodal','hotshot'].forEach(function(seg) {
-    html += '<option value="' + seg + '">' + seg.replace(/_/g,' ') + '</option>';
+  [['owner_operator','Owner-Operator'],['small_fleet','Small Fleet'],['commercial_lines','Commercial'],['enterprise','Enterprise']].forEach(function(seg) {
+    html += '<option value="' + seg[0] + '">' + seg[1] + '</option>';
   });
   html += '</select>';
 
@@ -1540,13 +1540,13 @@ async function startDialer() {
   dialerRunning = true;
   dialerStats = { total: 0, connected: 0, noAnswer: 0, voicemail: 0, interested: 0 };
   dialerUsedIds = new Set();
-  dialerSessionId = 'session_' + Date.now();
   document.getElementById('dialerStartBtn').style.display = 'none';
   document.getElementById('dialerStopBtn').style.display = '';
 
   try {
-    await sb.from('crm_dialer_sessions').insert({ id: dialerSessionId, status: 'active', started_at: new Date().toISOString() });
-  } catch(e) {}
+    var sessRes = await sb.from('crm_dialer_sessions').insert({ status: 'active', lines_active: 3 }).select('id').single();
+    dialerSessionId = sessRes.data ? sessRes.data.id : null;
+  } catch(e) { dialerSessionId = null; }
 
   await loadDialerLeads();
 }
@@ -1570,26 +1570,35 @@ async function loadDialerLeads() {
   var segment = document.getElementById('dialerSegment').value;
   var stage = document.getElementById('dialerStage').value;
 
-  var query = sb.from('crm_leads').select('*').not('phone', 'is', null);
+  var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '');
   if (segment) query = query.eq('segment', segment);
   if (stage) query = query.eq('stage', stage);
 
-  var res = await query.order('lead_score', { ascending: false }).limit(20);
+  var res = await query.order('lead_score', { ascending: false }).limit(50);
+  console.log('Dialer query result:', res.data ? res.data.length + ' leads found' : 'error', res.error);
   var data = (res.data || []).filter(function(l) { return !dialerUsedIds.has(l.id); }).slice(0, 3);
+
+  if (data.length === 0) {
+    toast('No eligible leads found. Try different filters.', 'error');
+    stopDialer();
+    return;
+  }
 
   data.forEach(function(lead, i) {
     var n = i + 1;
     dialerLeadMap[n] = lead;
     dialerUsedIds.add(lead.id);
+    dialerStats.total++;
     document.getElementById('lineName' + n).textContent = lead.contact_name || 'Unknown';
     document.getElementById('lineCompany' + n).textContent = lead.company_name || '';
-    document.getElementById('linePhone' + n).textContent = lead.phone || '\u2014';
+    document.getElementById('linePhone' + n).textContent = lead.phone || lead.cell_phone || '\u2014';
     document.getElementById('lineDetails' + n).textContent = (lead.trucks || lead.power_units || 0) + ' trucks | ' + (lead.state || 'N/A') + ' | Score: ' + (lead.lead_score || 0);
-    document.getElementById('lineStatus' + n).textContent = 'Dialing';
+    document.getElementById('lineStatus' + n).textContent = 'Ringing';
     document.getElementById('lineStatus' + n).classList.add('active');
     document.getElementById('lineOutcomes' + n).style.display = 'grid';
     document.getElementById('lineForm' + n).classList.remove('active');
   });
+  updateDialerStatsUI();
 }
 
 async function dialOutcome(line, outcome) {
@@ -1608,8 +1617,10 @@ async function dialOutcome(line, outcome) {
     document.getElementById('lineForm' + line).classList.add('active');
     document.getElementById('lineStatus' + line).textContent = 'Connected';
   } else {
-    await sb.from('crm_calls').insert({ lead_id: lead.id, status: outcome, session_id: dialerSessionId });
-    await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: ' + outcome });
+    try {
+      await sb.from('crm_calls').insert({ lead_id: lead.id, status: outcome, dialer_line: line });
+      await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: ' + outcome });
+    } catch(e) { console.error('Call log error:', e); }
     loadNextLead(line);
   }
 }
@@ -1624,8 +1635,10 @@ async function saveCallResult(line) {
   if (outcome === 'interested') dialerStats.interested++;
   updateDialerStatsUI();
 
-  await sb.from('crm_calls').insert({ lead_id: lead.id, status: 'connected', outcome: outcome, notes: notes, session_id: dialerSessionId });
-  await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call connected: ' + outcome + (notes ? ' - ' + notes : '') });
+  try {
+    await sb.from('crm_calls').insert({ lead_id: lead.id, status: 'connected', outcome: outcome, notes: notes, dialer_line: line });
+    await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call connected: ' + outcome + (notes ? ' - ' + notes : '') });
+  } catch(e) { console.error('Save call error:', e); }
 
   document.getElementById('lineForm' + line).classList.remove('active');
   document.getElementById('lineNotes' + line).value = '';
@@ -1639,7 +1652,7 @@ async function loadNextLead(line) {
   var segment = document.getElementById('dialerSegment').value;
   var stage = document.getElementById('dialerStage').value;
 
-  var query = sb.from('crm_leads').select('*').not('phone', 'is', null);
+  var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '');
   if (segment) query = query.eq('segment', segment);
   if (stage) query = query.eq('stage', stage);
 
