@@ -1593,11 +1593,25 @@ function stopCallTimer(line) {
 }
 
 async function renderDialer(el) {
+  // Load available states for the dropdown
+  var stateOptions = '';
+  try {
+    var stRes = await sb.from('crm_leads').select('state').not('state', 'is', null).neq('state', '').not('phone', 'is', null).neq('phone', '');
+    var stateCounts = {};
+    (stRes.data || []).forEach(function(r) { stateCounts[r.state] = (stateCounts[r.state] || 0) + 1; });
+    var sortedStates = Object.entries(stateCounts).sort(function(a,b) { return b[1] - a[1]; });
+    sortedStates.forEach(function(s) {
+      var selected = s[0] === 'CA' ? ' selected' : '';
+      stateOptions += '<option value="' + s[0] + '"' + selected + '>' + s[0] + ' (' + s[1].toLocaleString() + ' leads)</option>';
+    });
+  } catch(e) { console.error('Failed to load states:', e); }
+
   var html = '<div class="page-header"><h2>Power Dialer</h2>';
   html += '<p>3-line parallel dialer with area code matching &mdash; calls from a local number matching each lead\'s area code</p></div>';
 
-  // Controls row
-  html += '<div class="dialer-controls">';
+  // Controls row 1: Filters
+  html += '<div class="dialer-controls" style="flex-wrap:wrap;">';
+  html += '<select id="dialerState" style="min-width:160px;"><option value="">All States</option>' + stateOptions + '</select>';
   html += '<select id="dialerSegment"><option value="">All Segments</option>';
   [['owner_operator','Owner-Operator'],['small_fleet','Small Fleet'],['commercial_lines','Commercial'],['enterprise','Enterprise']].forEach(function(seg) {
     html += '<option value="' + seg[0] + '">' + seg[1] + '</option>';
@@ -1606,7 +1620,20 @@ async function renderDialer(el) {
   html += '<select id="dialerStage"><option value="">All Stages</option>';
   STAGES.forEach(function(s) { html += '<option value="' + s.key + '">' + s.label + '</option>'; });
   html += '</select>';
-  html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">&#x1F4DE; Start Power Dialer (3 Lines)</button>';
+  html += '<span id="dialerLeadCount" style="font-size:12px;color:var(--text-secondary);margin-left:4px;"></span>';
+  html += '</div>';
+
+  // Controls row 2: Power dialer toggle + Start/Stop
+  html += '<div class="dialer-controls" style="margin-top:0;">';
+  html += '<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-secondary);user-select:none;">';
+  html += '<span style="position:relative;width:44px;height:24px;display:inline-block;">';
+  html += '<input type="checkbox" id="powerDialerToggle" style="opacity:0;width:0;height:0;" onchange="togglePowerDialer(this.checked)">';
+  html += '<span id="toggleTrack" style="position:absolute;inset:0;background:var(--bg-input);border:1px solid var(--border);border-radius:12px;transition:all 0.3s;cursor:pointer;"></span>';
+  html += '<span id="toggleThumb" style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:var(--text-muted);border-radius:50%;transition:all 0.3s;"></span>';
+  html += '</span>';
+  html += '<span id="powerDialerLabel">Manual Dialer</span>';
+  html += '</label>';
+  html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">&#x1F4DE; Start Dialing (3 Lines)</button>';
   html += '<button class="btn btn-danger" id="dialerStopBtn" onclick="stopDialer()" style="display:none;">&#x23F9; Stop Dialer</button>';
   html += '<span id="twilioStatus" style="font-size:11px;color:var(--text-muted);margin-left:8px;"></span>';
   html += '</div>';
@@ -1682,8 +1709,59 @@ async function renderDialer(el) {
 
   el.innerHTML = html;
 
+  // Update lead count on filter change
+  ['dialerState','dialerSegment','dialerStage'].forEach(function(id) {
+    var sel = document.getElementById(id);
+    if (sel) sel.addEventListener('change', updateDialerLeadCount);
+  });
+  updateDialerLeadCount();
+
   // Load number pool info
   loadNumberPoolInfo();
+}
+
+var powerDialerEnabled = false;
+
+function togglePowerDialer(enabled) {
+  powerDialerEnabled = enabled;
+  var track = document.getElementById('toggleTrack');
+  var thumb = document.getElementById('toggleThumb');
+  var label = document.getElementById('powerDialerLabel');
+  var startBtn = document.getElementById('dialerStartBtn');
+  if (enabled) {
+    track.style.background = 'var(--accent-dim)';
+    track.style.borderColor = 'var(--accent)';
+    thumb.style.left = '22px';
+    thumb.style.background = 'var(--accent)';
+    label.textContent = 'Power Dialer (Twilio)';
+    label.style.color = 'var(--accent)';
+    startBtn.innerHTML = '&#x1F4DE; Start Power Dialer (3 Lines)';
+  } else {
+    track.style.background = 'var(--bg-input)';
+    track.style.borderColor = 'var(--border)';
+    thumb.style.left = '2px';
+    thumb.style.background = 'var(--text-muted)';
+    label.textContent = 'Manual Dialer';
+    label.style.color = 'var(--text-secondary)';
+    startBtn.innerHTML = '&#x1F4DE; Start Dialing (3 Lines)';
+  }
+}
+
+async function updateDialerLeadCount() {
+  var countEl = document.getElementById('dialerLeadCount');
+  if (!countEl) return;
+  var state = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
+  var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
+  var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
+
+  var query = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('phone', 'is', null).neq('phone', '');
+  if (state) query = query.eq('state', state);
+  if (segment) query = query.eq('segment', segment);
+  if (stage) query = query.eq('stage', stage);
+
+  var res = await query;
+  var count = res.count || 0;
+  countEl.innerHTML = '<strong>' + count.toLocaleString() + '</strong> dialable leads';
 }
 
 async function loadNumberPoolInfo() {
@@ -1710,14 +1788,20 @@ async function startDialer() {
   document.getElementById('dialerStartBtn').style.display = 'none';
   document.getElementById('dialerStopBtn').style.display = '';
 
-  // Try to init Twilio for live dialing
   var statusEl = document.getElementById('twilioStatus');
-  statusEl.textContent = 'Connecting to Twilio...';
-  var twilioOk = await initTwilioDevice();
-  if (twilioOk) {
-    statusEl.innerHTML = '<span style="color:var(--accent)">&#x2705; Twilio connected &mdash; live dialing active</span>';
+
+  if (powerDialerEnabled) {
+    // Power dialer mode — init Twilio
+    statusEl.textContent = 'Connecting to Twilio...';
+    var twilioOk = await initTwilioDevice();
+    if (twilioOk) {
+      statusEl.innerHTML = '<span style="color:var(--accent)">&#x2705; Power dialer active &mdash; live calling enabled</span>';
+    } else {
+      statusEl.innerHTML = '<span style="color:var(--warning)">&#x26A0; Twilio connection failed &mdash; falling back to manual mode</span>';
+      powerDialerEnabled = false;
+    }
   } else {
-    statusEl.innerHTML = '<span style="color:var(--warning)">&#x26A0; Twilio not available &mdash; manual dial mode</span>';
+    statusEl.innerHTML = '<span style="color:var(--text-secondary)">Manual mode &mdash; click outcome buttons to log calls</span>';
   }
 
   // Create dialer session in Supabase
@@ -1754,17 +1838,22 @@ function stopDialer() {
   toast('Dialer session ended');
 }
 
+function buildDialerQuery() {
+  var stateVal = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
+  var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
+  var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
+
+  var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '');
+  if (stateVal) query = query.eq('state', stateVal);
+  if (segment) query = query.eq('segment', segment);
+  if (stage) query = query.eq('stage', stage);
+  return query;
+}
+
 async function loadDialerLeads() {
   if (!dialerRunning) return;
 
-  var segment = document.getElementById('dialerSegment').value;
-  var stage = document.getElementById('dialerStage').value;
-
-  var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '');
-  if (segment) query = query.eq('segment', segment);
-  if (stage) query = query.eq('stage', stage);
-
-  var res = await query.order('lead_score', { ascending: false }).limit(100);
+  var res = await buildDialerQuery().order('lead_score', { ascending: false }).limit(100);
   console.log('Dialer query:', res.data ? res.data.length + ' leads found' : 'error', res.error);
   var data = (res.data || []).filter(function(l) { return !dialerUsedIds.has(l.id); }).slice(0, 3);
 
@@ -1789,7 +1878,7 @@ async function loadDialerLeads() {
     document.getElementById('lineCompany' + n).textContent = lead.company_name || '';
     document.getElementById('linePhone' + n).textContent = phone || '\u2014';
     document.getElementById('lineDetails' + n).textContent = (lead.trucks || lead.power_units || 0) + ' trucks | ' + (lead.state || 'N/A') + ' | Score: ' + (lead.lead_score || 0);
-    document.getElementById('lineAreaBadge' + n).innerHTML = '<span class="area-code-badge match">Calling from (' + ac + ') area code</span>';
+    document.getElementById('lineAreaBadge' + n).innerHTML = powerDialerEnabled ? '<span class="area-code-badge match">Calling from (' + ac + ') area code</span>' : '<span class="area-code-badge fallback">Area code: ' + ac + '</span>';
 
     setLineState(n, 'ringing');
     document.getElementById('lineOutcomes' + n).style.display = 'grid';
@@ -1802,8 +1891,8 @@ async function loadDialerLeads() {
 }
 
 async function dialLeadViaTwilio(line, lead, phone) {
-  if (!twilioReady) {
-    console.log('Line ' + line + ': Twilio not ready, manual mode for ' + phone);
+  if (!powerDialerEnabled || !twilioReady) {
+    console.log('Line ' + line + ': Manual mode for ' + phone);
     return; // Manual mode — agent uses outcome buttons
   }
 
@@ -1934,12 +2023,7 @@ async function loadNextLead(line) {
   document.getElementById('lineHangup' + line).style.display = 'none';
   document.getElementById('lineAreaBadge' + line).innerHTML = '';
 
-  var segment = document.getElementById('dialerSegment').value;
-  var stage = document.getElementById('dialerStage').value;
-
-  var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '');
-  if (segment) query = query.eq('segment', segment);
-  if (stage) query = query.eq('stage', stage);
+  var query = buildDialerQuery();
 
   var res = await query.order('lead_score', { ascending: false }).limit(100);
   var next = (res.data || []).find(function(l) { return !dialerUsedIds.has(l.id); });
@@ -1955,7 +2039,7 @@ async function loadNextLead(line) {
     document.getElementById('lineCompany' + line).textContent = next.company_name || '';
     document.getElementById('linePhone' + line).textContent = phone || '\u2014';
     document.getElementById('lineDetails' + line).textContent = (next.trucks || next.power_units || 0) + ' trucks | ' + (next.state || 'N/A') + ' | Score: ' + (next.lead_score || 0);
-    document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge match">Calling from (' + ac + ') area code</span>';
+    document.getElementById('lineAreaBadge' + line).innerHTML = powerDialerEnabled ? '<span class="area-code-badge match">Calling from (' + ac + ') area code</span>' : '<span class="area-code-badge fallback">Area code: ' + ac + '</span>';
     setLineState(line, 'ringing');
     document.getElementById('lineOutcomes' + line).style.display = 'grid';
     document.getElementById('lineForm' + line).classList.remove('active');

@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/jckilla/aiis-trucking-website#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.99.2",
     "octokit": "^5.0.5",
     "twilio": "^5.13.0"
   }
