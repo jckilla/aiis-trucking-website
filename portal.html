@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AdvancedIns.ai CRM Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0a;
+  --sidebar-bg: #0d0d0d;
+  --card-bg: #0d0d0d;
+  --card-border: rgba(255,255,255,0.05);
+  --card-hover-border: rgba(255,255,255,0.2);
+  --input-bg: #111;
+  --input-border: rgba(255,255,255,0.1);
+  --accent: #00FFCC;
+  --accent2: #00e5a0;
+  --text: #e0e0e0;
+  --text-muted: #888;
+  --text-dim: #555;
+  --stage-prospect: #666;
+  --stage-lead: #3b82f6;
+  --stage-info-pending: #f59e0b;
+  --stage-quote-submitted: #8b5cf6;
+  --stage-quote-ready: #06b6d4;
+  --stage-client: #00FFCC;
+}
+
+html { font-size: 14px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
+
+/* ─── NAVBAR ─── */
+.top-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 60px;
+  background: rgba(10,10,10,0.95);
+  border-bottom: 1px solid var(--card-border);
+  backdrop-filter: blur(12px);
+}
+.top-nav .logo {
+  font-family: 'Syncopate', sans-serif;
+  font-weight: 700; font-size: 1.1rem;
+  color: #fff; text-decoration: none; letter-spacing: 2px;
+}
+.top-nav .logo span { color: var(--accent); }
+.top-nav .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+.top-nav .nav-links a {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem; color: var(--text-muted);
+  text-decoration: none; text-transform: uppercase;
+  letter-spacing: 1px; transition: color 0.2s;
+}
+.top-nav .nav-links a:hover { color: #fff; }
+.top-nav .nav-links a.active { color: var(--accent); }
+.btn-logout {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem; font-weight: 700;
+  background: var(--accent); color: #000;
+  border: none; padding: 0.5rem 1.2rem;
+  cursor: pointer; letter-spacing: 1px;
+  text-transform: uppercase; transition: background 0.2s;
+}
+.btn-logout:hover { background: var(--accent2); }
+
+/* ─── LAYOUT ─── */
+.app-layout {
+  display: flex;
+  margin-top: 60px;
+  min-height: calc(100vh - 60px);
+}
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  width: 64px; min-height: 100%;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--card-border);
+  display: flex; flex-direction: column;
+  align-items: center; padding-top: 1rem;
+  position: fixed; top: 60px; bottom: 0; left: 0;
+  z-index: 900;
+}
+.sidebar-btn {
+  width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: var(--text-dim);
+  cursor: pointer; border-radius: 8px;
+  margin-bottom: 0.25rem; position: relative;
+  transition: all 0.2s;
+}
+.sidebar-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.sidebar-btn.active { color: var(--accent); }
+.sidebar-btn.active::before {
+  content: ''; position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%); width: 3px; height: 24px;
+  background: var(--accent); border-radius: 0 3px 3px 0;
+}
+.sidebar-btn svg { width: 20px; height: 20px; }
+.sidebar-btn .tooltip {
+  position: absolute; left: 60px; top: 50%;
+  transform: translateY(-50%);
+  background: #222; color: #fff;
+  font-size: 0.7rem; padding: 4px 8px;
+  border-radius: 4px; white-space: nowrap;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.15s;
+  font-family: 'Space Mono', monospace;
+}
+.sidebar-btn:hover .tooltip { opacity: 1; }
+
+/* ─── MAIN CONTENT ─── */
+.main-content {
+  flex: 1;
+  margin-left: 64px;
+  padding: 1.5rem;
+  max-width: calc(100vw - 64px);
+}
+
+.section { display: none; }
+.section.active { display: block; }
+
+.section-title {
+  font-family: 'Syncopate', sans-serif;
+  font-size: 1.3rem; font-weight: 700;
+  margin-bottom: 1.5rem; letter-spacing: 2px;
+}
+
+/* ─── CARDS & UTILITIES ─── */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  transition: border-color 0.2s;
+}
+.card:hover { border-color: var(--card-hover-border); }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.stat-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+.stat-card .label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+.stat-card .value {
+  font-family: 'Space Mono', monospace;
+  font-size: 1.6rem; font-weight: 700; color: #fff;
+}
+.stat-card .value.accent { color: var(--accent); }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+
+/* ─── STAGE BADGES ─── */
+.badge {
+  display: inline-block;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; font-weight: 700;
+  padding: 3px 8px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.badge-prospect { background: rgba(102,102,102,0.2); color: var(--stage-prospect); }
+.badge-lead { background: rgba(59,130,246,0.15); color: var(--stage-lead); }
+.badge-info_pending { background: rgba(245,158,11,0.15); color: var(--stage-info-pending); }
+.badge-quote_submitted { background: rgba(139,92,246,0.15); color: var(--stage-quote-submitted); }
+.badge-quote_ready { background: rgba(6,182,212,0.15); color: var(--stage-quote-ready); }
+.badge-client { background: rgba(0,255,204,0.1); color: var(--stage-client); }
+
+/* ─── FORMS ─── */
+input, select, textarea {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+select { cursor: pointer; }
+textarea { resize: vertical; min-height: 80px; }
+label {
+  display: block;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem; font-weight: 700;
+  padding: 0.6rem 1.2rem;
+  border: none; border-radius: 6px;
+  cursor: pointer; text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--card-border); }
+.btn-secondary:hover { border-color: var(--card-hover-border); }
+.btn-danger { background: rgba(239,68,68,0.15); color: #ef4444; }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.65rem; }
+
+/* ─── TABLES ─── */
+.table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--card-border); }
+table { width: 100%; border-collapse: collapse; }
+th {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text-muted);
+  text-align: left; padding: 0.75rem 1rem;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--card-border);
+  white-space: nowrap;
+}
+td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--card-border);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+tr:nth-child(even) td { background: var(--card-bg); }
+tr:nth-child(odd) td { background: var(--input-bg); }
+tr:hover td { background: rgba(255,255,255,0.03); }
+tr { cursor: pointer; }
+
+/* ─── PIPELINE KANBAN ─── */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  min-height: 500px;
+}
+.kanban-col {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  min-width: 220px;
+  display: flex; flex-direction: column;
+}
+.kanban-col-header {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--card-border);
+  text-align: center;
+}
+.kanban-col-header .col-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.3rem;
+}
+.kanban-col-header .col-stats {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+.kanban-col-body {
+  flex: 1;
+  padding: 0.5rem;
+  overflow-y: auto;
+  max-height: 600px;
+  min-height: 100px;
+}
+.kanban-col-body.drag-over {
+  background: rgba(0,255,204,0.03);
+}
+.kanban-card {
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 0.7rem;
+  margin-bottom: 0.5rem;
+  cursor: grab;
+  transition: all 0.15s;
+}
+.kanban-card:hover { border-color: var(--accent); }
+.kanban-card.dragging { opacity: 0.4; }
+.kanban-card .kc-company {
+  font-weight: 600; font-size: 0.85rem;
+  color: #fff; margin-bottom: 0.3rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kanban-card .kc-contact {
+  font-size: 0.75rem; color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+.kanban-card .kc-meta {
+  display: flex; justify-content: space-between;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; color: var(--text-dim);
+}
+.kanban-card .kc-meta .premium { color: var(--accent); }
+.kanban-load-more {
+  text-align: center; padding: 0.5rem;
+}
+
+/* ─── DIALER ─── */
+.dialer-lines {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.dialer-line {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-align: center;
+}
+.dialer-line .line-number {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: 1px;
+  margin-bottom: 0.75rem;
+}
+.dialer-line .line-company {
+  font-weight: 600; font-size: 1rem;
+  color: #fff; margin-bottom: 0.25rem;
+}
+.dialer-line .line-contact {
+  font-size: 0.85rem; color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+.dialer-line .line-phone {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem; color: var(--accent);
+  margin-bottom: 0.75rem;
+}
+.dialer-line .line-actions {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  justify-content: center;
+}
+.dialer-line .line-actions .btn { font-size: 0.6rem; padding: 0.3rem 0.5rem; }
+.dialer-line.idle { opacity: 0.5; }
+.dialer-line .line-stage { margin-bottom: 0.5rem; }
+
+/* ─── CAMPAIGNS ─── */
+.campaign-list { margin-bottom: 1.5rem; }
+.campaign-item {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.campaign-item .ci-name { font-weight: 600; color: #fff; }
+.campaign-item .ci-meta {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; color: var(--text-muted);
+}
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.template-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.template-card:hover { border-color: var(--accent); }
+.template-card .tc-name {
+  font-weight: 600; color: #fff;
+  font-size: 0.9rem; margin-bottom: 0.25rem;
+}
+.template-card .tc-subject {
+  font-size: 0.75rem; color: var(--text-muted);
+}
+
+/* ─── MODAL ─── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  width: 90vw; max-width: 800px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 2rem;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.modal-header h2 {
+  font-family: 'Syncopate', sans-serif;
+  font-size: 1rem; font-weight: 700;
+  letter-spacing: 2px;
+}
+.modal-close {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 1.5rem; cursor: pointer;
+  transition: color 0.2s;
+}
+.modal-close:hover { color: #fff; }
+.modal-field { margin-bottom: 1rem; }
+.modal-field .field-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text-dim);
+  margin-bottom: 0.15rem;
+}
+.modal-field .field-value {
+  font-size: 0.9rem; color: var(--text);
+}
+.modal-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.modal-tab {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem; text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: none; border: none; color: var(--text-muted);
+  padding: 0.4rem 0.8rem; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.modal-tab-content { display: none; }
+.modal-tab-content.active { display: block; }
+
+/* ─── ACTIVITY FEED ─── */
+.activity-feed { max-height: 400px; overflow-y: auto; }
+.activity-item {
+  display: flex; gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--card-border);
+}
+.activity-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 0.4rem;
+  flex-shrink: 0;
+}
+.activity-item .ai-desc { font-size: 0.85rem; }
+.activity-item .ai-time {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; color: var(--text-dim);
+  margin-top: 0.15rem;
+}
+
+/* ─── SPINNER ─── */
+.spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  border: 2px solid var(--card-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-area {
+  display: flex; align-items: center; justify-content: center;
+  padding: 3rem; gap: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem;
+}
+
+/* ─── FILTERS BAR ─── */
+.filters-bar {
+  display: flex; gap: 0.75rem; align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.filter-group { display: flex; flex-direction: column; }
+.filter-group label { margin-bottom: 0.2rem; }
+.filter-group input, .filter-group select { width: 180px; }
+
+/* ─── PAGINATION ─── */
+.pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.75rem; margin-top: 1rem;
+}
+.pagination .btn { min-width: 90px; justify-content: center; }
+.pagination .page-info {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem; color: var(--text-muted);
+}
+
+/* ─── CHECKBOX ─── */
+.check-group {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.check-group input[type="checkbox"] {
+  width: 16px; height: 16px;
+  accent-color: var(--accent);
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 1200px) {
+  .kanban-board { grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+  .dialer-lines { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .top-nav .nav-links a { display: none; }
+  .sidebar { width: 48px; }
+  .sidebar-btn { width: 40px; height: 40px; }
+  .main-content { margin-left: 48px; padding: 1rem; }
+  .kanban-board { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .filters-bar { flex-direction: column; }
+  .filter-group input, .filter-group select { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ TOP NAV ═══════════ -->
+<nav class="top-nav">
+  <a href="index.html" class="logo">ADVANCED<span>INS</span>.AI</a>
+  <div class="nav-links">
+    <a href="index.html">Home</a>
+    <a href="index.html#coverages">Coverages</a>
+    <a href="commercial.html">Commercial</a>
+    <a href="about.html">About</a>
+    <a href="portal.html" class="active">Portal</a>
+    <button class="btn-logout" id="logoutBtn">LOGOUT</button>
+  </div>
+</nav>
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<div class="app-layout">
+<aside class="sidebar">
+  <button class="sidebar-btn active" data-section="dashboard" title="Dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    <span class="tooltip">Dashboard</span>
+  </button>
+  <button class="sidebar-btn" data-section="pipeline" title="Pipeline">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="6" width="4" height="15" rx="1"/><rect x="17" y="9" width="4" height="12" rx="1"/></svg>
+    <span class="tooltip">Pipeline</span>
+  </button>
+  <button class="sidebar-btn" data-section="leads" title="Leads">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <span class="tooltip">Leads</span>
+  </button>
+  <button class="sidebar-btn" data-section="dialer" title="Dialer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    <span class="tooltip">Dialer</span>
+  </button>
+  <button class="sidebar-btn" data-section="email" title="Email Campaigns">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    <span class="tooltip">Email</span>
+  </button>
+  <button class="sidebar-btn" data-section="sms" title="SMS Campaigns">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span class="tooltip">SMS</span>
+  </button>
+</aside>
+
+<!-- ═══════════ MAIN CONTENT ═══════════ -->
+<main class="main-content">
+
+<!-- ═══════════ DASHBOARD SECTION ═══════════ -->
+<section class="section active" id="sec-dashboard">
+  <h1 class="section-title">Dashboard</h1>
+  <div id="dash-loading" class="loading-area"><div class="spinner"></div> Loading dashboard...</div>
+  <div id="dash-content" style="display:none;">
+    <div class="stat-grid" id="dash-top-stats"></div>
+    <div class="grid-2">
+      <div class="card">
+        <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Pipeline by Stage</h3>
+        <div id="dash-pipeline-stages"></div>
+      </div>
+      <div class="card">
+        <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Segment Breakdown</h3>
+        <div id="dash-segments"></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">GWP Stats</h3>
+        <div id="dash-gwp"></div>
+      </div>
+      <div class="card">
+        <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Top 20 States</h3>
+        <div id="dash-states" style="max-height:300px;overflow-y:auto;"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem;">
+      <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Recent Activity</h3>
+      <div class="activity-feed" id="dash-activities"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ PIPELINE SECTION ═══════════ -->
+<section class="section" id="sec-pipeline">
+  <h1 class="section-title">Pipeline</h1>
+  <div id="pipeline-loading" class="loading-area"><div class="spinner"></div> Loading pipeline...</div>
+  <div class="kanban-board" id="kanban-board" style="display:none;"></div>
+</section>
+
+<!-- ═══════════ LEADS SECTION ═══════════ -->
+<section class="section" id="sec-leads">
+  <h1 class="section-title">Leads</h1>
+  <div class="filters-bar">
+    <div class="filter-group">
+      <label>Search</label>
+      <input type="text" id="leads-search" placeholder="Company, contact, DOT...">
+    </div>
+    <div class="filter-group">
+      <label>Stage</label>
+      <select id="leads-filter-stage">
+        <option value="">All Stages</option>
+        <option value="prospect">Prospect</option>
+        <option value="lead">Lead</option>
+        <option value="info_pending">Info Pending</option>
+        <option value="quote_submitted">Quote Submitted</option>
+        <option value="quote_ready">Quote Ready</option>
+        <option value="client">Client</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Segment</label>
+      <select id="leads-filter-segment">
+        <option value="">All Segments</option>
+        <option value="owner_operator">Owner Operator</option>
+        <option value="small_fleet">Small Fleet</option>
+        <option value="commercial_lines">Commercial Lines</option>
+        <option value="enterprise">Enterprise</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>State</label>
+      <input type="text" id="leads-filter-state" placeholder="e.g. CA" style="width:80px;">
+    </div>
+    <button class="btn btn-primary" id="leads-search-btn">Search</button>
+  </div>
+  <div id="leads-loading" class="loading-area" style="display:none;"><div class="spinner"></div> Loading...</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Company</th><th>Contact</th><th>Phone</th><th>Email</th><th>State</th><th>Trucks</th><th>Stage</th><th>Score</th><th>Premium</th>
+        </tr>
+      </thead>
+      <tbody id="leads-tbody"></tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <button class="btn btn-secondary btn-sm" id="leads-prev">Prev</button>
+    <span class="page-info" id="leads-page-info">Page 1</span>
+    <button class="btn btn-secondary btn-sm" id="leads-next">Next</button>
+  </div>
+</section>
+
+<!-- ═══════════ DIALER SECTION ═══════════ -->
+<section class="section" id="sec-dialer">
+  <h1 class="section-title">Parallel Dialer</h1>
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="filters-bar" style="margin-bottom:0;">
+      <div class="filter-group">
+        <label>Segment</label>
+        <select id="dialer-segment">
+          <option value="">Any</option>
+          <option value="owner_operator">Owner Operator</option>
+          <option value="small_fleet">Small Fleet</option>
+          <option value="commercial_lines">Commercial Lines</option>
+          <option value="enterprise">Enterprise</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Stage</label>
+        <select id="dialer-stage">
+          <option value="">Any</option>
+          <option value="prospect">Prospect</option>
+          <option value="lead">Lead</option>
+          <option value="info_pending">Info Pending</option>
+          <option value="quote_submitted">Quote Submitted</option>
+          <option value="quote_ready">Quote Ready</option>
+          <option value="client">Client</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>State</label>
+        <input type="text" id="dialer-state" placeholder="e.g. TX" style="width:80px;">
+      </div>
+      <button class="btn btn-primary" id="dialer-start-btn">Start Dialing</button>
+      <button class="btn btn-danger" id="dialer-stop-btn" style="display:none;">Stop Session</button>
+    </div>
+  </div>
+  <div class="stat-grid" id="dialer-stats" style="margin-bottom:1.5rem;">
+    <div class="stat-card"><div class="label">Total Calls</div><div class="value" id="ds-total">0</div></div>
+    <div class="stat-card"><div class="label">Connected</div><div class="value accent" id="ds-connected">0</div></div>
+    <div class="stat-card"><div class="label">Connect Rate</div><div class="value" id="ds-rate">0%</div></div>
+    <div class="stat-card"><div class="label">Session Status</div><div class="value" id="ds-status">IDLE</div></div>
+  </div>
+  <div class="dialer-lines" id="dialer-lines">
+    <div class="dialer-line idle" id="line-0"><div class="line-number">Line 1</div><div style="color:var(--text-dim);">Start dialing to load leads</div></div>
+    <div class="dialer-line idle" id="line-1"><div class="line-number">Line 2</div><div style="color:var(--text-dim);">Start dialing to load leads</div></div>
+    <div class="dialer-line idle" id="line-2"><div class="line-number">Line 3</div><div style="color:var(--text-dim);">Start dialing to load leads</div></div>
+  </div>
+</section>
+
+<!-- ═══════════ EMAIL SECTION ═══════════ -->
+<section class="section" id="sec-email">
+  <h1 class="section-title">Email Campaigns</h1>
+  <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Templates</h3>
+  <div class="template-grid" id="email-templates"></div>
+  <div class="card" style="margin-bottom:1.5rem;">
+    <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Create Campaign</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="modal-field"><label>Campaign Name</label><input type="text" id="email-name"></div>
+      <div class="modal-field"><label>Subject</label><input type="text" id="email-subject"></div>
+      <div class="modal-field"><label>Target Segment</label>
+        <select id="email-segment"><option value="">All</option><option value="owner_operator">Owner Operator</option><option value="small_fleet">Small Fleet</option><option value="commercial_lines">Commercial Lines</option><option value="enterprise">Enterprise</option></select>
+      </div>
+      <div class="modal-field"><label>Target Stage</label>
+        <select id="email-stage"><option value="">All</option><option value="prospect">Prospect</option><option value="lead">Lead</option><option value="info_pending">Info Pending</option><option value="quote_submitted">Quote Submitted</option><option value="quote_ready">Quote Ready</option><option value="client">Client</option></select>
+      </div>
+    </div>
+    <div class="modal-field"><label>Body HTML</label><textarea id="email-body" rows="6"></textarea></div>
+    <button class="btn btn-primary" id="email-create-btn">Create Campaign</button>
+  </div>
+  <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Existing Campaigns</h3>
+  <div id="email-campaigns-loading" class="loading-area"><div class="spinner"></div> Loading...</div>
+  <div class="campaign-list" id="email-campaigns-list"></div>
+</section>
+
+<!-- ═══════════ SMS SECTION ═══════════ -->
+<section class="section" id="sec-sms">
+  <h1 class="section-title">SMS Campaigns</h1>
+  <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Templates</h3>
+  <div class="template-grid" id="sms-templates"></div>
+  <div class="card" style="margin-bottom:1.5rem;">
+    <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Create Campaign</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="modal-field"><label>Campaign Name</label><input type="text" id="sms-name"></div>
+      <div class="modal-field"><label>Batch Size</label><input type="number" id="sms-batch" value="100"></div>
+      <div class="modal-field"><label>Target Segment</label>
+        <select id="sms-segment"><option value="">All</option><option value="owner_operator">Owner Operator</option><option value="small_fleet">Small Fleet</option><option value="commercial_lines">Commercial Lines</option><option value="enterprise">Enterprise</option></select>
+      </div>
+      <div class="modal-field"><label>Target Stage</label>
+        <select id="sms-stage"><option value="">All</option><option value="prospect">Prospect</option><option value="lead">Lead</option><option value="info_pending">Info Pending</option><option value="quote_submitted">Quote Submitted</option><option value="quote_ready">Quote Ready</option><option value="client">Client</option></select>
+      </div>
+    </div>
+    <div class="modal-field"><label>Message</label><textarea id="sms-message" rows="3"></textarea></div>
+    <button class="btn btn-primary" id="sms-create-btn">Create Campaign</button>
+  </div>
+  <h3 style="font-family:'Space Mono',monospace;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:1rem;">Existing Campaigns</h3>
+  <div id="sms-campaigns-loading" class="loading-area"><div class="spinner"></div> Loading...</div>
+  <div class="campaign-list" id="sms-campaigns-list"></div>
+</section>
+
+</main>
+</div>
+
+<!-- ═══════════ LEAD DETAIL MODAL ═══════════ -->
+<div class="modal-overlay" id="lead-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Lead Details</h2>
+      <button class="modal-close" id="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" data-tab="details">Details</button>
+      <button class="modal-tab" data-tab="activity">Activity</button>
+      <button class="modal-tab" data-tab="calls">Calls</button>
+    </div>
+    <div class="modal-tab-content active" id="tab-details">
+      <div id="modal-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;"></div>
+      <hr style="border:none;border-top:1px solid var(--card-border);margin:1.25rem 0;">
+      <h4 style="font-family:'Space Mono',monospace;font-size:0.7rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.75rem;">Edit Lead</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">
+        <div class="modal-field">
+          <label>Stage</label>
+          <select id="modal-stage"><option value="prospect">Prospect</option><option value="lead">Lead</option><option value="info_pending">Info Pending</option><option value="quote_submitted">Quote Submitted</option><option value="quote_ready">Quote Ready</option><option value="client">Client</option></select>
+        </div>
+        <div></div>
+      </div>
+      <div class="modal-field"><label>Notes</label><textarea id="modal-notes" rows="3"></textarea></div>
+      <div style="display:flex;gap:1.5rem;margin-bottom:1rem;">
+        <div class="check-group"><input type="checkbox" id="modal-dnc"><label for="modal-dnc" style="margin:0;">Do Not Call</label></div>
+        <div class="check-group"><input type="checkbox" id="modal-dne"><label for="modal-dne" style="margin:0;">Do Not Email</label></div>
+        <div class="check-group"><input type="checkbox" id="modal-dnt"><label for="modal-dnt" style="margin:0;">Do Not Text</label></div>
+      </div>
+      <button class="btn btn-primary" id="modal-save-btn">Save Changes</button>
+    </div>
+    <div class="modal-tab-content" id="tab-activity">
+      <div id="modal-activities" class="activity-feed"></div>
+    </div>
+    <div class="modal-tab-content" id="tab-calls">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Direction</th><th>Status</th><th>Duration</th><th>Outcome</th><th>Notes</th></tr></thead>
+          <tbody id="modal-calls-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ JAVASCRIPT ═══════════ -->
+<script>
+(function() {
+  // ─── Supabase Init ───
+  const SUPABASE_URL = 'https://cqijyhudfiteivejcgox.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxaWp5aHVkZml0ZWl2ZWpjZ294Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzI5OTUsImV4cCI6MjA4OTI0ODk5NX0.08wZTXZSQvB98VEKCMLVc0EcuxleNVSOF5Fg0eKENHI';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ─── Auth Check ───
+  async function checkAuth() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return false; }
+    return true;
+  }
+  checkAuth();
+
+  // ─── Logout ───
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    window.location.href = 'login.html';
+  });
+
+  // ─── Helpers ───
+  const STAGES = ['prospect','lead','info_pending','quote_submitted','quote_ready','client'];
+  const STAGE_LABELS = { prospect:'Prospect', lead:'Lead', info_pending:'Info Pending', quote_submitted:'Quote Submitted', quote_ready:'Quote Ready', client:'Client' };
+  const SEGMENT_LABELS = { owner_operator:'Owner Operator', small_fleet:'Small Fleet', commercial_lines:'Commercial Lines', enterprise:'Enterprise' };
+
+  function fmt$(v) { if (v == null) return '$0'; return '$' + Number(v).toLocaleString(undefined, {maximumFractionDigits:0}); }
+  function fmtN(v) { return Number(v || 0).toLocaleString(); }
+  function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }); }
+  function stageBadge(s) { return `<span class="badge badge-${s}">${STAGE_LABELS[s] || s}</span>`; }
+  function escHtml(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+  // ─── Sidebar Navigation ───
+  const sidebarBtns = document.querySelectorAll('.sidebar-btn');
+  const sections = document.querySelectorAll('.section');
+  let currentSection = 'dashboard';
+
+  sidebarBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sec = btn.dataset.section;
+      if (sec === currentSection) return;
+      currentSection = sec;
+      sidebarBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      sections.forEach(s => s.classList.remove('active'));
+      document.getElementById('sec-' + sec).classList.add('active');
+      // Lazy load sections
+      if (sec === 'dashboard') loadDashboard();
+      if (sec === 'pipeline') loadPipeline();
+      if (sec === 'leads') loadLeads();
+      if (sec === 'email') loadEmailCampaigns();
+      if (sec === 'sms') loadSmsCampaigns();
+    });
+  });
+
+  // ═══════════════════════════════════════════
+  // ─── DASHBOARD ───
+  // ═══════════════════════════════════════════
+  let dashLoaded = false;
+  async function loadDashboard() {
+    if (dashLoaded) return;
+    const loading = document.getElementById('dash-loading');
+    const content = document.getElementById('dash-content');
+    try {
+      const [totalRes, premRes, pipeRes, segRes, stateRes, gwpRes, actRes] = await Promise.all([
+        sb.from('crm_leads').select('id', { count: 'exact', head: true }),
+        sb.from('crm_leads').select('estimated_premium'),
+        sb.rpc('crm_pipeline_stats'),
+        sb.rpc('crm_segment_breakdown'),
+        sb.rpc('crm_state_breakdown'),
+        sb.rpc('crm_gwp_stats'),
+        sb.from('crm_activities').select('*, crm_leads(company_name)').order('created_at', { ascending: false }).limit(20)
+      ]);
+
+      const totalCount = totalRes.count || 0;
+      const totalPremium = (premRes.data || []).reduce((s, r) => s + (Number(r.estimated_premium) || 0), 0);
+
+      // Top stats
+      document.getElementById('dash-top-stats').innerHTML = `
+        <div class="stat-card"><div class="label">Total Leads</div><div class="value">${fmtN(totalCount)}</div></div>
+        <div class="stat-card"><div class="label">Pipeline Value</div><div class="value accent">${fmt$(totalPremium)}</div></div>
+      `;
+
+      // Pipeline by stage
+      const pipeData = pipeRes.data || [];
+      let pipeHtml = '';
+      pipeData.forEach(row => {
+        const stage = row.stage || 'unknown';
+        const count = row.count || row.lead_count || 0;
+        const prem = row.total_premium || row.premium || 0;
+        pipeHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--card-border);">
+          <div>${stageBadge(stage)}</div>
+          <div style="text-align:right;">
+            <span style="font-family:'Space Mono',monospace;font-size:0.85rem;color:#fff;">${fmtN(count)}</span>
+            <span style="font-family:'Space Mono',monospace;font-size:0.7rem;color:var(--text-muted);margin-left:0.5rem;">${fmt$(prem)}</span>
+          </div>
+        </div>`;
+      });
+      document.getElementById('dash-pipeline-stages').innerHTML = pipeHtml || '<div style="color:var(--text-dim);">No data</div>';
+
+      // Segments
+      const segData = segRes.data || [];
+      let segHtml = '';
+      segData.forEach(row => {
+        const seg = row.segment || 'unknown';
+        const count = row.count || row.lead_count || 0;
+        segHtml += `<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--card-border);">
+          <span style="color:var(--text);">${SEGMENT_LABELS[seg] || seg}</span>
+          <span style="font-family:'Space Mono',monospace;color:#fff;">${fmtN(count)}</span>
+        </div>`;
+      });
+      document.getElementById('dash-segments').innerHTML = segHtml || '<div style="color:var(--text-dim);">No data</div>';
+
+      // GWP
+      const gwpData = gwpRes.data;
+      if (gwpData && (Array.isArray(gwpData) ? gwpData.length : true)) {
+        const g = Array.isArray(gwpData) ? gwpData[0] : gwpData;
+        document.getElementById('dash-gwp').innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div><div style="font-family:'Space Mono',monospace;font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.3rem;">Pipeline GWP</div><div style="font-family:'Space Mono',monospace;font-size:1.3rem;color:#fff;">${fmt$(g.pipeline_gwp || g.pipeline || 0)}</div></div>
+            <div><div style="font-family:'Space Mono',monospace;font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.3rem;">Bound GWP</div><div style="font-family:'Space Mono',monospace;font-size:1.3rem;color:var(--accent);">${fmt$(g.bound_gwp || g.bound || 0)}</div></div>
+          </div>`;
+      } else {
+        document.getElementById('dash-gwp').innerHTML = '<div style="color:var(--text-dim);">No data</div>';
+      }
+
+      // States
+      const stateData = stateRes.data || [];
+      let stateHtml = '';
+      stateData.slice(0, 20).forEach((row, i) => {
+        stateHtml += `<div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--card-border);">
+          <span style="color:var(--text);">${i+1}. ${row.state || 'N/A'}</span>
+          <span style="font-family:'Space Mono',monospace;color:#fff;">${fmtN(row.count || row.lead_count || 0)}</span>
+        </div>`;
+      });
+      document.getElementById('dash-states').innerHTML = stateHtml || '<div style="color:var(--text-dim);">No data</div>';
+
+      // Activities
+      const actData = actRes.data || [];
+      let actHtml = '';
+      actData.forEach(a => {
+        const company = a.crm_leads?.company_name || '';
+        actHtml += `<div class="activity-item">
+          <div class="activity-dot"></div>
+          <div>
+            <div class="ai-desc">${escHtml(a.description || a.type)}${company ? ' &mdash; <strong>' + escHtml(company) + '</strong>' : ''}</div>
+            <div class="ai-time">${fmtDate(a.created_at)}</div>
+          </div>
+        </div>`;
+      });
+      document.getElementById('dash-activities').innerHTML = actHtml || '<div style="color:var(--text-dim);">No recent activity</div>';
+
+      dashLoaded = true;
+      loading.style.display = 'none';
+      content.style.display = 'block';
+    } catch (e) {
+      console.error('Dashboard error:', e);
+      loading.innerHTML = '<div style="color:#ef4444;">Error loading dashboard. Check console.</div>';
+    }
+  }
+  loadDashboard();
+
+  // ═══════════════════════════════════════════
+  // ─── PIPELINE (Kanban) ───
+  // ═══════════════════════════════════════════
+  let pipelineLoaded = false;
+  const pipelineData = {};
+  const pipelineOffsets = {};
+
+  async function loadPipeline() {
+    if (pipelineLoaded) return;
+    const loading = document.getElementById('pipeline-loading');
+    const board = document.getElementById('kanban-board');
+
+    // Build columns
+    let boardHtml = '';
+    STAGES.forEach(stage => {
+      boardHtml += `
+        <div class="kanban-col" data-stage="${stage}">
+          <div class="kanban-col-header">
+            <div class="col-title" style="color:var(--stage-${stage.replace('_','-')})">${STAGE_LABELS[stage]}</div>
+            <div class="col-stats" id="kstat-${stage}">Loading...</div>
+          </div>
+          <div class="kanban-col-body" id="kcol-${stage}" data-stage="${stage}"></div>
+          <div class="kanban-load-more"><button class="btn btn-secondary btn-sm" id="kmore-${stage}">Load More</button></div>
+        </div>`;
+    });
+    board.innerHTML = boardHtml;
+
+    // Load each column
+    await Promise.all(STAGES.map(s => loadKanbanColumn(s, 0)));
+
+    // Setup drag/drop
+    STAGES.forEach(stage => {
+      const col = document.getElementById('kcol-' + stage);
+      col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+      col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+      col.addEventListener('drop', async e => {
+        e.preventDefault();
+        col.classList.remove('drag-over');
+        const leadId = e.dataTransfer.getData('text/plain');
+        const fromStage = e.dataTransfer.getData('from-stage');
+        if (fromStage === stage) return;
+        // Update in Supabase
+        const { error } = await sb.from('crm_leads').update({ stage, stage_changed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', leadId);
+        if (error) { console.error(error); alert('Failed to update stage'); return; }
+        // Log activity
+        await sb.from('crm_activities').insert({ lead_id: leadId, type: 'stage_change', description: `Stage changed from ${STAGE_LABELS[fromStage]} to ${STAGE_LABELS[stage]}` });
+        // Reload both columns
+        pipelineData[fromStage] = [];
+        pipelineData[stage] = [];
+        pipelineOffsets[fromStage] = 0;
+        pipelineOffsets[stage] = 0;
+        await Promise.all([loadKanbanColumn(fromStage, 0), loadKanbanColumn(stage, 0)]);
+      });
+
+      document.getElementById('kmore-' + stage).addEventListener('click', () => {
+        const offset = pipelineOffsets[stage] || 0;
+        loadKanbanColumn(stage, offset, true);
+      });
+    });
+
+    pipelineLoaded = true;
+    loading.style.display = 'none';
+    board.style.display = 'grid';
+  }
+
+  async function loadKanbanColumn(stage, offset, append) {
+    if (!offset) offset = 0;
+    const limit = 20;
+    const { data, error, count } = await sb.from('crm_leads')
+      .select('id, company_name, contact_name, trucks, lead_score, estimated_premium, stage', { count: 'exact' })
+      .eq('stage', stage)
+      .order('lead_score', { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) { console.error(error); return; }
+
+    const total = count || 0;
+    const totalPrem = 0; // We'll calc from stats
+    document.getElementById('kstat-' + stage).textContent = `${total} leads`;
+
+    if (!append) {
+      pipelineData[stage] = data || [];
+      pipelineOffsets[stage] = (data || []).length;
+    } else {
+      pipelineData[stage] = (pipelineData[stage] || []).concat(data || []);
+      pipelineOffsets[stage] = (pipelineOffsets[stage] || 0) + (data || []).length;
+    }
+
+    const col = document.getElementById('kcol-' + stage);
+    if (!append) col.innerHTML = '';
+
+    (data || []).forEach(lead => {
+      const card = document.createElement('div');
+      card.className = 'kanban-card';
+      card.draggable = true;
+      card.dataset.id = lead.id;
+      card.innerHTML = `
+        <div class="kc-company">${escHtml(lead.company_name)}</div>
+        <div class="kc-contact">${escHtml(lead.contact_name)}</div>
+        <div class="kc-meta">
+          <span>${lead.trucks || 0} trucks &middot; Score: ${lead.lead_score || 0}</span>
+          <span class="premium">${fmt$(lead.estimated_premium)}</span>
+        </div>`;
+      card.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', lead.id);
+        e.dataTransfer.setData('from-stage', stage);
+        card.classList.add('dragging');
+      });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      card.addEventListener('click', () => openLeadModal(lead.id));
+      col.appendChild(card);
+    });
+
+    // Hide load more if all loaded
+    const moreBtn = document.getElementById('kmore-' + stage);
+    if ((pipelineOffsets[stage] || 0) >= total) {
+      moreBtn.style.display = 'none';
+    } else {
+      moreBtn.style.display = '';
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // ─── LEADS LIST ───
+  // ═══════════════════════════════════════════
+  let leadsPage = 0;
+  const LEADS_PER_PAGE = 50;
+  let leadsTotal = 0;
+
+  async function loadLeads() {
+    const loading = document.getElementById('leads-loading');
+    const tbody = document.getElementById('leads-tbody');
+    loading.style.display = 'flex';
+    tbody.innerHTML = '';
+
+    const search = document.getElementById('leads-search').value.trim();
+    const stage = document.getElementById('leads-filter-stage').value;
+    const segment = document.getElementById('leads-filter-segment').value;
+    const state = document.getElementById('leads-filter-state').value.trim();
+
+    let query = sb.from('crm_leads')
+      .select('id, company_name, contact_name, phone, email, state, trucks, stage, lead_score, estimated_premium, dot_number', { count: 'exact' });
+
+    if (stage) query = query.eq('stage', stage);
+    if (segment) query = query.eq('segment', segment);
+    if (state) query = query.ilike('state', state);
+    if (search) {
+      query = query.or(`company_name.ilike.%${search}%,contact_name.ilike.%${search}%,dot_number.ilike.%${search}%`);
+    }
+
+    query = query.order('created_at', { ascending: false })
+      .range(leadsPage * LEADS_PER_PAGE, (leadsPage + 1) * LEADS_PER_PAGE - 1);
+
+    const { data, error, count } = await query;
+    loading.style.display = 'none';
+
+    if (error) { console.error(error); return; }
+    leadsTotal = count || 0;
+
+    (data || []).forEach(lead => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escHtml(lead.company_name)}</td>
+        <td>${escHtml(lead.contact_name)}</td>
+        <td style="font-family:'Space Mono',monospace;font-size:0.8rem;">${escHtml(lead.phone)}</td>
+        <td>${escHtml(lead.email)}</td>
+        <td>${escHtml(lead.state)}</td>
+        <td>${lead.trucks || 0}</td>
+        <td>${stageBadge(lead.stage)}</td>
+        <td>${lead.lead_score || 0}</td>
+        <td style="font-family:'Space Mono',monospace;color:var(--accent);">${fmt$(lead.estimated_premium)}</td>`;
+      tr.addEventListener('click', () => openLeadModal(lead.id));
+      tbody.appendChild(tr);
+    });
+
+    const totalPages = Math.ceil(leadsTotal / LEADS_PER_PAGE) || 1;
+    document.getElementById('leads-page-info').textContent = `Page ${leadsPage + 1} of ${totalPages} (${fmtN(leadsTotal)} leads)`;
+    document.getElementById('leads-prev').disabled = leadsPage === 0;
+    document.getElementById('leads-next').disabled = (leadsPage + 1) * LEADS_PER_PAGE >= leadsTotal;
+  }
+
+  document.getElementById('leads-search-btn').addEventListener('click', () => { leadsPage = 0; loadLeads(); });
+  document.getElementById('leads-search').addEventListener('keydown', e => { if (e.key === 'Enter') { leadsPage = 0; loadLeads(); } });
+  document.getElementById('leads-prev').addEventListener('click', () => { if (leadsPage > 0) { leadsPage--; loadLeads(); } });
+  document.getElementById('leads-next').addEventListener('click', () => { if ((leadsPage + 1) * LEADS_PER_PAGE < leadsTotal) { leadsPage++; loadLeads(); } });
+  // Initial load
+  loadLeads();
+
+  // ═══════════════════════════════════════════
+  // ─── LEAD DETAIL MODAL ───
+  // ═══════════════════════════════════════════
+  let currentLeadId = null;
+
+  async function openLeadModal(id) {
+    currentLeadId = id;
+    const modal = document.getElementById('lead-modal');
+    modal.classList.add('open');
+
+    // Reset tabs
+    document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.modal-tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelector('.modal-tab[data-tab="details"]').classList.add('active');
+    document.getElementById('tab-details').classList.add('active');
+
+    // Fetch lead
+    const { data: lead, error } = await sb.from('crm_leads').select('*').eq('id', id).single();
+    if (error || !lead) { console.error(error); return; }
+
+    document.getElementById('modal-title').textContent = lead.company_name || 'Lead Details';
+
+    const fields = [
+      ['Company', lead.company_name], ['DBA', lead.dba_name],
+      ['Contact', lead.contact_name], ['Contact 2', lead.contact_name_2],
+      ['Phone', lead.phone], ['Cell', lead.cell_phone],
+      ['Email', lead.email], ['DOT#', lead.dot_number],
+      ['Address', lead.address], ['City', lead.city],
+      ['State', lead.state], ['ZIP', lead.zip],
+      ['Trucks', lead.trucks], ['Power Units', lead.power_units],
+      ['Segment', SEGMENT_LABELS[lead.segment] || lead.segment], ['Score', lead.lead_score],
+      ['Est. Premium', fmt$(lead.estimated_premium)], ['Tags', lead.tags],
+      ['Created', fmtDate(lead.created_at)], ['Last Contacted', fmtDate(lead.last_contacted_at)]
+    ];
+
+    let fHtml = '';
+    fields.forEach(([label, val]) => {
+      fHtml += `<div class="modal-field"><div class="field-label">${label}</div><div class="field-value">${escHtml(String(val || '-'))}</div></div>`;
+    });
+    document.getElementById('modal-fields').innerHTML = fHtml;
+
+    document.getElementById('modal-stage').value = lead.stage || 'prospect';
+    document.getElementById('modal-notes').value = lead.notes || '';
+    document.getElementById('modal-dnc').checked = !!lead.do_not_call;
+    document.getElementById('modal-dne').checked = !!lead.do_not_email;
+    document.getElementById('modal-dnt').checked = !!lead.do_not_text;
+
+    // Load activities
+    const { data: activities } = await sb.from('crm_activities').select('*').eq('lead_id', id).order('created_at', { ascending: false }).limit(50);
+    let aHtml = '';
+    (activities || []).forEach(a => {
+      aHtml += `<div class="activity-item"><div class="activity-dot"></div><div><div class="ai-desc">${escHtml(a.description || a.type)}</div><div class="ai-time">${fmtDate(a.created_at)}</div></div></div>`;
+    });
+    document.getElementById('modal-activities').innerHTML = aHtml || '<div style="color:var(--text-dim);padding:1rem;">No activities</div>';
+
+    // Load calls
+    const { data: calls } = await sb.from('crm_calls').select('*').eq('lead_id', id).order('created_at', { ascending: false }).limit(50);
+    let cHtml = '';
+    (calls || []).forEach(c => {
+      cHtml += `<tr>
+        <td>${fmtDate(c.created_at)}</td>
+        <td>${escHtml(c.direction)}</td>
+        <td>${escHtml(c.status)}</td>
+        <td>${c.duration_seconds ? c.duration_seconds + 's' : '-'}</td>
+        <td>${escHtml(c.outcome)}</td>
+        <td>${escHtml(c.notes)}</td>
+      </tr>`;
+    });
+    document.getElementById('modal-calls-tbody').innerHTML = cHtml || '<tr><td colspan="6" style="color:var(--text-dim);text-align:center;padding:1rem;">No calls</td></tr>';
+  }
+
+  // Modal tabs
+  document.querySelectorAll('.modal-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.modal-tab-content').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Close modal
+  document.getElementById('modal-close-btn').addEventListener('click', () => {
+    document.getElementById('lead-modal').classList.remove('open');
+    currentLeadId = null;
+  });
+  document.getElementById('lead-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) {
+      document.getElementById('lead-modal').classList.remove('open');
+      currentLeadId = null;
+    }
+  });
+
+  // Save lead
+  document.getElementById('modal-save-btn').addEventListener('click', async () => {
+    if (!currentLeadId) return;
+    const updates = {
+      stage: document.getElementById('modal-stage').value,
+      notes: document.getElementById('modal-notes').value,
+      do_not_call: document.getElementById('modal-dnc').checked,
+      do_not_email: document.getElementById('modal-dne').checked,
+      do_not_text: document.getElementById('modal-dnt').checked,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await sb.from('crm_leads').update(updates).eq('id', currentLeadId);
+    if (error) { alert('Error saving: ' + error.message); return; }
+    await sb.from('crm_activities').insert({ lead_id: currentLeadId, type: 'lead_updated', description: 'Lead details updated' });
+    alert('Saved successfully!');
+    // Refresh data
+    pipelineLoaded = false;
+    dashLoaded = false;
+  });
+
+  // ═══════════════════════════════════════════
+  // ─── PARALLEL DIALER ───
+  // ═══════════════════════════════════════════
+  let dialerActive = false;
+  let dialerSessionId = null;
+  let dialerStats = { total: 0, connected: 0 };
+  let dialerUsedIds = new Set();
+  const lineLeads = [null, null, null];
+
+  document.getElementById('dialer-start-btn').addEventListener('click', startDialer);
+  document.getElementById('dialer-stop-btn').addEventListener('click', stopDialer);
+
+  async function startDialer() {
+    dialerActive = true;
+    dialerStats = { total: 0, connected: 0 };
+    dialerUsedIds = new Set();
+    document.getElementById('dialer-start-btn').style.display = 'none';
+    document.getElementById('dialer-stop-btn').style.display = '';
+    document.getElementById('ds-status').textContent = 'ACTIVE';
+    document.getElementById('ds-status').style.color = 'var(--accent)';
+
+    // Create session
+    const { data: sess } = await sb.from('crm_dialer_sessions').insert({ status: 'active', lines_active: 3, total_calls: 0, connected_calls: 0 }).select().single();
+    if (sess) dialerSessionId = sess.id;
+
+    // Load 3 leads
+    await Promise.all([loadDialerLine(0), loadDialerLine(1), loadDialerLine(2)]);
+  }
+
+  function stopDialer() {
+    dialerActive = false;
+    document.getElementById('dialer-start-btn').style.display = '';
+    document.getElementById('dialer-stop-btn').style.display = 'none';
+    document.getElementById('ds-status').textContent = 'IDLE';
+    document.getElementById('ds-status').style.color = '';
+
+    if (dialerSessionId) {
+      sb.from('crm_dialer_sessions').update({ status: 'completed', total_calls: dialerStats.total, connected_calls: dialerStats.connected }).eq('id', dialerSessionId);
+    }
+
+    for (let i = 0; i < 3; i++) {
+      lineLeads[i] = null;
+      renderDialerLine(i, null);
+    }
+  }
+
+  async function loadDialerLine(lineIdx) {
+    if (!dialerActive) return;
+    const segment = document.getElementById('dialer-segment').value;
+    const stage = document.getElementById('dialer-stage').value;
+    const state = document.getElementById('dialer-state').value.trim();
+
+    let query = sb.from('crm_leads')
+      .select('id, company_name, contact_name, phone, stage, do_not_call')
+      .eq('do_not_call', false);
+
+    if (segment) query = query.eq('segment', segment);
+    if (stage) query = query.eq('stage', stage);
+    if (state) query = query.ilike('state', state);
+
+    // Get a random lead not already used
+    query = query.limit(50);
+    const { data } = await query;
+    const available = (data || []).filter(l => !dialerUsedIds.has(l.id));
+
+    if (available.length === 0) {
+      renderDialerLine(lineIdx, null, 'No more leads');
+      return;
+    }
+
+    const lead = available[Math.floor(Math.random() * available.length)];
+    dialerUsedIds.add(lead.id);
+    lineLeads[lineIdx] = lead;
+    renderDialerLine(lineIdx, lead);
+  }
+
+  function renderDialerLine(idx, lead, msg) {
+    const el = document.getElementById('line-' + idx);
+    if (!lead) {
+      el.className = 'dialer-line idle';
+      el.innerHTML = `<div class="line-number">Line ${idx+1}</div><div style="color:var(--text-dim);">${msg || 'Start dialing to load leads'}</div>`;
+      return;
+    }
+    el.className = 'dialer-line';
+    el.innerHTML = `
+      <div class="line-number">Line ${idx+1}</div>
+      <div class="line-company">${escHtml(lead.company_name)}</div>
+      <div class="line-contact">${escHtml(lead.contact_name)}</div>
+      <div class="line-phone">${escHtml(lead.phone) || 'No phone'}</div>
+      <div class="line-stage">${stageBadge(lead.stage)}</div>
+      <div class="line-actions">
+        <button class="btn btn-primary btn-sm" onclick="window._dialerOutcome(${idx},'connected')">Connected</button>
+        <button class="btn btn-secondary btn-sm" onclick="window._dialerOutcome(${idx},'no_answer')">No Answer</button>
+        <button class="btn btn-secondary btn-sm" onclick="window._dialerOutcome(${idx},'voicemail')">Voicemail</button>
+        <button class="btn btn-secondary btn-sm" onclick="window._dialerOutcome(${idx},'busy')">Busy</button>
+        <button class="btn btn-danger btn-sm" onclick="window._dialerOutcome(${idx},'wrong_number')">Wrong #</button>
+      </div>`;
+  }
+
+  window._dialerOutcome = async function(lineIdx, outcome) {
+    const lead = lineLeads[lineIdx];
+    if (!lead || !dialerActive) return;
+
+    dialerStats.total++;
+    if (outcome === 'connected') dialerStats.connected++;
+
+    // Update UI
+    document.getElementById('ds-total').textContent = dialerStats.total;
+    document.getElementById('ds-connected').textContent = dialerStats.connected;
+    document.getElementById('ds-rate').textContent = dialerStats.total > 0 ? Math.round((dialerStats.connected / dialerStats.total) * 100) + '%' : '0%';
+
+    // Create call record
+    await sb.from('crm_calls').insert({
+      lead_id: lead.id,
+      direction: 'outbound',
+      status: outcome === 'connected' ? 'completed' : outcome,
+      outcome: outcome,
+      notes: `Parallel dialer - Line ${lineIdx + 1}`,
+      dialer_line: lineIdx + 1
+    });
+
+    // Create activity
+    await sb.from('crm_activities').insert({
+      lead_id: lead.id,
+      type: 'call',
+      description: `Outbound call: ${outcome.replace('_', ' ')}`,
+      metadata: { outcome, dialer_line: lineIdx + 1, session_id: dialerSessionId }
+    });
+
+    // Update last contacted
+    await sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', lead.id);
+
+    // Update session stats
+    if (dialerSessionId) {
+      await sb.from('crm_dialer_sessions').update({ total_calls: dialerStats.total, connected_calls: dialerStats.connected }).eq('id', dialerSessionId);
+    }
+
+    // Load next lead for this line
+    await loadDialerLine(lineIdx);
+  };
+
+  // ═══════════════════════════════════════════
+  // ─── EMAIL CAMPAIGNS ───
+  // ═══════════════════════════════════════════
+  const emailTemplates = [
+    { name: 'Owner-Operator Welcome', subject: 'Exclusive Owner-Operator Rates from AdvancedIns.ai', body: '<h2>Welcome, Owner-Operator!</h2><p>At AdvancedIns.ai, we specialize in providing affordable, comprehensive insurance for independent owner-operators like you.</p><p>Our rates start as low as <strong>$9,000/year</strong> for full coverage including:</p><ul><li>Primary Liability</li><li>Physical Damage</li><li>Cargo Insurance</li><li>Bobtail Coverage</li></ul><p>Reply to this email or call us at <strong>(657) 366-5312</strong> to get your free, no-obligation quote today!</p>' },
+    { name: 'Small Fleet Bundle Offer', subject: 'Bundle & Save: Fleet Insurance Packages', body: '<h2>Fleet Insurance That Works for You</h2><p>Managing a small fleet? Let us bundle your policies and save you up to <strong>25%</strong> on your annual premiums.</p><p>Our fleet packages include:</p><ul><li>Multi-vehicle discounts</li><li>Flexible payment plans</li><li>24/7 claims support</li><li>DOT compliance assistance</li></ul><p>Contact us today for a custom fleet quote: <strong>(657) 366-5312</strong></p>' },
+    { name: 'DOT Compliance Tips', subject: 'Stay Compliant: DOT Audit Preparation Checklist', body: '<h2>Is Your Fleet DOT Audit-Ready?</h2><p>A DOT audit can happen at any time. Make sure you are prepared with our comprehensive checklist:</p><ol><li>Verify all driver qualifications and MVRs</li><li>Review hours of service logs</li><li>Inspect vehicle maintenance records</li><li>Confirm insurance filings are current</li><li>Check drug and alcohol testing compliance</li></ol><p>Need help ensuring your insurance meets DOT requirements? We are here to help: <strong>(657) 366-5312</strong></p>' },
+    { name: 'Review Request', subject: "How's Your Coverage? Quick Review from AdvancedIns.ai", body: '<h2>Time for a Coverage Check-Up</h2><p>When was the last time you reviewed your trucking insurance? Rates and regulations change frequently, and you might be overpaying or underinsured.</p><p>Our free coverage review takes just <strong>15 minutes</strong> and could save you thousands.</p><p>Schedule your review today: <strong>(657) 366-5312</strong></p>' },
+    { name: 'Referral Program', subject: 'Earn Rewards: Refer a Fellow Trucker', body: '<h2>Share the Savings, Earn Rewards!</h2><p>Know a fellow trucker who needs better insurance? Refer them to AdvancedIns.ai and earn a <strong>$100 gift card</strong> for every successful referral!</p><p>How it works:</p><ol><li>Share our contact info with a friend</li><li>They get a quote and sign up</li><li>You receive your $100 gift card!</li></ol><p>There is no limit to how many people you can refer. Start sharing today!</p>' }
+  ];
+
+  function renderEmailTemplates() {
+    const grid = document.getElementById('email-templates');
+    grid.innerHTML = emailTemplates.map(t => `
+      <div class="template-card" onclick="window._useEmailTemplate('${t.name}')">
+        <div class="tc-name">${t.name}</div>
+        <div class="tc-subject">${t.subject}</div>
+      </div>`).join('');
+  }
+  renderEmailTemplates();
+
+  window._useEmailTemplate = function(name) {
+    const tmpl = emailTemplates.find(t => t.name === name);
+    if (!tmpl) return;
+    document.getElementById('email-name').value = tmpl.name;
+    document.getElementById('email-subject').value = tmpl.subject;
+    document.getElementById('email-body').value = tmpl.body;
+  };
+
+  let emailLoaded = false;
+  async function loadEmailCampaigns() {
+    if (emailLoaded) return;
+    const loading = document.getElementById('email-campaigns-loading');
+    const list = document.getElementById('email-campaigns-list');
+
+    const { data, error } = await sb.from('crm_email_campaigns').select('*').order('created_at', { ascending: false });
+    loading.style.display = 'none';
+
+    if (error) { console.error(error); return; }
+
+    list.innerHTML = (data || []).map(c => `
+      <div class="campaign-item">
+        <div>
+          <div class="ci-name">${escHtml(c.name)}</div>
+          <div class="ci-meta">${escHtml(c.subject)} &middot; ${c.target_segment || 'All segments'} &middot; ${c.target_stage || 'All stages'}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="badge badge-${c.status === 'sent' ? 'client' : c.status === 'draft' ? 'prospect' : 'lead'}">${c.status || 'draft'}</div>
+          <div class="ci-meta" style="margin-top:0.25rem;">${fmtN(c.sent_count || 0)} / ${fmtN(c.total_recipients || 0)} sent &middot; ${fmtDate(c.created_at)}</div>
+        </div>
+      </div>`).join('') || '<div style="color:var(--text-dim);padding:1rem;">No campaigns yet</div>';
+
+    emailLoaded = true;
+  }
+
+  document.getElementById('email-create-btn').addEventListener('click', async () => {
+    const name = document.getElementById('email-name').value.trim();
+    const subject = document.getElementById('email-subject').value.trim();
+    const body = document.getElementById('email-body').value.trim();
+    const segment = document.getElementById('email-segment').value || null;
+    const stage = document.getElementById('email-stage').value || null;
+
+    if (!name || !subject) { alert('Name and Subject are required'); return; }
+
+    const { error } = await sb.from('crm_email_campaigns').insert({
+      name, subject, body_html: body,
+      target_segment: segment, target_stage: stage,
+      status: 'draft', campaign_type: 'manual',
+      total_recipients: 0, sent_count: 0
+    });
+
+    if (error) { alert('Error: ' + error.message); return; }
+
+    // Reset form
+    document.getElementById('email-name').value = '';
+    document.getElementById('email-subject').value = '';
+    document.getElementById('email-body').value = '';
+    document.getElementById('email-segment').value = '';
+    document.getElementById('email-stage').value = '';
+
+    emailLoaded = false;
+    loadEmailCampaigns();
+    alert('Campaign created!');
+  });
+
+  // ═══════════════════════════════════════════
+  // ─── SMS CAMPAIGNS ───
+  // ═══════════════════════════════════════════
+  const smsTemplates = [
+    { name: 'Introduction', message: 'Hi {name}, this is AdvancedIns.ai. We specialize in trucking insurance with rates starting at $9,000/yr. Reply YES for a free quote!' },
+    { name: 'Follow Up', message: 'Hi {name}, just following up on your trucking insurance quote. We have competitive rates for your fleet. Reply or call (657) 366-5312' },
+    { name: 'Quote Ready', message: 'Great news {name}! Your trucking insurance quote is ready. Call us at (657) 366-5312 to review your options.' },
+    { name: 'Review Request', message: 'Hi {name}, how\'s your coverage? If your policy is renewing soon, let us find you a better rate. Reply INFO' },
+    { name: 'Referral', message: 'Hi {name}, love your coverage? Refer a trucker friend and earn a $100 gift card! Reply REFER for details.' }
+  ];
+
+  function renderSmsTemplates() {
+    const grid = document.getElementById('sms-templates');
+    grid.innerHTML = smsTemplates.map(t => `
+      <div class="template-card" onclick="window._useSmsTemplate('${t.name}')">
+        <div class="tc-name">${t.name}</div>
+        <div class="tc-subject" style="font-size:0.7rem;margin-top:0.25rem;">${escHtml(t.message)}</div>
+      </div>`).join('');
+  }
+  renderSmsTemplates();
+
+  window._useSmsTemplate = function(name) {
+    const tmpl = smsTemplates.find(t => t.name === name);
+    if (!tmpl) return;
+    document.getElementById('sms-name').value = tmpl.name;
+    document.getElementById('sms-message').value = tmpl.message;
+  };
+
+  let smsLoaded = false;
+  async function loadSmsCampaigns() {
+    if (smsLoaded) return;
+    const loading = document.getElementById('sms-campaigns-loading');
+    const list = document.getElementById('sms-campaigns-list');
+
+    const { data, error } = await sb.from('crm_sms_campaigns').select('*').order('created_at', { ascending: false });
+    loading.style.display = 'none';
+
+    if (error) { console.error(error); return; }
+
+    list.innerHTML = (data || []).map(c => `
+      <div class="campaign-item">
+        <div>
+          <div class="ci-name">${escHtml(c.name)}</div>
+          <div class="ci-meta">${escHtml((c.message || '').substring(0, 60))}... &middot; Batch: ${c.batch_size || 100}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="badge badge-${c.status === 'sent' ? 'client' : c.status === 'draft' ? 'prospect' : 'lead'}">${c.status || 'draft'}</div>
+          <div class="ci-meta" style="margin-top:0.25rem;">${fmtN(c.sent_count || 0)} / ${fmtN(c.total_recipients || 0)} sent &middot; ${fmtDate(c.created_at)}</div>
+        </div>
+      </div>`).join('') || '<div style="color:var(--text-dim);padding:1rem;">No campaigns yet</div>';
+
+    smsLoaded = true;
+  }
+
+  document.getElementById('sms-create-btn').addEventListener('click', async () => {
+    const name = document.getElementById('sms-name').value.trim();
+    const message = document.getElementById('sms-message').value.trim();
+    const segment = document.getElementById('sms-segment').value || null;
+    const stage = document.getElementById('sms-stage').value || null;
+    const batchSize = parseInt(document.getElementById('sms-batch').value) || 100;
+
+    if (!name || !message) { alert('Name and Message are required'); return; }
+
+    const { error } = await sb.from('crm_sms_campaigns').insert({
+      name, message,
+      target_segment: segment, target_stage: stage,
+      status: 'draft', batch_size: batchSize,
+      total_recipients: 0, sent_count: 0
+    });
+
+    if (error) { alert('Error: ' + error.message); return; }
+
+    document.getElementById('sms-name').value = '';
+    document.getElementById('sms-message').value = '';
+    document.getElementById('sms-segment').value = '';
+    document.getElementById('sms-stage').value = '';
+    document.getElementById('sms-batch').value = '100';
+
+    smsLoaded = false;
+    loadSmsCampaigns();
+    alert('SMS Campaign created!');
+  });
+
+})();
+</script>
+</body>
+</html>
