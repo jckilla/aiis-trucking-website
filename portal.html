@@ -1794,6 +1794,32 @@ async function dialOutcome(line, outcome) {
     startCallTimer(line);
     document.getElementById('lineOutcomes' + line).style.display = 'none';
     document.getElementById('lineForm' + line).classList.add('active');
+
+    // Clear all OTHER lines — focus on the live call
+    for (var otherLine = 1; otherLine <= 3; otherLine++) {
+      if (otherLine === line) continue;
+      var otherLead = dialerLeadMap[otherLine];
+      if (otherLead) {
+        // Log the other lines as no_answer since we're moving on
+        try {
+          sb.from('crm_calls').insert({ lead_id: otherLead.id, status: 'no_answer', dialer_line: otherLine });
+          sb.from('crm_activities').insert({ lead_id: otherLead.id, type: 'call', description: 'Call: no_answer (cleared — another line connected)' });
+        } catch(e) {}
+        dialerStats.noAnswer++;
+      }
+      dialerLeadMap[otherLine] = null;
+      stopCallTimer(otherLine);
+      setLineState(otherLine, 'idle');
+      document.getElementById('lineOutcomes' + otherLine).style.display = 'none';
+      document.getElementById('lineForm' + otherLine).classList.remove('active');
+      document.getElementById('lineHangup' + otherLine).style.display = 'none';
+      document.getElementById('lineAreaBadge' + otherLine).innerHTML = '';
+      document.getElementById('lineName' + otherLine).textContent = '\u2014';
+      document.getElementById('lineCompany' + otherLine).textContent = 'Waiting for live call to end...';
+      document.getElementById('linePhone' + otherLine).textContent = '\u2014';
+      document.getElementById('lineDetails' + otherLine).textContent = '\u2014';
+    }
+    updateDialerStatsUI();
   } else {
     if (outcome === 'no_answer') dialerStats.noAnswer++;
     if (outcome === 'voicemail') dialerStats.voicemail++;
@@ -1852,7 +1878,9 @@ async function saveCallResult(line) {
   document.getElementById('lineNotes' + line).value = '';
   toast('Call saved' + (newStage ? ' — lead moved to ' + newStage.replace(/_/g, ' ') : ''));
   updateDialerStatsUI();
-  loadNextLead(line);
+
+  // After a connected call ends, reload all 3 lines with fresh leads
+  await loadDialerLeads();
 }
 
 async function loadNextLead(line) {
