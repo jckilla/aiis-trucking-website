@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIIS CRM Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- Twilio SDK removed — power dialer disabled -->
+<script src="https://sdk.twilio.com/js/client/releases/1.14.3/twilio.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -1503,10 +1503,15 @@ async function renderLeads(el) {
   }
 }
 
-// ==================== PARALLEL DIALER (MANUAL MODE) ====================
-var lineCallSids = {}; // line -> CallSid (reserved for future use)
+// ==================== PARALLEL DIALER (TWILIO — 213 CALLER ID) ====================
+var twilioDevice = null;
+var twilioReady = false;
+var lineCallSids = {}; // line -> Twilio outbound CallSid
 var lineTimers = {};   // line -> timer interval
 var lineStartTimes = {}; // line -> call start time
+var lineTimeouts = {}; // line -> auto-cleanup timeout
+var activeLiveCall = null; // which line has a live connected call
+var dialerPhoneMap = {}; // normalized phone -> line number (for matching incoming)
 
 function extractAreaCode(phone) {
   if (!phone) return '???';
@@ -1516,10 +1521,133 @@ function extractAreaCode(phone) {
   return '???';
 }
 
+function normalizePhoneForMatch(phone) {
+  if (!phone) return '';
+  var digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return '+1' + digits;
+  if (digits.length === 11 && digits[0] === '1') return '+' + digits;
+  return '+' + digits;
+}
+
 function formatCallTime(seconds) {
   var m = Math.floor(seconds / 60);
   var s = seconds % 60;
   return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+async function initTwilioDevice() {
+  if (twilioDevice && twilioReady) return true;
+  if (twilioDevice) { try { twilioDevice.destroy(); } catch(e){} twilioDevice = null; twilioReady = false; }
+  try {
+    console.log('Fetching Twilio access token...');
+    var resp = await fetch('/api/twilio/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity: 'aiis-agent' })
+    });
+    var data = await resp.json();
+    if (data.error) {
+      console.error('Twilio token error:', data.error);
+      toast('Twilio token error: ' + data.error, 'error');
+      return false;
+    }
+    console.log('Got Twilio token for identity:', data.identity);
+
+    return await new Promise(function(resolve) {
+      var timeoutId = setTimeout(function() {
+        console.error('Twilio Device timed out');
+        toast('Twilio failed to connect. Allow microphone access and try again.', 'error');
+        resolve(false);
+      }, 15000);
+
+      twilioDevice = new Twilio.Device(data.token, {
+        codecPreferences: ['opus', 'pcmu'],
+        enableRingingState: true
+      });
+
+      twilioDevice.on('ready', function() {
+        clearTimeout(timeoutId);
+        twilioReady = true;
+        console.log('Twilio Device READY — registered as client:aiis-agent');
+        resolve(true);
+      });
+
+      twilioDevice.on('error', function(err) {
+        console.error('Twilio Device error:', err);
+      });
+
+      // CRITICAL: When a lead answers and connect.js bridges them here
+      twilioDevice.on('incoming', function(conn) {
+        console.log('Incoming connection! Params:', JSON.stringify(conn.parameters));
+        console.log('Custom params:', conn.customParameters);
+
+        // Try to identify which line from custom parameters or From number
+        var connLine = null;
+        if (conn.customParameters && conn.customParameters.get) {
+          connLine = parseInt(conn.customParameters.get('line'));
+        }
+        if (!connLine) {
+          // Fall back to matching by From phone number
+          var fromNum = conn.parameters.From || '';
+          console.log('Matching by From number:', fromNum);
+          for (var n = 1; n <= 3; n++) {
+            if (dialerLeadMap[n]) {
+              var leadPhone = normalizePhoneForMatch(dialerLeadMap[n].phone || dialerLeadMap[n].cell_phone || '');
+              if (leadPhone === fromNum || fromNum.indexOf(leadPhone.replace('+1','')) > -1) {
+                connLine = n;
+                break;
+              }
+            }
+          }
+        }
+        // If still no match, pick first ringing line
+        if (!connLine) {
+          for (var n = 1; n <= 3; n++) {
+            if (lineCallSids[n] && !activeLiveCall) { connLine = n; break; }
+          }
+        }
+
+        if (activeLiveCall) {
+          // Already on a call — reject this one
+          console.log('Already on line ' + activeLiveCall + ', rejecting incoming on line ' + connLine);
+          conn.reject();
+          return;
+        }
+
+        console.log('Accepting call on line ' + connLine);
+        conn.accept();
+        activeLiveCall = connLine || 1;
+
+        // Mark this line as live
+        setLineState(activeLiveCall, 'on-call');
+        startCallTimer(activeLiveCall);
+        document.getElementById('lineOutcomes' + activeLiveCall).style.display = 'none';
+        document.getElementById('lineForm' + activeLiveCall).classList.add('active');
+        document.getElementById('lineHangup' + activeLiveCall).style.display = 'block';
+        toast('CONNECTED — Line ' + activeLiveCall + ': ' + (dialerLeadMap[activeLiveCall] ? dialerLeadMap[activeLiveCall].company_name : 'Lead'), 'success');
+
+        // Hang up and clear ALL other lines
+        hangupOtherLines(activeLiveCall);
+      });
+
+      twilioDevice.on('disconnect', function(conn) {
+        console.log('Twilio call disconnected');
+        if (activeLiveCall) {
+          stopCallTimer(activeLiveCall);
+          // Don't auto-clear — let agent save the call result
+        }
+      });
+
+      twilioDevice.on('offline', function() {
+        console.log('Twilio Device offline');
+        twilioReady = false;
+      });
+    });
+  } catch(e) {
+    console.error('Twilio init failed:', e);
+    toast('Twilio init failed: ' + e.message, 'error');
+    return false;
+  }
 }
 
 function setLineState(line, state) {
@@ -1527,10 +1655,11 @@ function setLineState(line, state) {
   if (!el) return;
   el.className = 'dialer-line ' + state;
   var statusEl = document.getElementById('lineStatus' + line);
-  if (state === 'ringing') { statusEl.innerHTML = '<span class="line-status active">Ringing...</span>'; }
+  if (state === 'ringing') { statusEl.innerHTML = '<span class="line-status active">&#x1F4DE; Ringing...</span>'; }
   else if (state === 'on-call') { statusEl.innerHTML = '<span class="live-indicator"><span class="dot"></span> LIVE</span>'; }
-  else if (state === 'voicemail-detected') { statusEl.innerHTML = '<span class="vm-badge">Voicemail Detected</span>'; }
+  else if (state === 'voicemail-detected') { statusEl.innerHTML = '<span class="vm-badge">&#x1F4E9; Voicemail</span>'; }
   else if (state === 'call-ended') { statusEl.innerHTML = '<span class="line-status">Ended</span>'; }
+  else if (state === 'no-answer') { statusEl.innerHTML = '<span class="line-status">No Answer</span>'; }
   else { statusEl.innerHTML = '<span class="line-status">Idle</span>'; }
 }
 
@@ -1550,6 +1679,50 @@ function stopCallTimer(line) {
   if (timerEl) timerEl.style.display = 'none';
 }
 
+// Hang up all lines except the connected one
+async function hangupOtherLines(keepLine) {
+  var sidsToKill = [];
+  for (var n = 1; n <= 3; n++) {
+    if (n === keepLine) continue;
+    if (lineTimeouts[n]) { clearTimeout(lineTimeouts[n]); lineTimeouts[n] = null; }
+    var otherLead = dialerLeadMap[n];
+    if (lineCallSids[n]) {
+      sidsToKill.push(lineCallSids[n]);
+      lineCallSids[n] = null;
+    }
+    if (otherLead) {
+      try {
+        sb.from('crm_calls').insert({ lead_id: otherLead.id, status: 'no_answer', dialer_line: n });
+        sb.from('crm_activities').insert({ lead_id: otherLead.id, type: 'call', description: 'Call dropped — another line connected' });
+      } catch(e) {}
+      dialerStats.noAnswer++;
+    }
+    dialerLeadMap[n] = null;
+    stopCallTimer(n);
+    setLineState(n, 'idle');
+    document.getElementById('lineOutcomes' + n).style.display = 'none';
+    document.getElementById('lineForm' + n).classList.remove('active');
+    document.getElementById('lineHangup' + n).style.display = 'none';
+    document.getElementById('lineAreaBadge' + n).innerHTML = '';
+    document.getElementById('lineName' + n).textContent = '\u2014';
+    document.getElementById('lineCompany' + n).textContent = 'Waiting for live call to end...';
+    document.getElementById('linePhone' + n).textContent = '\u2014';
+    document.getElementById('lineDetails' + n).textContent = '\u2014';
+  }
+  updateDialerStatsUI();
+  // Hang up the actual Twilio calls
+  if (sidsToKill.length > 0) {
+    try {
+      await fetch('/api/twilio/hangup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callSids: sidsToKill })
+      });
+      console.log('Hung up other lines:', sidsToKill);
+    } catch(e) { console.error('Hangup error:', e); }
+  }
+}
+
 async function renderDialer(el) {
   // Load available states for the dropdown
   var stateOptions = '';
@@ -1565,7 +1738,7 @@ async function renderDialer(el) {
   } catch(e) { console.error('Failed to load states:', e); }
 
   var html = '<div class="page-header"><h2>Parallel Dialer</h2>';
-  html += '<p>3-line manual dialer &mdash; load leads, call from your phone, and log outcomes. Caller ID: (213) area code.</p></div>';
+  html += '<p>Calls 3 leads simultaneously from (213) &mdash; first person to answer gets connected to you, other calls auto-drop.</p></div>';
 
   // Controls row 1: Filters
   html += '<div class="dialer-controls" style="flex-wrap:wrap;">';
@@ -1581,11 +1754,11 @@ async function renderDialer(el) {
   html += '<span id="dialerLeadCount" style="font-size:12px;color:var(--text-secondary);margin-left:4px;"></span>';
   html += '</div>';
 
-  // Controls row 2: Start/Stop
+  // Controls row 2: Start/Stop + Twilio status
   html += '<div class="dialer-controls" style="margin-top:0;">';
-  html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">&#x1F4DE; Start Dialing (3 Lines)</button>';
+  html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">&#x1F4DE; Start Parallel Dialer</button>';
   html += '<button class="btn btn-danger" id="dialerStopBtn" onclick="stopDialer()" style="display:none;">&#x23F9; Stop Dialer</button>';
-  html += '<span style="font-size:12px;color:var(--text-secondary);margin-left:8px;">Manual mode &mdash; call leads from your phone using (213) caller ID</span>';
+  html += '<span id="twilioStatus" style="font-size:12px;color:var(--text-muted);margin-left:8px;"></span>';
   html += '</div>';
 
   html += '<div class="dialer-layout"><div><div class="dialer-lines" id="dialerLines">';
@@ -1600,16 +1773,13 @@ async function renderDialer(el) {
     html += '<div class="call-timer" id="lineTimer' + n + '" style="display:none;">00:00</div>';
     html += '<div class="lead-details" id="lineDetails' + n + '">&mdash;</div>';
 
-    // Outcome buttons (shown when call is ringing or connected)
-    html += '<div class="outcome-buttons" id="lineOutcomes' + n + '" style="display:none;">';
-    html += '<button class="outcome-btn connected" onclick="dialOutcome(' + n + ', \'connected\')">&#x2713; Connected</button>';
-    html += '<button class="outcome-btn no-answer" onclick="dialOutcome(' + n + ', \'no_answer\')">&#x2717; No Answer</button>';
-    html += '<button class="outcome-btn voicemail" onclick="dialOutcome(' + n + ', \'voicemail\')">&#x1F4E9; Voicemail</button>';
-    html += '<button class="outcome-btn busy" onclick="dialOutcome(' + n + ', \'busy\')">&#x1F534; Busy</button>';
-    html += '</div>';
+    // Outcome buttons (hidden — auto-detected by Twilio)
+    html += '<div class="outcome-buttons" id="lineOutcomes' + n + '" style="display:none;"></div>';
 
-    // Hangup button placeholder (for future power dialer)
-    html += '<div id="lineHangup' + n + '" style="display:none;"></div>';
+    // Hangup button (shown during live call)
+    html += '<div id="lineHangup' + n + '" style="display:none;text-align:center;margin-top:8px;">';
+    html += '<button class="btn btn-danger btn-sm" onclick="hangupLiveCall(' + n + ')">&#x260E; End Call</button>';
+    html += '</div>';
 
     // Connected form (outcome + notes)
     html += '<div class="connected-form" id="lineForm' + n + '">';
@@ -1664,7 +1834,6 @@ async function renderDialer(el) {
   });
   updateDialerLeadCount();
 
-  // Load number pool info
 }
 
 async function updateDialerLeadCount() {
@@ -1684,10 +1853,33 @@ async function updateDialerLeadCount() {
   countEl.innerHTML = '<strong>' + count.toLocaleString() + '</strong> dialable leads';
 }
 
-// loadNumberPoolInfo removed — power dialer disabled
 
 async function startDialer() {
+  var statusEl = document.getElementById('twilioStatus');
+
+  // Step 1: Request mic permission
+  statusEl.innerHTML = '<span style="color:var(--warning)">Requesting microphone access...</span>';
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e) {
+    toast('Microphone access denied — the dialer needs your mic to talk to leads', 'error');
+    statusEl.innerHTML = '<span style="color:var(--danger)">&#x274C; Microphone blocked — allow it and try again</span>';
+    return;
+  }
+
+  // Step 2: Init Twilio Device
+  statusEl.innerHTML = '<span style="color:var(--warning)">Connecting to Twilio...</span>';
+  var ok = await initTwilioDevice();
+  if (!ok) {
+    toast('Failed to connect to Twilio — check console for errors', 'error');
+    statusEl.innerHTML = '<span style="color:var(--danger)">&#x274C; Twilio connection failed</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span style="color:var(--accent)">&#x2705; Connected — calling leads...</span>';
+
   dialerRunning = true;
+  activeLiveCall = null;
   dialerStats = { total: 0, connected: 0, noAnswer: 0, voicemail: 0, interested: 0 };
   dialerUsedIds = new Set();
   document.getElementById('dialerStartBtn').style.display = 'none';
@@ -1702,16 +1894,19 @@ async function startDialer() {
   await loadDialerLeads();
 }
 
-function stopDialer() {
+async function stopDialer() {
   dialerRunning = false;
+  activeLiveCall = null;
   document.getElementById('dialerStartBtn').style.display = '';
   document.getElementById('dialerStopBtn').style.display = 'none';
+  var statusEl = document.getElementById('twilioStatus');
+  if (statusEl) statusEl.textContent = '';
 
-  // Hang up any active calls
+  // Collect all active call SIDs to hang up
+  var sidsToKill = [];
   for (var n = 1; n <= 3; n++) {
-    if (lineCallSids[n]) {
-      hangupLine(n);
-    }
+    if (lineCallSids[n]) { sidsToKill.push(lineCallSids[n]); lineCallSids[n] = null; }
+    if (lineTimeouts[n]) { clearTimeout(lineTimeouts[n]); lineTimeouts[n] = null; }
     stopCallTimer(n);
     setLineState(n, 'idle');
     document.getElementById('lineOutcomes' + n).style.display = 'none';
@@ -1723,6 +1918,23 @@ function stopDialer() {
     document.getElementById('linePhone' + n).textContent = '\u2014';
     document.getElementById('lineDetails' + n).textContent = '\u2014';
   }
+
+  // Hang up any active Twilio calls
+  if (sidsToKill.length > 0) {
+    try {
+      await fetch('/api/twilio/hangup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callSids: sidsToKill })
+      });
+    } catch(e) {}
+  }
+
+  // Disconnect Twilio Device
+  if (twilioDevice) {
+    try { twilioDevice.disconnectAll(); } catch(e) {}
+  }
+
   toast('Dialer session ended');
 }
 
@@ -1740,18 +1952,21 @@ function buildDialerQuery() {
 
 async function loadDialerLeads() {
   if (!dialerRunning) return;
+  activeLiveCall = null;
+  dialerPhoneMap = {};
 
   var res = await buildDialerQuery().order('lead_score', { ascending: false }).limit(100);
   console.log('Dialer query:', res.data ? res.data.length + ' leads found' : 'error', res.error);
   var data = (res.data || []).filter(function(l) { return !dialerUsedIds.has(l.id); }).slice(0, 3);
 
   if (data.length === 0) {
-    toast('No eligible leads found. Try different filters.', 'error');
+    toast('No more eligible leads. Try different filters.', 'error');
     stopDialer();
     return;
   }
 
-  // Dial all 3 lines simultaneously
+  // Load leads into UI and dial all simultaneously
+  var dialPromises = [];
   for (var i = 0; i < data.length; i++) {
     var lead = data[i];
     var n = i + 1;
@@ -1759,82 +1974,133 @@ async function loadDialerLeads() {
     dialerUsedIds.add(lead.id);
     dialerStats.total++;
 
-    // Update UI
     var phone = lead.phone || lead.cell_phone || '';
     var ac = extractAreaCode(phone);
     document.getElementById('lineName' + n).textContent = lead.contact_name || 'Unknown';
     document.getElementById('lineCompany' + n).textContent = lead.company_name || '';
     document.getElementById('linePhone' + n).textContent = phone || '\u2014';
     document.getElementById('lineDetails' + n).textContent = (lead.trucks || lead.power_units || 0) + ' trucks | ' + (lead.state || 'N/A') + ' | Score: ' + (lead.lead_score || 0);
-    document.getElementById('lineAreaBadge' + n).innerHTML = '<span class="area-code-badge fallback">Area code: ' + ac + '</span>';
+    document.getElementById('lineAreaBadge' + n).innerHTML = '<span class="area-code-badge match">Calling from (213)...</span>';
 
     setLineState(n, 'ringing');
-    document.getElementById('lineOutcomes' + n).style.display = 'grid';
+    document.getElementById('lineOutcomes' + n).style.display = 'none';
     document.getElementById('lineForm' + n).classList.remove('active');
+    document.getElementById('lineHangup' + n).style.display = 'none';
 
-    // Manual mode — agent calls from their phone and uses outcome buttons
+    // Map phone for incoming connection matching
+    dialerPhoneMap[normalizePhoneForMatch(phone)] = n;
+
+    // Dial via Twilio API
+    dialPromises.push(dialLineViaTwilio(n, lead, phone));
   }
+
   updateDialerStatsUI();
+
+  // Fire all 3 calls in parallel
+  await Promise.allSettled(dialPromises);
 }
 
-async function hangupLine(line) {
-  lineCallSids[line] = null;
-  stopCallTimer(line);
-  document.getElementById('lineHangup' + line).style.display = 'none';
-  setLineState(line, 'call-ended');
+async function dialLineViaTwilio(line, lead, phone) {
+  try {
+    console.log('Line ' + line + ': Dialing ' + phone + '...');
+    var resp = await fetch('/api/twilio/dial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: phone,
+        leadId: lead.id,
+        line: line,
+        agentIdentity: 'aiis-agent'
+      })
+    });
+    var data = await resp.json();
+    if (data.error) {
+      console.error('Line ' + line + ' dial error:', data.error);
+      setLineState(line, 'call-ended');
+      document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Dial failed</span>';
+      dialerStats.noAnswer++;
+      updateDialerStatsUI();
+      return;
+    }
+
+    lineCallSids[line] = data.callSid;
+    console.log('Line ' + line + ': Call initiated ' + data.callSid);
+
+    // Set 35-second timeout — if no answer by then, auto-mark and move on
+    lineTimeouts[line] = setTimeout(function() {
+      if (lineCallSids[line] && activeLiveCall !== line) {
+        console.log('Line ' + line + ': Timeout — no answer');
+        handleLineTimeout(line);
+      }
+    }, 35000);
+
+  } catch(e) {
+    console.error('Line ' + line + ' dial failed:', e);
+    setLineState(line, 'call-ended');
+    document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Error</span>';
+  }
 }
 
-async function dialOutcome(line, outcome) {
+async function handleLineTimeout(line) {
   var lead = dialerLeadMap[line];
   if (!lead) return;
 
-  if (outcome === 'connected') {
-    dialerStats.connected++;
-    setLineState(line, 'on-call');
-    startCallTimer(line);
-    document.getElementById('lineOutcomes' + line).style.display = 'none';
-    document.getElementById('lineForm' + line).classList.add('active');
-
-    // Clear all OTHER lines — focus on the live call
-    for (var otherLine = 1; otherLine <= 3; otherLine++) {
-      if (otherLine === line) continue;
-      var otherLead = dialerLeadMap[otherLine];
-      if (otherLead) {
-        // Log the other lines as no_answer since we're moving on
-        try {
-          sb.from('crm_calls').insert({ lead_id: otherLead.id, status: 'no_answer', dialer_line: otherLine });
-          sb.from('crm_activities').insert({ lead_id: otherLead.id, type: 'call', description: 'Call: no_answer (cleared — another line connected)' });
-        } catch(e) {}
-        dialerStats.noAnswer++;
-      }
-      dialerLeadMap[otherLine] = null;
-      stopCallTimer(otherLine);
-      setLineState(otherLine, 'idle');
-      document.getElementById('lineOutcomes' + otherLine).style.display = 'none';
-      document.getElementById('lineForm' + otherLine).classList.remove('active');
-      document.getElementById('lineHangup' + otherLine).style.display = 'none';
-      document.getElementById('lineAreaBadge' + otherLine).innerHTML = '';
-      document.getElementById('lineName' + otherLine).textContent = '\u2014';
-      document.getElementById('lineCompany' + otherLine).textContent = 'Waiting for live call to end...';
-      document.getElementById('linePhone' + otherLine).textContent = '\u2014';
-      document.getElementById('lineDetails' + otherLine).textContent = '\u2014';
-    }
-    updateDialerStatsUI();
-  } else {
-    if (outcome === 'no_answer') dialerStats.noAnswer++;
-    if (outcome === 'voicemail') dialerStats.voicemail++;
-
-    // Hang up the Twilio call if active
-    if (lineCallSids[line]) { await hangupLine(line); }
-
+  // Hang up the Twilio call
+  if (lineCallSids[line]) {
     try {
-      await sb.from('crm_calls').insert({ lead_id: lead.id, status: outcome, dialer_line: line });
-      await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: ' + outcome });
-      await sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString() }).eq('id', lead.id);
-    } catch(e) { console.error('Call log error:', e); }
-    loadNextLead(line);
+      await fetch('/api/twilio/hangup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callSid: lineCallSids[line] })
+      });
+    } catch(e) {}
+    lineCallSids[line] = null;
   }
+
+  setLineState(line, 'no-answer');
+  document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">No answer</span>';
+  dialerStats.noAnswer++;
   updateDialerStatsUI();
+
+  try {
+    await sb.from('crm_calls').insert({ lead_id: lead.id, status: 'no_answer', dialer_line: line });
+    await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: no_answer (timeout)' });
+    await sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString() }).eq('id', lead.id);
+  } catch(e) {}
+
+  // Check if ALL lines are done (no active calls and no live call)
+  var anyActive = false;
+  for (var n = 1; n <= 3; n++) {
+    if (lineCallSids[n] || activeLiveCall === n) { anyActive = true; break; }
+  }
+  if (!anyActive && dialerRunning) {
+    // All 3 lines timed out — load next batch
+    console.log('All lines done — loading next batch');
+    setTimeout(function() { loadDialerLeads(); }, 1500);
+  }
+}
+
+async function hangupLiveCall(line) {
+  // End the active Twilio call on this line
+  if (lineCallSids[line]) {
+    try {
+      await fetch('/api/twilio/hangup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callSid: lineCallSids[line] })
+      });
+    } catch(e) {}
+    lineCallSids[line] = null;
+  }
+  // Also disconnect the browser audio
+  if (twilioDevice) {
+    try { twilioDevice.disconnectAll(); } catch(e) {}
+  }
+  stopCallTimer(line);
+  document.getElementById('lineHangup' + line).style.display = 'none';
+  // Show the save form so agent can log the result
+  document.getElementById('lineForm' + line).classList.add('active');
+  setLineState(line, 'call-ended');
 }
 
 async function saveCallResult(line) {
@@ -1846,10 +2112,22 @@ async function saveCallResult(line) {
   var duration = lineStartTimes[line] ? Math.floor((Date.now() - lineStartTimes[line]) / 1000) : 0;
 
   if (outcome === 'interested' || outcome === 'quote_requested') dialerStats.interested++;
+  dialerStats.connected++;
 
-  // Hang up Twilio call
-  if (lineCallSids[line]) { await hangupLine(line); }
+  // Hang up Twilio call if still active
+  if (lineCallSids[line]) {
+    try {
+      await fetch('/api/twilio/hangup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callSid: lineCallSids[line] })
+      });
+    } catch(e) {}
+    lineCallSids[line] = null;
+  }
+  if (twilioDevice) { try { twilioDevice.disconnectAll(); } catch(e) {} }
   stopCallTimer(line);
+  activeLiveCall = null;
 
   // Advance stage if appropriate
   var newStage = null;
@@ -1883,48 +2161,7 @@ async function saveCallResult(line) {
   await loadDialerLeads();
 }
 
-async function loadNextLead(line) {
-  if (!dialerRunning) return;
-
-  // Reset line UI
-  stopCallTimer(line);
-  document.getElementById('lineHangup' + line).style.display = 'none';
-  document.getElementById('lineAreaBadge' + line).innerHTML = '';
-
-  var query = buildDialerQuery();
-
-  var res = await query.order('lead_score', { ascending: false }).limit(100);
-  var next = (res.data || []).find(function(l) { return !dialerUsedIds.has(l.id); });
-
-  if (next) {
-    dialerLeadMap[line] = next;
-    dialerUsedIds.add(next.id);
-    dialerStats.total++;
-
-    var phone = next.phone || next.cell_phone || '';
-    var ac = extractAreaCode(phone);
-    document.getElementById('lineName' + line).textContent = next.contact_name || 'Unknown';
-    document.getElementById('lineCompany' + line).textContent = next.company_name || '';
-    document.getElementById('linePhone' + line).textContent = phone || '\u2014';
-    document.getElementById('lineDetails' + line).textContent = (next.trucks || next.power_units || 0) + ' trucks | ' + (next.state || 'N/A') + ' | Score: ' + (next.lead_score || 0);
-    document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Area code: ' + ac + '</span>';
-    setLineState(line, 'ringing');
-    document.getElementById('lineOutcomes' + line).style.display = 'grid';
-    document.getElementById('lineForm' + line).classList.remove('active');
-    updateDialerStatsUI();
-
-    // Manual mode — agent calls from their phone
-  } else {
-    dialerLeadMap[line] = null;
-    document.getElementById('lineName' + line).textContent = '\u2014';
-    document.getElementById('lineCompany' + line).textContent = 'No more leads';
-    document.getElementById('linePhone' + line).textContent = '\u2014';
-    document.getElementById('lineDetails' + line).textContent = '\u2014';
-    document.getElementById('lineAreaBadge' + line).innerHTML = '';
-    setLineState(line, 'idle');
-    document.getElementById('lineOutcomes' + line).style.display = 'none';
-  }
-}
+// loadNextLead is no longer used — loadDialerLeads reloads all 3 lines
 
 function updateDialerStatsUI() {
   document.getElementById('statTotal').textContent = dialerStats.total;
