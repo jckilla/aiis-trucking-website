@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIIS CRM Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2/dist/twilio.min.js"></script>
+<script src="https://sdk.twilio.com/js/client/releases/2.12.1/twilio.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -1539,6 +1539,7 @@ var lineStartTimes = {}; // line -> call start time
 var lineTimeouts = {}; // line -> auto-cleanup timeout
 var activeLiveCall = null; // which line has a live connected call
 var dialerPhoneMap = {}; // normalized phone -> line number (for matching incoming)
+var statusPollInterval = null; // polling interval for call statuses
 
 function extractAreaCode(phone) {
   if (!phone) return '???';
@@ -1565,6 +1566,14 @@ function formatCallTime(seconds) {
 async function initTwilioDevice() {
   if (twilioDevice && twilioReady) return true;
   if (twilioDevice) { try { twilioDevice.destroy(); } catch(e){} twilioDevice = null; twilioReady = false; }
+
+  // Verify Twilio SDK is loaded
+  if (typeof Twilio === 'undefined' || typeof Twilio.Device === 'undefined') {
+    console.error('Twilio Voice SDK not loaded — check script tag');
+    toast('Twilio SDK failed to load. Check your internet connection and refresh.', 'error');
+    return false;
+  }
+
   try {
     console.log('Fetching Twilio access token...');
     var resp = await fetch('/api/twilio/token', {
@@ -1572,6 +1581,12 @@ async function initTwilioDevice() {
       headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
       body: JSON.stringify({ identity: 'aiis-agent' })
     });
+    if (!resp.ok) {
+      var errText = await resp.text();
+      console.error('Twilio token HTTP error:', resp.status, errText);
+      toast('Twilio token error (HTTP ' + resp.status + ')', 'error');
+      return false;
+    }
     var data = await resp.json();
     if (data.error) {
       console.error('Twilio token error:', data.error);
@@ -1581,9 +1596,15 @@ async function initTwilioDevice() {
     console.log('Got Twilio token for identity:', data.identity);
 
     // Voice SDK v2.x — constructor is synchronous, must call .register() explicitly
+    // Use SDK codec constants if available, fall back to string values
+    var codecPrefs = (Twilio.Device && Twilio.Device.Codec)
+      ? [Twilio.Device.Codec.Opus, Twilio.Device.Codec.PCMU]
+      : ['opus', 'pcmu'];
     twilioDevice = new Twilio.Device(data.token, {
-      codecPreferences: ['opus', 'pcmu'],
-      logLevel: 1
+      codecPreferences: codecPrefs,
+      logLevel: 'info',
+      closeProtection: true,
+      allowIncomingWhileBusy: true
     });
 
     // Set up event handlers BEFORE registering
@@ -1633,22 +1654,23 @@ async function initTwilioDevice() {
       console.log('ACCEPTING call on line ' + connLine);
       call.accept();
       activeLiveCall = connLine || 1;
+      var liveLineNum = activeLiveCall;
 
-      // Mark this line as live
-      setLineState(activeLiveCall, 'on-call');
-      startCallTimer(activeLiveCall);
-      document.getElementById('lineOutcomes' + activeLiveCall).style.display = 'none';
-      document.getElementById('lineForm' + activeLiveCall).classList.add('active');
-      document.getElementById('lineHangup' + activeLiveCall).style.display = 'block';
-      toast('CONNECTED — Line ' + activeLiveCall + ': ' + (dialerLeadMap[activeLiveCall] ? dialerLeadMap[activeLiveCall].company_name : 'Lead'), 'success');
+      // Mark this line as live — show hangup button but NOT outcome form yet
+      setLineState(liveLineNum, 'on-call');
+      startCallTimer(liveLineNum);
+      document.getElementById('lineOutcomes' + liveLineNum).style.display = 'none';
+      document.getElementById('lineForm' + liveLineNum).classList.remove('active');
+      document.getElementById('lineHangup' + liveLineNum).style.display = 'block';
+      toast('CONNECTED — Line ' + liveLineNum + ': ' + (dialerLeadMap[liveLineNum] ? dialerLeadMap[liveLineNum].company_name : 'Lead'), 'success');
 
-      // When the call ends
+      // When the call ends — show outcome form
       call.on('disconnect', function() {
-        console.log('Call disconnected on line ' + activeLiveCall);
-        if (activeLiveCall) {
-          stopCallTimer(activeLiveCall);
-          setLineState(activeLiveCall, 'call-ended');
-        }
+        console.log('Call disconnected on line ' + liveLineNum);
+        stopCallTimer(liveLineNum);
+        setLineState(liveLineNum, 'call-ended');
+        document.getElementById('lineHangup' + liveLineNum).style.display = 'none';
+        document.getElementById('lineForm' + liveLineNum).classList.add('active');
       });
 
       call.on('cancel', function() {
@@ -1735,6 +1757,7 @@ function stopCallTimer(line) {
 
 // Hang up all lines except the connected one
 async function hangupOtherLines(keepLine) {
+  stopStatusPolling(); // No need to poll while on a live call
   var sidsToKill = [];
   for (var n = 1; n <= 3; n++) {
     if (n === keepLine) continue;
@@ -1968,6 +1991,7 @@ async function startDialer() {
 async function stopDialer() {
   dialerRunning = false;
   activeLiveCall = null;
+  stopStatusPolling();
   document.getElementById('dialerStartBtn').style.display = '';
   document.getElementById('dialerStopBtn').style.display = 'none';
   var statusEl = document.getElementById('twilioStatus');
@@ -2069,6 +2093,9 @@ async function loadDialerLeads() {
 
   // Fire all 3 calls in parallel
   await Promise.allSettled(dialPromises);
+
+  // Start polling for call statuses (voicemail, busy, etc.)
+  startStatusPolling();
 }
 
 async function dialLineViaTwilio(line, lead, phone) {
@@ -2112,6 +2139,141 @@ async function dialLineViaTwilio(line, lead, phone) {
   }
 }
 
+// Poll Twilio for call statuses to detect voicemail, busy, completed, etc.
+function startStatusPolling() {
+  if (statusPollInterval) return;
+  statusPollInterval = setInterval(pollCallStatuses, 3000);
+}
+
+function stopStatusPolling() {
+  if (statusPollInterval) { clearInterval(statusPollInterval); statusPollInterval = null; }
+}
+
+async function pollCallStatuses() {
+  if (!dialerRunning) { stopStatusPolling(); return; }
+
+  // Collect active call SIDs
+  var sids = [];
+  var sidToLine = {};
+  for (var n = 1; n <= 3; n++) {
+    if (lineCallSids[n] && activeLiveCall !== n) {
+      sids.push(lineCallSids[n]);
+      sidToLine[lineCallSids[n]] = n;
+    }
+  }
+  if (sids.length === 0) { stopStatusPolling(); return; }
+
+  try {
+    var url = '/api/twilio/status?' + sids.map(function(s) { return 'callSid=' + encodeURIComponent(s); }).join('&');
+    var resp = await fetch(url, {
+      headers: { 'x-api-key': 'aiis-dialer-2026-secure' }
+    });
+    if (!resp.ok) return;
+    var data = await resp.json();
+    if (!data.statuses) return;
+
+    for (var sid in data.statuses) {
+      var info = data.statuses[sid];
+      var line = sidToLine[sid];
+      if (!line) continue;
+
+      // Update UI based on status
+      if (info.status === 'ringing') {
+        setLineState(line, 'ringing');
+      } else if (info.status === 'in-progress') {
+        // Call answered — the incoming event should handle this via Twilio Device
+        // But if answeredBy is machine, mark as voicemail
+        if (info.answeredBy && info.answeredBy.indexOf('machine') > -1) {
+          console.log('Line ' + line + ': Voicemail detected via polling (answeredBy=' + info.answeredBy + ')');
+          handleVoicemailDetected(line);
+        }
+      } else if (info.status === 'completed' || info.status === 'busy' || info.status === 'no-answer' || info.status === 'canceled' || info.status === 'failed') {
+        console.log('Line ' + line + ': Call ended — ' + info.status + (info.answeredBy ? ' (answeredBy=' + info.answeredBy + ')' : ''));
+        if (info.answeredBy && info.answeredBy.indexOf('machine') > -1) {
+          handleVoicemailDetected(line);
+        } else if (info.status === 'busy') {
+          handleLineBusy(line);
+        } else if (info.status === 'completed' && activeLiveCall !== line) {
+          // Call completed but wasn't bridged to agent — likely voicemail drop or short call
+          handleLineCompleted(line, info);
+        } else if (info.status === 'no-answer' || info.status === 'canceled' || info.status === 'failed') {
+          handleLineNoAnswer(line, info.status);
+        }
+      }
+    }
+  } catch(e) {
+    console.error('Status poll error:', e);
+  }
+}
+
+function handleVoicemailDetected(line) {
+  if (lineTimeouts[line]) { clearTimeout(lineTimeouts[line]); lineTimeouts[line] = null; }
+  lineCallSids[line] = null;
+  setLineState(line, 'voicemail-detected');
+  document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">VM Drop</span>';
+  dialerStats.voicemail++;
+  updateDialerStatsUI();
+
+  var lead = dialerLeadMap[line];
+  if (lead) {
+    try {
+      sb.from('crm_calls').insert({ lead_id: lead.id, status: 'voicemail', dialer_line: line });
+      sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: voicemail detected, message dropped' });
+      sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString() }).eq('id', lead.id);
+    } catch(e) {}
+  }
+  checkAllLinesDone();
+}
+
+function handleLineBusy(line) {
+  if (lineTimeouts[line]) { clearTimeout(lineTimeouts[line]); lineTimeouts[line] = null; }
+  lineCallSids[line] = null;
+  setLineState(line, 'no-answer');
+  document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Busy</span>';
+  dialerStats.noAnswer++;
+  updateDialerStatsUI();
+  checkAllLinesDone();
+}
+
+function handleLineNoAnswer(line, reason) {
+  if (lineTimeouts[line]) { clearTimeout(lineTimeouts[line]); lineTimeouts[line] = null; }
+  lineCallSids[line] = null;
+  setLineState(line, 'no-answer');
+  document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">' + (reason || 'No answer') + '</span>';
+  dialerStats.noAnswer++;
+  updateDialerStatsUI();
+
+  var lead = dialerLeadMap[line];
+  if (lead) {
+    try {
+      sb.from('crm_calls').insert({ lead_id: lead.id, status: 'no_answer', dialer_line: line });
+      sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: ' + (reason || 'no answer') });
+      sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString() }).eq('id', lead.id);
+    } catch(e) {}
+  }
+  checkAllLinesDone();
+}
+
+function handleLineCompleted(line, info) {
+  if (lineTimeouts[line]) { clearTimeout(lineTimeouts[line]); lineTimeouts[line] = null; }
+  lineCallSids[line] = null;
+  setLineState(line, 'call-ended');
+  document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Ended</span>';
+  checkAllLinesDone();
+}
+
+function checkAllLinesDone() {
+  var anyActive = false;
+  for (var n = 1; n <= 3; n++) {
+    if (lineCallSids[n] || activeLiveCall === n) { anyActive = true; break; }
+  }
+  if (!anyActive && dialerRunning && !activeLiveCall) {
+    stopStatusPolling();
+    console.log('All lines done — loading next batch');
+    setTimeout(function() { loadDialerLeads(); }, 1500);
+  }
+}
+
 async function handleLineTimeout(line) {
   var lead = dialerLeadMap[line];
   if (!lead) return;
@@ -2139,16 +2301,7 @@ async function handleLineTimeout(line) {
     await sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString() }).eq('id', lead.id);
   } catch(e) {}
 
-  // Check if ALL lines are done (no active calls and no live call)
-  var anyActive = false;
-  for (var n = 1; n <= 3; n++) {
-    if (lineCallSids[n] || activeLiveCall === n) { anyActive = true; break; }
-  }
-  if (!anyActive && dialerRunning) {
-    // All 3 lines timed out — load next batch
-    console.log('All lines done — loading next batch');
-    setTimeout(function() { loadDialerLeads(); }, 1500);
-  }
+  checkAllLinesDone();
 }
 
 async function hangupLiveCall(line) {
