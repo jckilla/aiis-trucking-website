@@ -77,6 +77,7 @@ const SAFE_FILES = [
   /scripts\/guardian-bot/,// GuardianBot itself (contains pattern definitions that trigger false positives)
   /scripts\/load-email/,// Email campaign loader (read-only data import)
   /unsubscribe\.html$/,// Unsubscribe page (contains public Supabase anon key, same as portal.html)
+  /scripts\/create-reply/,// Table creation script (contains public Supabase anon key)
 ];
 
 // ===================== CORE LOGIC =====================

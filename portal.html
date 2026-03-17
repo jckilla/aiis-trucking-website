@@ -697,7 +697,7 @@ body {
 .campaign-card:hover { border-color: var(--accent-border); }
 .campaign-card .campaign-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 .campaign-card .campaign-date { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
-.campaign-card .campaign-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.campaign-card .campaign-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 
 .campaign-stat { text-align: center; }
 .campaign-stat .cs-value { font-size: 18px; font-weight: 700; }
@@ -895,6 +895,61 @@ body {
 .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 13px; }
 
 select option { background: var(--bg-card); color: var(--text-primary); }
+
+/* Email Replies */
+.reply-list { display: flex; flex-direction: column; gap: 12px; }
+.reply-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-left: 4px solid var(--border);
+}
+.reply-card:hover { border-color: var(--accent-border); background: var(--bg-card-hover); }
+.reply-card.interested { border-left-color: #2ecc71; }
+.reply-card.not_interested { border-left-color: #ff4757; }
+.reply-card.unclear { border-left-color: #ffa502; }
+.reply-card .reply-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.reply-card .reply-from { font-size: 13px; font-weight: 600; }
+.reply-card .reply-time { font-size: 11px; color: var(--text-muted); }
+.reply-card .reply-subject { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.reply-card .reply-preview { font-size: 12px; color: var(--text-muted); max-height: 40px; overflow: hidden; }
+.reply-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.reply-badge.interested { background: rgba(46, 204, 113, 0.15); color: #2ecc71; }
+.reply-badge.not_interested { background: rgba(255, 71, 87, 0.15); color: #ff4757; }
+.reply-badge.unclear { background: rgba(255, 165, 2, 0.15); color: #ffa502; }
+
+/* Daily Report */
+.daily-report { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.daily-report h3 { font-size: 16px; margin-bottom: 12px; }
+.report-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.report-stat-card { background: var(--bg-input); border-radius: 8px; padding: 12px; text-align: center; }
+.report-stat-card .rs-value { font-size: 24px; font-weight: 700; }
+.report-stat-card .rs-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
+
+/* Pipeline auto-moved badge */
+.auto-moved-badge {
+  display: inline-block;
+  background: rgba(52, 152, 219, 0.15);
+  color: #3498db;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.pipeline-card.recently-moved { border-left: 3px solid #3498db; }
 </style>
 </head>
 <body>
@@ -1375,12 +1430,17 @@ async function renderPipeline(el) {
       html += '<div class="empty-state">No leads</div>';
     } else {
       col.leads.forEach(function(l) {
-        html += '<div class="pipeline-card" draggable="true" data-id="' + l.id + '" onclick="openLeadDetail(' + l.id + ')">';
+        var isAutoMoved = l.notes && l.notes.indexOf('[AUTO] reply_interested') !== -1;
+        var isRecentlyMoved = l.updated_at && (new Date() - new Date(l.updated_at)) < 24 * 60 * 60 * 1000;
+        var cardClass = 'pipeline-card';
+        if (isAutoMoved && isRecentlyMoved && col.stage.key === 'lead') cardClass += ' recently-moved';
+        html += '<div class="' + cardClass + '" draggable="true" data-id="' + l.id + '" onclick="openLeadDetail(' + l.id + ')">';
         html += '<div class="card-company">' + escHtml(l.company_name || 'Unknown') + '</div>';
         html += '<div class="card-contact">' + escHtml(l.contact_name) + '</div>';
         html += '<div class="card-meta"><span class="trucks">&#x1F69B; ' + (l.trucks || l.power_units || 0) + '</span><span>' + escHtml(l.state) + '</span></div>';
         if (l.segment) html += '<span class="badge badge-segment" style="margin-top:6px;">' + escHtml(l.segment) + '</span>';
         html += '<div class="card-meta" style="margin-top:6px;"><span class="premium">' + fmt$(l.estimated_premium) + '</span></div>';
+        if (isAutoMoved && isRecentlyMoved) html += '<div class="auto-moved-badge">Auto-moved from email reply</div>';
         html += '</div>';
       });
     }
@@ -2529,6 +2589,8 @@ function updateDialerStatsUI() {
 }
 
 // ==================== EMAIL CAMPAIGNS ====================
+var emailActiveTab = 'campaigns'; // campaigns | templates | replies
+
 async function renderEmailCampaigns(el) {
   el.innerHTML = '<div class="empty-state">Loading campaigns...</div>';
   var res = await sb.from('crm_email_campaigns').select('*').order('created_at', { ascending: false });
@@ -2536,38 +2598,183 @@ async function renderEmailCampaigns(el) {
 
   var html = '<div class="page-header"><h2>Email Campaigns</h2><p>Manage and send email campaigns to leads</p></div>';
   html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">';
-  html += '<div class="campaign-tabs"><div class="campaign-tab active">Campaigns</div><div class="campaign-tab">Templates</div></div>';
+  html += '<div class="campaign-tabs">';
+  html += '<div class="campaign-tab' + (emailActiveTab === 'campaigns' ? ' active' : '') + '" onclick="emailActiveTab=\'campaigns\'; renderEmailCampaigns(document.getElementById(\'pageContent\'))">Campaigns</div>';
+  html += '<div class="campaign-tab' + (emailActiveTab === 'templates' ? ' active' : '') + '" onclick="emailActiveTab=\'templates\'; renderEmailCampaigns(document.getElementById(\'pageContent\'))">Templates</div>';
+  html += '<div class="campaign-tab' + (emailActiveTab === 'replies' ? ' active' : '') + '" onclick="emailActiveTab=\'replies\'; renderEmailCampaigns(document.getElementById(\'pageContent\'))">Replies</div>';
+  html += '</div>';
+  html += '<div style="display:flex; gap:8px;">';
+  html += '<button class="btn btn-sm" style="font-size:11px;" onclick="showDailyReport()">Daily Report</button>';
   html += '<button class="btn btn-primary" onclick="showCreateEmailCampaignModal()">+ Create Campaign</button>';
-  html += '</div>';
+  html += '</div></div>';
 
-  html += '<div class="campaign-grid">';
-  if (campaigns.length === 0) {
-    html += '<div class="empty-state">No campaigns yet. Create your first campaign!</div>';
+  if (emailActiveTab === 'replies') {
+    html += await buildRepliesTab();
+  } else if (emailActiveTab === 'templates') {
+    html += '<div class="empty-state">Email templates coming soon.</div>';
   } else {
-    campaigns.forEach(function(c) {
-      html += '<div class="campaign-card">';
-      html += '<div class="campaign-name">' + escHtml(c.name || 'Untitled') + '</div>';
-      html += '<div class="campaign-date">' + fmtDate(c.created_at) + ' &middot; ' + escHtml(c.status || 'draft') + '</div>';
-      html += '<div class="campaign-stats">';
-      html += '<div class="campaign-stat"><div class="cs-value">' + (c.total_recipients || 0) + '</div><div class="cs-label">Recipients</div></div>';
-      html += '<div class="campaign-stat"><div class="cs-value">' + (c.sent_count || 0) + '</div><div class="cs-label">Sent</div></div>';
-      html += '<div class="campaign-stat"><div class="cs-value">' + (c.open_count || 0) + '</div><div class="cs-label">Opened</div></div>';
-      html += '<div class="campaign-stat"><div class="cs-value">' + (c.click_count || 0) + '</div><div class="cs-label">Clicked</div></div>';
-      html += '</div>';
-      // Show target info and preview button
-      var targets = [];
-      if (c.target_segment && c.target_segment !== 'all') targets.push(c.target_segment.replace(/_/g, ' '));
-      if (c.target_stage && c.target_stage !== 'all') targets.push(c.target_stage.replace(/_/g, ' '));
-      if (c.target_state && c.target_state !== 'all') targets.push(c.target_state);
-      html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px solid var(--border)">';
-      html += '<span style="font-size:11px; color:var(--text-muted)">' + (targets.length ? 'Target: ' + targets.join(' · ') : 'All leads') + '</span>';
-      html += '<button class="btn btn-sm" onclick="previewCampaign(' + c.id + ')" style="font-size:11px; padding:4px 10px;">Preview</button>';
-      html += '</div></div>';
-    });
+    html += '<div class="campaign-grid">';
+    if (campaigns.length === 0) {
+      html += '<div class="empty-state">No campaigns yet. Create your first campaign!</div>';
+    } else {
+      campaigns.forEach(function(c) {
+        html += '<div class="campaign-card">';
+        html += '<div class="campaign-name">' + escHtml(c.name || 'Untitled') + '</div>';
+        html += '<div class="campaign-date">' + fmtDate(c.created_at) + ' &middot; ' + escHtml(c.status || 'draft') + '</div>';
+        html += '<div class="campaign-stats">';
+        html += '<div class="campaign-stat"><div class="cs-value">' + (c.total_recipients || 0) + '</div><div class="cs-label">Recipients</div></div>';
+        html += '<div class="campaign-stat"><div class="cs-value">' + (c.sent_count || 0) + '</div><div class="cs-label">Sent</div></div>';
+        html += '<div class="campaign-stat"><div class="cs-value">' + (c.open_count || 0) + '</div><div class="cs-label">Opened</div></div>';
+        html += '<div class="campaign-stat"><div class="cs-value">' + (c.click_count || 0) + '</div><div class="cs-label">Clicked</div></div>';
+        html += '<div class="campaign-stat"><div class="cs-value">' + (c.reply_count || 0) + '</div><div class="cs-label">Replies</div></div>';
+        html += '</div>';
+        // Show target info and preview button
+        var targets = [];
+        if (c.target_segment && c.target_segment !== 'all') targets.push(c.target_segment.replace(/_/g, ' '));
+        if (c.target_stage && c.target_stage !== 'all') targets.push(c.target_stage.replace(/_/g, ' '));
+        if (c.target_state && c.target_state !== 'all') targets.push(c.target_state);
+        html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px solid var(--border)">';
+        html += '<span style="font-size:11px; color:var(--text-muted)">' + (targets.length ? 'Target: ' + targets.join(' · ') : 'All leads') + '</span>';
+        html += '<button class="btn btn-sm" onclick="previewCampaign(' + c.id + ')" style="font-size:11px; padding:4px 10px;">Preview</button>';
+        html += '</div></div>';
+      });
+    }
+    html += '</div>';
   }
-  html += '</div>';
 
   el.innerHTML = html;
+}
+
+async function buildRepliesTab() {
+  var res = await sb.from('crm_email_replies')
+    .select('*, lead:lead_id(id, contact_name, company_name, stage)')
+    .order('received_at', { ascending: false })
+    .limit(50);
+  var replies = res.data || [];
+
+  var html = '';
+  if (replies.length === 0) {
+    html += '<div class="empty-state">No email replies yet. Replies will appear here when leads respond to your campaigns.</div>';
+  } else {
+    html += '<div class="reply-list">';
+    replies.forEach(function(r) {
+      var cls = r.interest_classification || 'unclear';
+      var leadName = r.lead ? escHtml(r.lead.contact_name || 'Unknown') : escHtml(r.from_email);
+      var company = r.lead ? escHtml(r.lead.company_name || '') : '';
+      var preview = escHtml((r.body_text || '').substring(0, 150));
+      var leadId = r.lead ? r.lead.id : null;
+
+      html += '<div class="reply-card ' + cls + '"' + (leadId ? ' onclick="openLeadDetail(' + leadId + ')"' : '') + '>';
+      html += '<div class="reply-header">';
+      html += '<div><span class="reply-from">' + leadName + '</span>';
+      if (company) html += ' <span style="font-size:11px; color:var(--text-muted)">' + company + '</span>';
+      html += '</div>';
+      html += '<div style="display:flex; align-items:center; gap:8px;">';
+      html += '<span class="reply-badge ' + cls + '">' + cls.replace('_', ' ') + '</span>';
+      html += '<span class="reply-time">' + fmtDate(r.received_at) + '</span>';
+      html += '</div></div>';
+      html += '<div class="reply-subject">' + escHtml(r.subject || '(no subject)') + '</div>';
+      html += '<div class="reply-preview">' + preview + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  return html;
+}
+
+async function showDailyReport() {
+  var modal = document.getElementById('modalContent');
+  modal.innerHTML = '<div class="empty-state">Loading daily report...</div>';
+  openModal();
+
+  // Try to fetch the latest report
+  var res = await sb.from('crm_daily_reports')
+    .select('*')
+    .order('report_date', { ascending: false })
+    .limit(1);
+  var report = (res.data && res.data.length > 0) ? res.data[0] : null;
+
+  var html = '<div class="modal-header"><h2>Daily CRM Report</h2><button class="modal-close" onclick="closeModal()">&times;</button></div>';
+
+  if (!report) {
+    html += '<div class="empty-state" style="padding:40px 0;">No daily report available yet.<br><br>';
+    html += '<button class="btn btn-primary btn-sm" onclick="triggerDailyReport()">Generate Report Now</button></div>';
+    modal.innerHTML = html;
+    return;
+  }
+
+  html += '<div style="font-size:12px; color:var(--text-muted); margin-bottom:16px;">Report date: ' + report.report_date + ' &middot; Generated: ' + fmtDate(report.created_at) + '</div>';
+
+  // Stats grid
+  html += '<div class="report-stats-grid">';
+  html += '<div class="report-stat-card"><div class="rs-value">' + (report.total_replies || 0) + '</div><div class="rs-label">Replies</div></div>';
+  html += '<div class="report-stat-card"><div class="rs-value" style="color:#2ecc71">' + (report.interested_count || 0) + '</div><div class="rs-label">Interested</div></div>';
+  html += '<div class="report-stat-card"><div class="rs-value" style="color:#ff4757">' + (report.not_interested_count || 0) + '</div><div class="rs-label">Not Interested</div></div>';
+  html += '<div class="report-stat-card"><div class="rs-value" style="color:#ffa502">' + (report.bounced_count || 0) + '</div><div class="rs-label">Bounced</div></div>';
+  html += '</div>';
+
+  var summary = report.summary_json || {};
+
+  // Campaign stats
+  if (summary.campaign_stats && summary.campaign_stats.length > 0) {
+    html += '<h4 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">Campaign Performance</h4>';
+    html += '<table style="width:100%; font-size:12px; margin-bottom:16px; border-collapse:collapse;">';
+    html += '<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left; padding:6px 8px; color:var(--text-muted);">Campaign</th><th style="padding:6px 4px; color:var(--text-muted);">Sent</th><th style="padding:6px 4px; color:var(--text-muted);">Opened</th><th style="padding:6px 4px; color:var(--text-muted);">Clicked</th><th style="padding:6px 4px; color:var(--text-muted);">Replied</th><th style="padding:6px 4px; color:var(--text-muted);">Bounced</th></tr>';
+    summary.campaign_stats.forEach(function(cs) {
+      html += '<tr style="border-bottom:1px solid var(--border);">';
+      html += '<td style="padding:6px 8px;">' + escHtml(cs.name) + '</td>';
+      html += '<td style="padding:6px 4px; text-align:center;">' + cs.sent + '</td>';
+      html += '<td style="padding:6px 4px; text-align:center;">' + cs.opened + '</td>';
+      html += '<td style="padding:6px 4px; text-align:center;">' + cs.clicked + '</td>';
+      html += '<td style="padding:6px 4px; text-align:center;">' + cs.replied + '</td>';
+      html += '<td style="padding:6px 4px; text-align:center;">' + cs.bounced + '</td>';
+      html += '</tr>';
+    });
+    html += '</table>';
+  }
+
+  // Reply details
+  if (summary.replies && summary.replies.length > 0) {
+    html += '<h4 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">Reply Details</h4>';
+    html += '<div style="max-height:250px; overflow-y:auto;">';
+    summary.replies.forEach(function(r) {
+      var cls = r.classification || 'unclear';
+      html += '<div style="padding:8px; border-bottom:1px solid var(--border); font-size:12px;">';
+      html += '<div style="display:flex; justify-content:space-between;">';
+      html += '<span style="font-weight:600;">' + escHtml(r.lead_name || r.from_email) + '</span>';
+      html += '<span class="reply-badge ' + cls + '">' + cls.replace('_', ' ') + '</span>';
+      html += '</div>';
+      if (r.company) html += '<div style="color:var(--text-muted);">' + escHtml(r.company) + '</div>';
+      html += '<div style="color:var(--text-secondary); margin-top:2px;">' + escHtml(r.reply_preview || '') + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div style="margin-top:16px; text-align:right;">';
+  html += '<button class="btn btn-sm" onclick="triggerDailyReport()">Regenerate Report</button>';
+  html += '</div>';
+
+  modal.innerHTML = html;
+}
+
+async function triggerDailyReport() {
+  toast('Generating daily report...', 'info');
+  try {
+    var resp = await fetch('/api/cron/daily-summary', {
+      method: 'GET',
+      headers: { 'x-api-key': 'aiis-dialer-2026-secure' }
+    });
+    var data = await resp.json();
+    if (data.error) {
+      toast('Report generation failed: ' + data.error, 'error');
+    } else {
+      toast('Daily report generated!', 'success');
+      showDailyReport();
+    }
+  } catch (e) {
+    toast('Failed to generate report: ' + e.message, 'error');
+  }
 }
 
 function showCreateEmailCampaignModal() {
