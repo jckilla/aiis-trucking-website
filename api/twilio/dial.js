@@ -13,11 +13,22 @@
  *  5. Initiate call from matching number to lead
  */
 const twilio = require('twilio');
+const { setCorsHeaders, verifyRequest } = require('./auth');
 
 // In-memory cache of owned numbers (refreshed every 5 min)
 let numberPoolCache = null;
 let numberPoolCacheTime = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Rate limiting: simple in-memory counter (100 calls/hour)
+const RATE_LIMIT_MAX = 100;
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+let rateLimitCount = 0;
+let rateLimitWindowStart = Date.now();
+
+// Phone number validation
+const US_PHONE_REGEX = /^\+1[2-9]\d{9}$/;
+const PREMIUM_PREFIXES = ['+1900', '+1976'];
 
 function normalizePhone(phone) {
   if (!phone) return null;
@@ -36,6 +47,16 @@ function extractAreaCode(e164Phone) {
   // US numbers: +1AAANNNNNNN
   const match = e164Phone.match(/^\+1(\d{3})/);
   return match ? match[1] : null;
+}
+
+function checkRateLimit() {
+  const now = Date.now();
+  if (now - rateLimitWindowStart > RATE_LIMIT_WINDOW) {
+    rateLimitCount = 0;
+    rateLimitWindowStart = now;
+  }
+  rateLimitCount++;
+  return rateLimitCount <= RATE_LIMIT_MAX;
 }
 
 async function getNumberPool(client) {
@@ -105,11 +126,12 @@ async function findOrProvisionNumber(client, targetAreaCode, defaultNumber) {
 
 module.exports = async function handler(req, res) {
   // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Auth
+  if (!verifyRequest(req, res)) return;
 
   const {
     TWILIO_ACCOUNT_SID,
@@ -122,10 +144,20 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'Twilio credentials not configured' });
   }
 
+  // SEC-09: Require TWILIO_DEFAULT_NUMBER env var — no hardcoded fallback
+  if (!TWILIO_DEFAULT_NUMBER) {
+    return res.status(500).json({ error: 'TWILIO_DEFAULT_NUMBER env var is not set. Cannot place calls without a configured caller ID.' });
+  }
+
   const { to, leadId, line, agentIdentity } = req.body || {};
 
   if (!to) {
     return res.status(400).json({ error: 'Missing "to" phone number' });
+  }
+
+  // Rate limiting
+  if (!checkRateLimit()) {
+    return res.status(429).json({ error: 'Rate limit exceeded: max 100 calls per hour' });
   }
 
   try {
@@ -136,13 +168,24 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid phone number: ' + to });
     }
 
+    // SEC-06: Validate US phone number format
+    if (!US_PHONE_REGEX.test(e164To)) {
+      return res.status(400).json({ error: 'Only US phone numbers are allowed (format: +1XXXXXXXXXX)' });
+    }
+
+    // SEC-06: Block premium rate numbers
+    for (const prefix of PREMIUM_PREFIXES) {
+      if (e164To.startsWith(prefix)) {
+        return res.status(400).json({ error: 'Premium rate numbers are not allowed' });
+      }
+    }
+
     const targetAreaCode = extractAreaCode(e164To);
 
-    // Fixed caller ID — always use the 213 number
-    // Auto-provisioning disabled to prevent unexpected charges
-    const callerId = TWILIO_DEFAULT_NUMBER || '+12137211724';
+    // Fixed caller ID — always use the configured default number
+    const callerId = TWILIO_DEFAULT_NUMBER;
 
-    console.log(`Using fixed caller ID: ${callerId} (213 area code)`);
+    console.log(`Using fixed caller ID: ${callerId}`);
 
     const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`

@@ -7,10 +7,15 @@
  *
  * Passes leadId and line as custom parameters so the browser SDK
  * can identify which dialer line this call belongs to.
+ *
+ * This is a Twilio WEBHOOK — called by Twilio servers, not by the browser.
+ * No API key auth required, but CORS is restricted.
  */
 const twilio = require('twilio');
+const { setCorsHeaders } = require('./auth');
 
 module.exports = async function handler(req, res) {
+  setCorsHeaders(req, res);
   res.setHeader('Content-Type', 'text/xml');
 
   const agentIdentity = req.query.agentIdentity || req.body?.agentIdentity || 'aiis-agent';

@@ -2,9 +2,14 @@
  * POST /api/twilio/status
  * Twilio call status webhook — receives call lifecycle events.
  * Logs call progress and final disposition.
+ *
+ * This is a Twilio WEBHOOK — called by Twilio servers, not by the browser.
+ * No API key auth required, but CORS is restricted.
  */
+const { setCorsHeaders } = require('./auth');
+
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
 
   const body = req.body || {};
   const {

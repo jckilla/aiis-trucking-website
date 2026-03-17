@@ -2,10 +2,15 @@
  * POST /api/twilio/voice
  * TwiML webhook — Twilio hits this when the browser-initiated call connects.
  * Routes the call: dials the lead and conferences them with the agent.
+ *
+ * This is a Twilio WEBHOOK — called by Twilio servers, not by the browser.
+ * No API key auth required, but CORS is restricted.
  */
 const twilio = require('twilio');
+const { setCorsHeaders } = require('./auth');
 
 module.exports = async function handler(req, res) {
+  setCorsHeaders(req, res);
   res.setHeader('Content-Type', 'text/xml');
 
   const body = req.body || {};

@@ -4,12 +4,14 @@
  *   Body: { areaCode: "657" }
  */
 const twilio = require('twilio');
+const { setCorsHeaders, verifyRequest } = require('./auth');
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Auth
+  if (!verifyRequest(req, res)) return;
 
   const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN } = process.env;
 

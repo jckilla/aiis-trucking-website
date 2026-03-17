@@ -4,14 +4,16 @@
  * The browser uses this to register as a softphone.
  */
 const twilio = require('twilio');
+const { setCorsHeaders, verifyRequest } = require('./auth');
 
 module.exports = async function handler(req, res) {
   // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Auth
+  if (!verifyRequest(req, res)) return;
 
   const {
     TWILIO_ACCOUNT_SID,
