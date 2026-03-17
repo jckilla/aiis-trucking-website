@@ -2655,12 +2655,64 @@ async function previewCampaign(id) {
   html += '</div>';
 
   html += '<div style="display:flex;gap:8px">';
-  html += '<button class="btn btn-primary" style="flex:1" onclick="toast(\'Email sending coming soon — connect SMTP in Settings\',\'info\');closeModal()">Send Campaign</button>';
-  html += '<button class="btn" style="flex:1" onclick="closeModal()">Close</button>';
+  html += '<button class="btn" style="flex:1;background:var(--bg-tertiary);border:1px solid var(--border);" onclick="sendTestCampaign(' + id + ')">&#x1F4E7; Send Test to Me</button>';
+  html += '<button class="btn btn-primary" style="flex:1" onclick="sendLiveCampaign(' + id + ',' + recipientCount + ')">&#x1F680; Send to ' + recipientCount.toLocaleString() + ' Leads</button>';
+  html += '<button class="btn" style="flex:0 0 auto;padding:10px 16px;" onclick="closeModal()">Cancel</button>';
   html += '</div>';
 
   modal.innerHTML = html;
   openModal();
+}
+
+async function sendTestCampaign(campaignId) {
+  var email = prompt('Send a test email to:', 'cohua666@gmail.com');
+  if (!email) return;
+
+  toast('Sending test email to ' + email + '...', 'info');
+  try {
+    var resp = await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      body: JSON.stringify({ campaignId: campaignId, testMode: true, testEmail: email })
+    });
+    var data = await resp.json();
+    if (data.error) {
+      toast('Test send failed: ' + data.error, 'error');
+    } else {
+      toast('Test email sent to ' + email + '!', 'success');
+    }
+  } catch(e) {
+    toast('Failed to send test: ' + e.message, 'error');
+  }
+}
+
+async function sendLiveCampaign(campaignId, recipientCount) {
+  if (recipientCount > 100) {
+    var confirmed = confirm('This will send to the first 100 leads (warm-up limit). The campaign targets ' + recipientCount + ' total leads — subsequent batches can be sent later.\n\nProceed?');
+  } else {
+    var confirmed = confirm('Send this campaign to ' + recipientCount + ' leads?\n\nThis cannot be undone.');
+  }
+  if (!confirmed) return;
+
+  toast('Sending campaign to leads... this may take a minute', 'info');
+  closeModal();
+
+  try {
+    var resp = await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      body: JSON.stringify({ campaignId: campaignId })
+    });
+    var data = await resp.json();
+    if (data.error) {
+      toast('Campaign send failed: ' + data.error, 'error');
+    } else {
+      toast('Campaign sent! ' + data.sent + ' emails delivered, ' + data.failed + ' failed.', 'success');
+      renderEmailCampaigns(document.getElementById('pageContent'));
+    }
+  } catch(e) {
+    toast('Campaign send error: ' + e.message, 'error');
+  }
 }
 
 // ==================== SMS CAMPAIGNS ====================

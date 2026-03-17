@@ -21,6 +21,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.99.2",
     "octokit": "^5.0.5",
+    "resend": "^6.9.4",
     "twilio": "^5.13.0"
   }
 }
