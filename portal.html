@@ -1569,7 +1569,7 @@ async function initTwilioDevice() {
     console.log('Fetching Twilio access token...');
     var resp = await fetch('/api/twilio/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
       body: JSON.stringify({ identity: 'aiis-agent' })
     });
     var data = await resp.json();
@@ -1663,7 +1663,7 @@ async function initTwilioDevice() {
       console.log('Twilio token expiring, refreshing...');
       fetch('/api/twilio/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
         body: JSON.stringify({ identity: 'aiis-agent' })
       }).then(function(r) { return r.json(); }).then(function(d) {
         if (d.token) twilioDevice.updateToken(d.token);
@@ -1769,7 +1769,7 @@ async function hangupOtherLines(keepLine) {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
         body: JSON.stringify({ callSids: sidsToKill })
       });
       console.log('Hung up other lines:', sidsToKill);
@@ -1995,7 +1995,7 @@ async function stopDialer() {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
         body: JSON.stringify({ callSids: sidsToKill })
       });
     } catch(e) {}
@@ -2076,7 +2076,7 @@ async function dialLineViaTwilio(line, lead, phone) {
     console.log('Line ' + line + ': Dialing ' + phone + '...');
     var resp = await fetch('/api/twilio/dial', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
       body: JSON.stringify({
         to: phone,
         leadId: lead.id,
@@ -2121,7 +2121,7 @@ async function handleLineTimeout(line) {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
         body: JSON.stringify({ callSid: lineCallSids[line] })
       });
     } catch(e) {}
@@ -2157,7 +2157,7 @@ async function hangupLiveCall(line) {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
         body: JSON.stringify({ callSid: lineCallSids[line] })
       });
     } catch(e) {}
@@ -2190,7 +2190,7 @@ async function saveCallResult(line) {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
         body: JSON.stringify({ callSid: lineCallSids[line] })
       });
     } catch(e) {}
@@ -2265,10 +2265,19 @@ async function renderEmailCampaigns(el) {
       html += '<div class="campaign-name">' + escHtml(c.name || 'Untitled') + '</div>';
       html += '<div class="campaign-date">' + fmtDate(c.created_at) + ' &middot; ' + escHtml(c.status || 'draft') + '</div>';
       html += '<div class="campaign-stats">';
-      html += '<div class="campaign-stat"><div class="cs-value">' + (c.recipients_count || 0) + '</div><div class="cs-label">Recipients</div></div>';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.total_recipients || 0) + '</div><div class="cs-label">Recipients</div></div>';
       html += '<div class="campaign-stat"><div class="cs-value">' + (c.sent_count || 0) + '</div><div class="cs-label">Sent</div></div>';
-      html += '<div class="campaign-stat"><div class="cs-value">' + (c.opened_count || 0) + '</div><div class="cs-label">Opened</div></div>';
-      html += '<div class="campaign-stat"><div class="cs-value">' + (c.clicked_count || 0) + '</div><div class="cs-label">Clicked</div></div>';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.open_count || 0) + '</div><div class="cs-label">Opened</div></div>';
+      html += '<div class="campaign-stat"><div class="cs-value">' + (c.click_count || 0) + '</div><div class="cs-label">Clicked</div></div>';
+      html += '</div>';
+      // Show target info and preview button
+      var targets = [];
+      if (c.target_segment && c.target_segment !== 'all') targets.push(c.target_segment.replace(/_/g, ' '));
+      if (c.target_stage && c.target_stage !== 'all') targets.push(c.target_stage.replace(/_/g, ' '));
+      if (c.target_state && c.target_state !== 'all') targets.push(c.target_state);
+      html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px solid var(--border)">';
+      html += '<span style="font-size:11px; color:var(--text-muted)">' + (targets.length ? 'Target: ' + targets.join(' · ') : 'All leads') + '</span>';
+      html += '<button class="btn btn-sm" onclick="previewCampaign(' + c.id + ')" style="font-size:11px; padding:4px 10px;">Preview</button>';
       html += '</div></div>';
     });
   }
@@ -2281,19 +2290,18 @@ function showCreateEmailCampaignModal() {
   var modal = document.getElementById('modalContent');
   var html = '<div class="modal-header"><h2>Create Email Campaign</h2><button class="modal-close" onclick="closeModal()">&times;</button></div>';
   html += '<div class="form-group"><label>Campaign Name</label><input type="text" id="ecName" placeholder="e.g., Q1 Renewal Outreach"></div>';
-  html += '<div class="form-group"><label>Template</label><select id="ecTemplate">';
-  html += '<option value="intro">Introduction</option><option value="followup">Follow-Up</option><option value="quote">Quote Ready</option><option value="renewal">Renewal Reminder</option>';
+  html += '<div class="form-group"><label>Subject Line</label><input type="text" id="ecSubject" placeholder="Email subject... Use {{first_name}}, {{company}} for personalization"></div>';
+  html += '<div class="form-group"><label>Email Body (HTML)</label><textarea id="ecBody" rows="10" style="min-height:200px" placeholder="Email body HTML... Use {{first_name}}, {{company}}, {{city}} for personalization"></textarea></div>';
+  html += '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">';
+  html += '<div class="form-group"><label>Target Segment</label><select id="ecSegment"><option value="all">All Segments</option>';
+  ['owner_operator','small_fleet','large_fleet'].forEach(function(s) { html += '<option value="' + s + '">' + s.replace(/_/g,' ') + '</option>'; });
   html += '</select></div>';
-  html += '<div class="form-group"><label>Subject Line</label><input type="text" id="ecSubject" placeholder="Email subject..."></div>';
-  html += '<div class="form-group"><label>Body</label><textarea id="ecBody" placeholder="Email body HTML..."></textarea></div>';
-  html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">';
-  html += '<div class="form-group"><label>Target Segment</label><select id="ecSegment"><option value="">All Segments</option>';
-  ['long_haul','short_haul','local','specialized'].forEach(function(s) { html += '<option value="' + s + '">' + s.replace(/_/g,' ') + '</option>'; });
-  html += '</select></div>';
-  html += '<div class="form-group"><label>Target Stage</label><select id="ecStage"><option value="">All Stages</option>';
+  html += '<div class="form-group"><label>Target Stage</label><select id="ecStage"><option value="all">All Stages</option>';
   STAGES.forEach(function(s) { html += '<option value="' + s.key + '">' + s.label + '</option>'; });
-  html += '</select></div></div>';
-  html += '<button class="btn btn-primary" onclick="createEmailCampaign()">Create Campaign</button>';
+  html += '</select></div>';
+  html += '<div class="form-group"><label>Target State</label><select id="ecState"><option value="all">All States</option><option value="CA" selected>California</option><option value="TX">Texas</option><option value="FL">Florida</option><option value="IL">Illinois</option><option value="OH">Ohio</option><option value="PA">Pennsylvania</option><option value="GA">Georgia</option><option value="NC">North Carolina</option><option value="IN">Indiana</option><option value="TN">Tennessee</option></select></div>';
+  html += '</div>';
+  html += '<button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="createEmailCampaign()">Create Campaign</button>';
 
   modal.innerHTML = html;
   openModal();
@@ -2303,18 +2311,72 @@ async function createEmailCampaign() {
   var name = document.getElementById('ecName').value;
   var subject = document.getElementById('ecSubject').value;
   var body_html = document.getElementById('ecBody').value;
-  var target_segment = document.getElementById('ecSegment').value || null;
-  var target_stage = document.getElementById('ecStage').value || null;
-  var campaign_type = document.getElementById('ecTemplate').value;
+  var target_segment = document.getElementById('ecSegment').value || 'all';
+  var target_stage = document.getElementById('ecStage').value || 'all';
+  var target_state = document.getElementById('ecState').value || 'all';
 
   if (!name) { toast('Name is required', 'error'); return; }
+  if (!subject) { toast('Subject line is required', 'error'); return; }
 
-  var res = await sb.from('crm_email_campaigns').insert({ name: name, subject: subject, body_html: body_html, target_segment: target_segment, target_stage: target_stage, campaign_type: campaign_type, status: 'draft' });
-  if (res.error) { toast('Failed to create campaign', 'error'); return; }
+  var res = await sb.from('crm_email_campaigns').insert({
+    name: name, subject: subject, body_html: body_html,
+    target_segment: target_segment, target_stage: target_stage,
+    target_state: target_state, status: 'draft'
+  });
+  if (res.error) { toast('Failed to create campaign: ' + res.error.message, 'error'); return; }
 
   toast('Campaign created!');
   closeModal();
   renderEmailCampaigns(document.getElementById('pageContent'));
+}
+
+async function previewCampaign(id) {
+  var res = await sb.from('crm_email_campaigns').select('*').eq('id', id).single();
+  if (res.error || !res.data) { toast('Campaign not found', 'error'); return; }
+  var c = res.data;
+
+  // Count matching leads
+  var q = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('email', 'is', null).neq('email', '');
+  if (c.target_segment && c.target_segment !== 'all') q = q.eq('segment', c.target_segment);
+  if (c.target_stage && c.target_stage !== 'all') q = q.eq('stage', c.target_stage);
+  if (c.target_state && c.target_state !== 'all') q = q.eq('state', c.target_state);
+  var countRes = await q;
+  var recipientCount = countRes.count || 0;
+
+  var modal = document.getElementById('modalContent');
+  var html = '<div class="modal-header"><h2>Campaign Preview</h2><button class="modal-close" onclick="closeModal()">&times;</button></div>';
+  html += '<div style="margin-bottom:16px">';
+  html += '<h3 style="margin:0 0 4px">' + escHtml(c.name) + '</h3>';
+  html += '<div style="color:var(--text-muted);font-size:13px">Status: <span style="color:var(--warning);font-weight:600">' + c.status + '</span> · Created ' + fmtDate(c.created_at) + '</div>';
+  html += '</div>';
+
+  html += '<div style="background:var(--bg-tertiary);border-radius:8px;padding:16px;margin-bottom:16px">';
+  html += '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">SUBJECT LINE</div>';
+  html += '<div style="font-size:15px;font-weight:600">' + escHtml(c.subject) + '</div>';
+  html += '</div>';
+
+  html += '<div style="background:#fff;color:#333;border-radius:8px;padding:20px;margin-bottom:16px;max-height:300px;overflow-y:auto">';
+  html += c.body_html || '<p style="color:#999">No body content</p>';
+  html += '</div>';
+
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">';
+  html += '<div style="background:var(--bg-tertiary);border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--text-muted)">Segment</div><div style="font-weight:600">' + (c.target_segment || 'all').replace(/_/g,' ') + '</div></div>';
+  html += '<div style="background:var(--bg-tertiary);border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--text-muted)">Stage</div><div style="font-weight:600">' + (c.target_stage || 'all').replace(/_/g,' ') + '</div></div>';
+  html += '<div style="background:var(--bg-tertiary);border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--text-muted)">State</div><div style="font-weight:600">' + (c.target_state || 'all') + '</div></div>';
+  html += '</div>';
+
+  html += '<div style="background:var(--bg-tertiary);border-radius:8px;padding:16px;margin-bottom:16px;text-align:center">';
+  html += '<div style="font-size:28px;font-weight:700;color:var(--primary)">' + recipientCount.toLocaleString() + '</div>';
+  html += '<div style="font-size:12px;color:var(--text-muted)">leads match this campaign\'s filters (with email)</div>';
+  html += '</div>';
+
+  html += '<div style="display:flex;gap:8px">';
+  html += '<button class="btn btn-primary" style="flex:1" onclick="toast(\'Email sending coming soon — connect SMTP in Settings\',\'info\');closeModal()">Send Campaign</button>';
+  html += '<button class="btn" style="flex:1" onclick="closeModal()">Close</button>';
+  html += '</div>';
+
+  modal.innerHTML = html;
+  openModal();
 }
 
 // ==================== SMS CAMPAIGNS ====================
