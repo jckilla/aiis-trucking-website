@@ -1726,6 +1726,123 @@ async function initTwilioDevice() {
   }
 }
 
+// ==================== SINGLE DIALER ====================
+var singleDialCallSid = null;
+var singleDialTimerInterval = null;
+var singleDialStartTime = null;
+
+async function startSingleDial() {
+  var rawNum = document.getElementById('singleDialNumber').value.trim();
+  if (!rawNum) { toast('Enter a phone number to dial', 'error'); return; }
+
+  // Normalize phone
+  var digits = rawNum.replace(/\D/g, '');
+  if (digits.length === 10) digits = '1' + digits;
+  if (digits.length === 11 && digits[0] === '1') {
+    var phone = '+' + digits;
+  } else {
+    toast('Enter a valid US phone number (10 digits)', 'error'); return;
+  }
+
+  var statusEl = document.getElementById('singleDialStatus');
+  var timerEl = document.getElementById('singleDialTimer');
+  var dialBtn = document.getElementById('singleDialBtn');
+  var hangupBtn = document.getElementById('singleHangupBtn');
+
+  // Init Twilio Device if needed
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<span style="color:var(--warning)">Connecting to Twilio...</span>';
+  var ready = await initTwilioDevice();
+  if (!ready) {
+    statusEl.innerHTML = '<span style="color:var(--danger)">Twilio connection failed</span>';
+    return;
+  }
+
+  // Place the call
+  statusEl.innerHTML = '<span style="color:var(--warning)">&#x1F4DE; Dialing ' + phone + '...</span>';
+  dialBtn.style.display = 'none';
+  hangupBtn.style.display = 'inline-flex';
+
+  try {
+    var resp = await fetch('/api/twilio/dial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      body: JSON.stringify({ to: phone, from: '+12137211724', agentIdentity: 'aiis-agent', leadId: 'manual', line: 0 })
+    });
+    var data = await resp.json();
+    if (data.error) {
+      statusEl.innerHTML = '<span style="color:var(--danger)">' + data.error + '</span>';
+      dialBtn.style.display = 'inline-flex';
+      hangupBtn.style.display = 'none';
+      return;
+    }
+    singleDialCallSid = data.callSid;
+    statusEl.innerHTML = '<span style="color:var(--info)">&#x1F50A; Ringing...</span>';
+
+    // Poll for status
+    var pollCount = 0;
+    var pollInterval = setInterval(async function() {
+      pollCount++;
+      if (pollCount > 20) { clearInterval(pollInterval); return; } // stop after 60s
+      try {
+        var sr = await fetch('/api/twilio/status?callSid=' + singleDialCallSid, {
+          headers: { 'x-api-key': 'aiis-dialer-2026-secure' }
+        });
+        var sd = await sr.json();
+        if (sd.statuses && sd.statuses[0]) {
+          var s = sd.statuses[0].status;
+          if (s === 'in-progress') {
+            clearInterval(pollInterval);
+            statusEl.innerHTML = '<span style="color:var(--success)">&#x2705; Connected!</span>';
+            timerEl.style.display = 'block';
+            singleDialStartTime = Date.now();
+            singleDialTimerInterval = setInterval(function() {
+              var elapsed = Math.floor((Date.now() - singleDialStartTime) / 1000);
+              var m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+              var sec = String(elapsed % 60).padStart(2, '0');
+              timerEl.textContent = m + ':' + sec;
+            }, 1000);
+          } else if (s === 'completed' || s === 'no-answer' || s === 'busy' || s === 'failed' || s === 'canceled') {
+            clearInterval(pollInterval);
+            var labels = { completed: 'Call Ended', 'no-answer': 'No Answer', busy: 'Busy', failed: 'Failed', canceled: 'Canceled' };
+            statusEl.innerHTML = '<span style="color:var(--text-muted)">' + (labels[s] || s) + '</span>';
+            resetSingleDial();
+          }
+        }
+      } catch(e) {}
+    }, 3000);
+  } catch(e) {
+    statusEl.innerHTML = '<span style="color:var(--danger)">Dial failed: ' + e.message + '</span>';
+    dialBtn.style.display = 'inline-flex';
+    hangupBtn.style.display = 'none';
+  }
+}
+
+async function hangupSingleDial() {
+  if (!singleDialCallSid) return;
+  try {
+    await fetch('/api/twilio/hangup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      body: JSON.stringify({ callSid: singleDialCallSid })
+    });
+  } catch(e) {}
+  var statusEl = document.getElementById('singleDialStatus');
+  statusEl.innerHTML = '<span style="color:var(--text-muted)">Call ended</span>';
+  resetSingleDial();
+}
+
+function resetSingleDial() {
+  singleDialCallSid = null;
+  if (singleDialTimerInterval) { clearInterval(singleDialTimerInterval); singleDialTimerInterval = null; }
+  document.getElementById('singleDialBtn').style.display = 'inline-flex';
+  document.getElementById('singleHangupBtn').style.display = 'none';
+  setTimeout(function() {
+    document.getElementById('singleDialTimer').style.display = 'none';
+    document.getElementById('singleDialTimer').textContent = '00:00';
+  }, 3000);
+}
+
 function setLineState(line, state) {
   var el = document.getElementById('dialerLine' + line);
   if (!el) return;
@@ -1826,7 +1943,21 @@ async function renderDialer(el) {
     });
   } catch(e) { console.error('Failed to load states:', e); }
 
-  var html = '<div class="page-header"><h2>Parallel Dialer</h2>';
+  // ======== SINGLE DIALER — Manual dial any number ========
+  var html = '<div style="margin-bottom:24px;padding:20px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;">';
+  html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><h3 style="margin:0;">&#x260E; Single Dialer</h3>';
+  html += '<span style="font-size:12px;color:var(--text-muted);">Dial any number from (213) 721-1724</span></div>';
+  html += '<div style="display:flex;gap:8px;align-items:center;">';
+  html += '<input type="tel" id="singleDialNumber" placeholder="(555) 123-4567 or +15551234567" style="flex:1;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:15px;">';
+  html += '<button class="btn btn-primary" id="singleDialBtn" onclick="startSingleDial()" style="white-space:nowrap;padding:10px 20px;">&#x1F4DE; Dial</button>';
+  html += '<button class="btn btn-danger" id="singleHangupBtn" onclick="hangupSingleDial()" style="display:none;white-space:nowrap;padding:10px 20px;">&#x23F9; Hang Up</button>';
+  html += '</div>';
+  html += '<div id="singleDialStatus" style="margin-top:8px;font-size:13px;color:var(--text-muted);display:none;"></div>';
+  html += '<div id="singleDialTimer" style="margin-top:4px;font-size:20px;font-weight:700;color:var(--success);display:none;">00:00</div>';
+  html += '</div>';
+
+  // ======== PARALLEL DIALER ========
+  html += '<div class="page-header"><h2>Parallel Dialer</h2>';
   html += '<p>Calls 3 leads simultaneously from (213) &mdash; first person to answer gets connected to you, other calls auto-drop.</p></div>';
 
   // Controls row 1: Filters
