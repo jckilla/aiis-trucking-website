@@ -259,13 +259,33 @@
     const fileSummary=files.length ? files.map(f=>`- ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`).join('\n') : 'No files uploaded.';
     const message=`NEW QUOTE REQUEST \u2014 ADVANCEDINS.AI\n${'='.repeat(50)}\nSubmitted: ${ts}\n\nCONTACT INFORMATION\n-------------------\nName:     ${firstName} ${lastName}\nEmail:    ${email}\nPhone:    ${phone}\nAddress:  ${address}\n\nBUSINESS DETAILS\n----------------\nDOT Number:   ${dot}\nMC Number:    ${mc}\nUnits/Trucks: ${units}\nCoverage:     ${insuranceType}\n\nNOTES\n-----\n${notes}\n\nUPLOADED FILES\n--------------\n${fileSummary}\n${'='.repeat(50)}\nSubmitted via advancedins.ai`.trim();
     const params={from_name:`${firstName} ${lastName}`,from_email:email,reply_to:email,subject:`New Quote Request \u2014 ${firstName} ${lastName} | ${insuranceType}`,name:`${firstName} ${lastName}`,message,first_name:firstName,last_name:lastName,phone,address,dot_number:dot,mc_number:mc,units,insurance_type:insuranceType,notes,submitted_at:ts,files_uploaded:fileSummary};
-    try {
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
+    // Read uploaded files as base64, capped so the serverless request stays small.
+    // Anything over the cap is reported to the agent so they can request it directly.
+    const MAX_TOTAL=3*1024*1024; let used=0; const filePayload=[], skippedFiles=[];
+    for(const f of files){
+      if(used+f.size>MAX_TOTAL){ skippedFiles.push({name:f.name,size:f.size}); continue; }
+      try{
+        const b64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(f);});
+        filePayload.push({name:f.name,type:f.type,b64}); used+=f.size;
+      }catch(_){ skippedFiles.push({name:f.name,size:f.size}); }
+    }
+    // Primary path: create the CRM lead + deliver the documents to the agent.
+    let apiOk=false;
+    try{
+      const r=await fetch('/api/quote',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({firstName,lastName,email,phone,address,dot,mc,units,insuranceType,notes,files:filePayload,skippedFiles})});
+      apiOk=r.ok;
+      if(!apiOk) console.error('quote api status',r.status);
+    }catch(err){ console.error('quote api error:',err); }
+    // Backstop: existing EmailJS notification (kept so a lead is never lost).
+    let emailOk=false;
+    try{ await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params); emailOk=true; }
+    catch(err){ console.error('EmailJS error:',err); }
+    if(apiOk||emailOk){
       document.getElementById('quoteForm').style.display='none';
       document.getElementById('successMsg').style.display='block';
       window.scrollTo({top:0,behavior:'smooth'});
-    } catch(err){
-      console.error('EmailJS error:',err);
+    } else {
       spinner.style.display='none';
       btn.style.display='flex'; btn.disabled=false;
       errBox.textContent='There was an error sending your request. Please call us at (657) 366-5312 or email trucking@ins2day.com';
