@@ -10,7 +10,7 @@
  * No API key auth required, but CORS is restricted.
  */
 const twilio = require('twilio');
-const { setCorsHeaders } = require('./auth');
+const { setCorsHeaders } = require('../../lib/twilio-auth');
 
 // Veronica's personal cell for callback forwarding
 const FORWARD_NUMBER = process.env.FORWARD_NUMBER || '+16573665312';

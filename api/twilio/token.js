@@ -4,7 +4,7 @@
  * The browser uses this to register as a softphone.
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifyRequest } = require('./auth');
+const { setCorsHeaders, verifyRequest } = require('../../lib/twilio-auth');
 
 module.exports = async function handler(req, res) {
   // CORS

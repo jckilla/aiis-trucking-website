@@ -12,7 +12,7 @@
  * No API key auth required, but CORS is restricted.
  */
 const twilio = require('twilio');
-const { setCorsHeaders } = require('./auth');
+const { setCorsHeaders } = require('../../lib/twilio-auth');
 
 module.exports = async function handler(req, res) {
   setCorsHeaders(req, res);

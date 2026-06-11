@@ -13,7 +13,7 @@
  *  5. Initiate call from matching number to lead
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifyRequest } = require('./auth');
+const { setCorsHeaders, verifyRequest } = require('../../lib/twilio-auth');
 
 // In-memory cache of owned numbers (refreshed every 5 min)
 let numberPoolCache = null;

@@ -4,7 +4,7 @@
  *   Body: { areaCode: "657" }
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifyRequest } = require('./auth');
+const { setCorsHeaders, verifyRequest } = require('../../lib/twilio-auth');
 
 module.exports = async function handler(req, res) {
   setCorsHeaders(req, res);
