@@ -2003,6 +2003,17 @@ async function renderDialer(el) {
     });
   } catch(e) { console.error('Failed to load states:', e); }
 
+  // Load Call Lists (imported dial lists, e.g. from HubSpot) with counts
+  var callListOptions = '';
+  try {
+    var clRes = await sb.from('crm_leads').select('call_list').not('call_list', 'is', null).limit(5000);
+    var clCounts = {};
+    (clRes.data || []).forEach(function(r) { if (r.call_list) clCounts[r.call_list] = (clCounts[r.call_list] || 0) + 1; });
+    Object.keys(clCounts).sort().forEach(function(name) {
+      callListOptions += '<option value="' + escHtml(name) + '">' + escHtml(name) + ' (' + clCounts[name].toLocaleString() + ')</option>';
+    });
+  } catch(e) { console.error('Failed to load call lists:', e); }
+
   // ======== SINGLE DIALER — Manual dial any number ========
   var html = '<div style="margin-bottom:24px;padding:20px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;">';
   html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><h3 style="margin:0;">&#x260E; Single Dialer</h3>';
@@ -2022,6 +2033,7 @@ async function renderDialer(el) {
 
   // Controls row 1: Filters
   html += '<div class="dialer-controls" style="flex-wrap:wrap;">';
+  html += '<select id="dialerCallList" style="min-width:200px;"><option value="">All Leads (no Call List)</option>' + callListOptions + '</select>';
   html += '<select id="dialerState" style="min-width:160px;"><option value="">All States</option>' + stateOptions + '</select>';
   html += '<select id="dialerSegment"><option value="">All Segments</option>';
   [['owner_operator','Owner-Operator'],['small_fleet','Small Fleet'],['commercial_lines','Commercial'],['enterprise','Enterprise']].forEach(function(seg) {
@@ -2110,7 +2122,7 @@ async function renderDialer(el) {
   el.innerHTML = html;
 
   // Update lead count on filter change
-  ['dialerState','dialerSegment','dialerStage'].forEach(function(id) {
+  ['dialerCallList','dialerState','dialerSegment','dialerStage'].forEach(function(id) {
     var sel = document.getElementById(id);
     if (sel) sel.addEventListener('change', updateDialerLeadCount);
   });
@@ -2127,8 +2139,10 @@ async function updateDialerLeadCount() {
   var state = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
   var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
   var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
+  var callList = document.getElementById('dialerCallList') ? document.getElementById('dialerCallList').value : '';
 
   var query = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('phone', 'is', null).neq('phone', '');
+  if (callList) query = query.eq('call_list', callList);
   if (state) query = query.eq('state', state);
   if (segment) query = query.eq('segment', segment);
   if (stage) query = query.eq('stage', stage);
@@ -2229,7 +2243,9 @@ function buildDialerQuery() {
   var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
   var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
 
+  var callList = document.getElementById('dialerCallList') ? document.getElementById('dialerCallList').value : '';
   var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '');
+  if (callList) query = query.eq('call_list', callList);
   if (stateVal) query = query.eq('state', stateVal);
   if (segment) query = query.eq('segment', segment);
   if (stage) query = query.eq('stage', stage);
