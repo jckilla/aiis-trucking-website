@@ -2136,20 +2136,26 @@ async function renderDialer(el) {
 async function updateDialerLeadCount() {
   var countEl = document.getElementById('dialerLeadCount');
   if (!countEl) return;
-  var state = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
-  var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
-  var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
   var callList = document.getElementById('dialerCallList') ? document.getElementById('dialerCallList').value : '';
 
+  // When a Call List is chosen it overrides the geo/segment/stage filters — disable them so it's clear.
+  ['dialerState','dialerSegment','dialerStage'].forEach(function(id){ var el = document.getElementById(id); if (el) el.disabled = !!callList; });
+
   var query = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('phone', 'is', null).neq('phone', '');
-  if (callList) query = query.eq('call_list', callList);
-  if (state) query = query.eq('state', state);
-  if (segment) query = query.eq('segment', segment);
-  if (stage) query = query.eq('stage', stage);
+  if (callList) {
+    query = query.eq('call_list', callList);
+  } else {
+    var state = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
+    var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
+    var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
+    if (state) query = query.eq('state', state);
+    if (segment) query = query.eq('segment', segment);
+    if (stage) query = query.eq('stage', stage);
+  }
 
   var res = await query;
   var count = res.count || 0;
-  countEl.innerHTML = '<strong>' + count.toLocaleString() + '</strong> dialable leads';
+  countEl.innerHTML = '<strong>' + count.toLocaleString() + '</strong> dialable leads' + (callList ? ' <span style="color:var(--text-muted)">(Call List &mdash; other filters ignored)</span>' : '');
 }
 
 
@@ -2239,13 +2245,17 @@ async function stopDialer() {
 }
 
 function buildDialerQuery() {
+  var callList = document.getElementById('dialerCallList') ? document.getElementById('dialerCallList').value : '';
+  var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '');
+  // A Call List is an explicit, curated set (e.g. a HubSpot import). Dial it exactly as-is and
+  // ignore the State/Segment/Stage filters — those leads often have no state/segment, so applying
+  // the default CA state filter would wrongly return zero.
+  if (callList) {
+    return query.eq('call_list', callList);
+  }
   var stateVal = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
   var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
   var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
-
-  var callList = document.getElementById('dialerCallList') ? document.getElementById('dialerCallList').value : '';
-  var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '');
-  if (callList) query = query.eq('call_list', callList);
   if (stateVal) query = query.eq('state', stateVal);
   if (segment) query = query.eq('segment', segment);
   if (stage) query = query.eq('stage', stage);
@@ -2257,7 +2267,7 @@ async function loadDialerLeads() {
   activeLiveCall = null;
   dialerPhoneMap = {};
 
-  var res = await buildDialerQuery().order('lead_score', { ascending: false }).limit(100);
+  var res = await buildDialerQuery().order('lead_score', { ascending: false }).limit(500);
   console.log('Dialer query:', res.data ? res.data.length + ' leads found' : 'error', res.error);
   var data = (res.data || []).filter(function(l) { return !dialerUsedIds.has(l.id); }).slice(0, 3);
 
