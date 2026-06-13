@@ -23,6 +23,15 @@ const DIALER_API_KEY = process.env.DIALER_API_KEY;
 // Unsubscribe page URL
 const UNSUBSCRIBE_URL = 'https://fleet.ins2day.com/unsubscribe.html';
 
+const crypto = require('crypto');
+// Signed one-click unsubscribe link — HMAC keyed on the server-only service-role secret
+// so a link cannot be forged to unsubscribe a different address.
+function unsubLink(email) {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.UNSUBSCRIBE_SECRET || 'aiis-unsub';
+  const sig = crypto.createHmac('sha256', secret).update(String(email).toLowerCase()).digest('hex').slice(0, 24);
+  return `${UNSUBSCRIBE_URL}?email=${encodeURIComponent(email)}&sig=${sig}`;
+}
+
 module.exports = async function handler(req, res) {
   // CORS
   const origin = req.headers.origin || '';
@@ -75,7 +84,7 @@ module.exports = async function handler(req, res) {
         subject: campaign.subject.replace(/\{\{first_name\}\}/g, 'Test').replace(/\{\{company\}\}/g, 'Test Trucking Co'),
         html: html,
         headers: {
-          'List-Unsubscribe': `<${UNSUBSCRIBE_URL}?email=${encodeURIComponent(email)}>`,
+          'List-Unsubscribe': `<${unsubLink(email)}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
         }
       });
@@ -89,7 +98,8 @@ module.exports = async function handler(req, res) {
     let query = sb.from('crm_leads')
       .select('id, contact_name, company_name, email, city, state, phone, segment, stage')
       .not('email', 'is', null)
-      .neq('email', '');
+      .neq('email', '')
+      .eq('unsubscribed', false); // never email opted-out / complained / bounced addresses (CAN-SPAM)
 
     if (campaign.target_segment && campaign.target_segment !== 'all') {
       query = query.eq('segment', campaign.target_segment);
@@ -146,7 +156,7 @@ module.exports = async function handler(req, res) {
             subject: subject,
             html: html,
             headers: {
-              'List-Unsubscribe': `<${UNSUBSCRIBE_URL}?email=${encodeURIComponent(lead.email)}>`,
+              'List-Unsubscribe': `<${unsubLink(lead.email)}>`,
               'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
             }
           });
@@ -236,7 +246,7 @@ ${html}
 <p style="margin:0 0 8px;">AdvancedIns.ai — California Commercial Trucking Insurance<br>
 <a href="https://fleet.ins2day.com" style="color:#3b82f6;">fleet.ins2day.com</a></p>
 <p style="margin:0 0 8px;">You're receiving this because you were identified as a trucking company that may benefit from better insurance rates.</p>
-<p style="margin:0;"><a href="${UNSUBSCRIBE_URL}?email=${encodeURIComponent(recipientEmail)}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a> ·
+<p style="margin:0;"><a href="${unsubLink(recipientEmail)}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a> ·
 <a href="https://fleet.ins2day.com" style="color:#94a3b8;text-decoration:underline;">Visit our website</a></p>
 </td></tr>
 

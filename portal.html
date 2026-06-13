@@ -2853,7 +2853,7 @@ async function previewCampaign(id) {
   var c = res.data;
 
   // Count matching leads
-  var q = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('email', 'is', null).neq('email', '');
+  var q = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('email', 'is', null).neq('email', '').eq('unsubscribed', false);
   if (c.target_segment && c.target_segment !== 'all') q = q.eq('segment', c.target_segment);
   if (c.target_stage && c.target_stage !== 'all') q = q.eq('stage', c.target_stage);
   if (c.target_state && c.target_state !== 'all') q = q.eq('state', c.target_state);

@@ -203,10 +203,12 @@ async function handleBounced(sb, leadId, email, data) {
       description: 'Email bounced for ' + email + (data.bounce ? ' (' + data.bounce.type + ')' : '')
     }).catch(() => {});
 
-    // Mark lead's email as bounced in notes
-    await sb.from('crm_leads').update({
-      notes: 'EMAIL_BOUNCED: ' + new Date().toISOString()
-    }).eq('id', leadId).catch(() => {});
+    // Suppress permanent/hard bounces so we never email them again. Do NOT touch the notes field —
+    // the old code overwrote it, destroying any manually-entered notes.
+    const isHard = data.bounce && /hard|permanent|undeliverable|suppress/i.test(JSON.stringify(data.bounce));
+    if (isHard) {
+      await sb.from('crm_leads').update({ unsubscribed: true }).eq('id', leadId).catch(() => {});
+    }
   }
 }
 
@@ -218,10 +220,11 @@ async function handleComplained(sb, leadId, email, data) {
       description: 'Spam complaint from ' + email + ' — auto-unsubscribed'
     }).catch(() => {});
 
-    // Auto-unsubscribe: move to lost stage and flag
+    // Auto-suppress on a spam complaint via the dedicated flag. Do NOT overwrite notes or hijack the
+    // pipeline stage — the old code did both (losing notes, breaking pipeline math), and 'lost' isn't
+    // even a valid stage enum value so that write always failed anyway.
     await sb.from('crm_leads').update({
-      stage: 'lost',
-      notes: 'SPAM_COMPLAINT — auto-unsubscribed: ' + new Date().toISOString(),
+      unsubscribed: true,
       updated_at: new Date().toISOString()
     }).eq('id', leadId).catch(() => {});
   }

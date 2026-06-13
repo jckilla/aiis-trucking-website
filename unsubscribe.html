@@ -31,32 +31,33 @@ p { color: #64748b; line-height: 1.6; margin-bottom: 20px; }
     <p>You won't receive any more emails from us. If this was a mistake, contact us at <a href="mailto:veronica@fleet.ins2day.com">veronica@fleet.ins2day.com</a>.</p>
   </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 var params = new URLSearchParams(window.location.search);
 var email = params.get('email') || '';
+var sig = params.get('sig') || '';
 if (email) document.getElementById('emailDisplay').textContent = email;
-
-var sb = supabase.createClient(
-  'https://cqijyhudfiteivejcgox.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxaWp5aHVkZml0ZWl2ZWpjZ294Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzI5OTUsImV4cCI6MjA4OTI0ODk5NX0.08wZTXZSQvB98VEKCMLVc0EcuxleNVSOF5Fg0eKENHI'
-);
 
 async function doUnsubscribe() {
   if (!email) { alert('No email found in URL'); return; }
-  // Mark the lead as unsubscribed by updating their stage
-  await sb.from('crm_leads').update({ stage: 'unsubscribed' }).eq('email', email);
-  // Log the activity
-  var res = await sb.from('crm_leads').select('id').eq('email', email).limit(1);
-  if (res.data && res.data[0]) {
-    await sb.from('crm_activities').insert({
-      lead_id: res.data[0].id,
-      type: 'email',
-      description: 'Lead unsubscribed from emails'
+  var btn = document.querySelector('.btn-danger');
+  if (btn) { btn.disabled = true; btn.textContent = 'Unsubscribing…'; }
+  try {
+    var resp = await fetch('/api/unsubscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, sig: sig })
     });
+    var data = await resp.json().catch(function(){ return {}; });
+    if (!resp.ok || !data.success) {
+      throw new Error((data && data.error) || 'Request failed');
+    }
+    // Only show success once the opt-out is actually recorded server-side.
+    document.getElementById('content').style.display = 'none';
+    document.getElementById('done').style.display = 'block';
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Unsubscribe Me'; }
+    alert('Sorry, we could not process that right now. Please email veronica@fleet.ins2day.com and we will remove you.');
   }
-  document.getElementById('content').style.display = 'none';
-  document.getElementById('done').style.display = 'block';
 }
 </script>
 </body>
