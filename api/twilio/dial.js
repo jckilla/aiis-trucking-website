@@ -13,7 +13,7 @@
  *  5. Initiate call from matching number to lead
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifyRequest } = require('../../lib/twilio-auth');
+const { setCorsHeaders, verifySession } = require('../../lib/twilio-auth');
 
 // In-memory cache of owned numbers (refreshed every 5 min)
 let numberPoolCache = null;
@@ -130,8 +130,8 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Auth
-  if (!verifyRequest(req, res)) return;
+  // Auth — require a logged-in CRM session
+  if (!(await verifySession(req, res))) return;
 
   const {
     TWILIO_ACCOUNT_SID,

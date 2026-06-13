@@ -13,6 +13,7 @@
  */
 const { Resend } = require('resend');
 const { createClient } = require('@supabase/supabase-js');
+const { verifySession } = require('../../lib/twilio-auth');
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cqijyhudfiteivejcgox.supabase.co';
@@ -38,14 +39,11 @@ module.exports = async function handler(req, res) {
   const allowed = ['https://fleet.ins2day.com', 'http://localhost:3000'];
   if (allowed.includes(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Auth
-  const apiKey = req.headers['x-api-key'];
-  if (!apiKey || apiKey !== DIALER_API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  // Auth — require a logged-in CRM session (replaces the public static key)
+  if (!(await verifySession(req, res))) return;
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 

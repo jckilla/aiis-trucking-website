@@ -1011,6 +1011,13 @@ const SUPABASE_URL = 'https://cqijyhudfiteivejcgox.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxaWp5aHVkZml0ZWl2ZWpjZ294Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzI5OTUsImV4cCI6MjA4OTI0ODk5NX0.08wZTXZSQvB98VEKCMLVc0EcuxleNVSOF5Fg0eKENHI';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Current Supabase access token, sent as `Authorization: Bearer` to our API endpoints (replaces the
+// old static key that was visible in this page's source). Kept fresh via onAuthStateChange, which
+// also fires on TOKEN_REFRESHED, so it never goes stale during a long dialing session.
+let currentAccessToken = '';
+sb.auth.getSession().then(function(r){ if (r && r.data && r.data.session) currentAccessToken = r.data.session.access_token; });
+sb.auth.onAuthStateChange(function(_evt, session){ currentAccessToken = session ? session.access_token : ''; });
+
 // ==================== CONSTANTS ====================
 const STAGES = [
   { key: 'prospect', label: 'Prospect', color: 'var(--stage-prospect)' },
@@ -1638,7 +1645,7 @@ async function initTwilioDevice() {
     console.log('Fetching Twilio access token...');
     var resp = await fetch('/api/twilio/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
       body: JSON.stringify({ identity: 'aiis-agent' })
     });
     if (!resp.ok) {
@@ -1745,7 +1752,7 @@ async function initTwilioDevice() {
       console.log('Twilio token expiring, refreshing...');
       fetch('/api/twilio/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
         body: JSON.stringify({ identity: 'aiis-agent' })
       }).then(function(r) { return r.json(); }).then(function(d) {
         if (d.token) twilioDevice.updateToken(d.token);
@@ -1826,7 +1833,7 @@ async function startSingleDial() {
   try {
     var resp = await fetch('/api/twilio/dial', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
       body: JSON.stringify({ to: phone, from: '+12137211724', agentIdentity: 'aiis-agent', leadId: 'manual', line: 0 })
     });
     var data = await resp.json();
@@ -1846,7 +1853,7 @@ async function startSingleDial() {
       if (pollCount > 20) { clearInterval(pollInterval); return; } // stop after 60s
       try {
         var sr = await fetch('/api/twilio/status?callSid=' + singleDialCallSid, {
-          headers: { 'x-api-key': 'aiis-dialer-2026-secure' }
+          headers: { 'Authorization': 'Bearer ' + currentAccessToken }
         });
         var sd = await sr.json();
         if (sd.statuses && sd.statuses[0]) {
@@ -1883,7 +1890,7 @@ async function hangupSingleDial() {
   try {
     await fetch('/api/twilio/hangup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
       body: JSON.stringify({ callSid: singleDialCallSid })
     });
   } catch(e) {}
@@ -1969,7 +1976,7 @@ async function hangupOtherLines(keepLine) {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
         body: JSON.stringify({ callSids: sidsToKill })
       });
       console.log('Hung up other lines:', sidsToKill);
@@ -2230,7 +2237,7 @@ async function stopDialer() {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
         body: JSON.stringify({ callSids: sidsToKill })
       });
     } catch(e) {}
@@ -2320,7 +2327,7 @@ async function dialLineViaTwilio(line, lead, phone) {
     console.log('Line ' + line + ': Dialing ' + phone + '...');
     var resp = await fetch('/api/twilio/dial', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
       body: JSON.stringify({
         to: phone,
         leadId: lead.id,
@@ -2383,7 +2390,7 @@ async function pollCallStatuses() {
   try {
     var url = '/api/twilio/status?' + sids.map(function(s) { return 'callSid=' + encodeURIComponent(s); }).join('&');
     var resp = await fetch(url, {
-      headers: { 'x-api-key': 'aiis-dialer-2026-secure' }
+      headers: { 'Authorization': 'Bearer ' + currentAccessToken }
     });
     if (!resp.ok) return;
     var data = await resp.json();
@@ -2500,7 +2507,7 @@ async function handleLineTimeout(line) {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
         body: JSON.stringify({ callSid: lineCallSids[line] })
       });
     } catch(e) {}
@@ -2527,7 +2534,7 @@ async function hangupLiveCall(line) {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
         body: JSON.stringify({ callSid: lineCallSids[line] })
       });
     } catch(e) {}
@@ -2560,7 +2567,7 @@ async function saveCallResult(line) {
     try {
       await fetch('/api/twilio/hangup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
         body: JSON.stringify({ callSid: lineCallSids[line] })
       });
     } catch(e) {}
@@ -2789,7 +2796,7 @@ async function triggerDailyReport() {
   try {
     var resp = await fetch('/api/cron/daily-summary', {
       method: 'GET',
-      headers: { 'x-api-key': 'aiis-dialer-2026-secure' }
+      headers: { 'Authorization': 'Bearer ' + currentAccessToken }
     });
     var data = await resp.json();
     if (data.error) {
@@ -2905,7 +2912,7 @@ async function sendTestCampaign(campaignId) {
   try {
     var resp = await fetch('/api/email/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
       body: JSON.stringify({ campaignId: campaignId, testMode: true, testEmail: email })
     });
     var data = await resp.json();
@@ -2933,7 +2940,7 @@ async function sendLiveCampaign(campaignId, recipientCount) {
   try {
     var resp = await fetch('/api/email/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': 'aiis-dialer-2026-secure' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
       body: JSON.stringify({ campaignId: campaignId })
     });
     var data = await resp.json();

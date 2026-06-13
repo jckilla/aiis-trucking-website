@@ -6,7 +6,7 @@
  *   Query: ?callSid=CA...&callSid=CA... (one or more)
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifyRequest } = require('../../lib/twilio-auth');
+const { setCorsHeaders, verifySession } = require('../../lib/twilio-auth');
 
 module.exports = async function handler(req, res) {
   setCorsHeaders(req, res);
@@ -14,7 +14,7 @@ module.exports = async function handler(req, res) {
 
   // GET — browser polls call status
   if (req.method === 'GET') {
-    if (!verifyRequest(req, res)) return;
+    if (!(await verifySession(req, res))) return;
 
     const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN } = process.env;
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {

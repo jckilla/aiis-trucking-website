@@ -4,14 +4,14 @@
  *   Body: { areaCode: "657" }
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifyRequest } = require('../../lib/twilio-auth');
+const { setCorsHeaders, verifySession } = require('../../lib/twilio-auth');
 
 module.exports = async function handler(req, res) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Auth
-  if (!verifyRequest(req, res)) return;
+  // Auth — require a logged-in CRM session
+  if (!(await verifySession(req, res))) return;
 
   const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN } = process.env;
 
