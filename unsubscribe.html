@@ -42,7 +42,7 @@ async function doUnsubscribe() {
   var btn = document.querySelector('.btn-danger');
   if (btn) { btn.disabled = true; btn.textContent = 'Unsubscribing…'; }
   try {
-    var resp = await fetch('/api/unsubscribe', {
+    var resp = await fetch('/api/quote?op=unsubscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email, sig: sig })

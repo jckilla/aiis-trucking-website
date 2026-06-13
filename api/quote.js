@@ -18,6 +18,7 @@
  */
 const { Resend } = require('resend');
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('crypto');
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cqijyhudfiteivejcgox.supabase.co';
@@ -37,6 +38,12 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+
+  // Email opt-out is served here (POST /api/quote?op=unsubscribe) rather than as its own function,
+  // because the Vercel Hobby plan caps the project at 12 serverless functions.
+  if (req.query && req.query.op === 'unsubscribe') {
+    return handleUnsubscribe(req, res);
+  }
 
   const b = req.body || {};
   const firstName = (b.firstName || '').trim();
@@ -162,3 +169,51 @@ ${skippedHtml}
   }
   return res.status(500).json({ error: 'Could not record the quote. Please call (657) 366-5312.' });
 };
+
+// ===================== EMAIL OPT-OUT (POST /api/quote?op=unsubscribe) =====================
+// Records an unsubscribe for the public unsubscribe page and one-click List-Unsubscribe.
+// Body: { email, sig? }. A present signature must verify (HMAC keyed on the server-only
+// service-role secret) so a link can't be forged to opt out an arbitrary address; legacy
+// links without a signature are still honored. Uses the service-role key (the locked-down
+// RLS blocks the anon key the old page relied on, which never worked anyway).
+function unsubExpectedSig(email) {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.UNSUBSCRIBE_SECRET || 'aiis-unsub';
+  return crypto.createHmac('sha256', secret).update(String(email).toLowerCase()).digest('hex').slice(0, 24);
+}
+
+async function handleUnsubscribe(req, res) {
+  const b = req.body || {};
+  const email = (b.email || '').trim().toLowerCase();
+  const sig = (b.sig || '').trim();
+
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return res.status(400).json({ error: 'A valid email address is required.' });
+  }
+  if (sig) {
+    const exp = unsubExpectedSig(email);
+    const ok = sig.length === exp.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(exp));
+    if (!ok) return res.status(403).json({ error: 'This unsubscribe link is invalid or expired.' });
+  }
+  if (!SUPABASE_KEY) return res.status(500).json({ error: 'Server misconfigured.' });
+
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+  try {
+    const { error } = await sb.from('crm_leads')
+      .update({ unsubscribed: true, updated_at: new Date().toISOString() })
+      .ilike('email', email);
+    if (error) {
+      console.error('unsubscribe update failed:', error.message);
+      return res.status(500).json({ error: 'Could not process your request. Please email veronica@fleet.ins2day.com.' });
+    }
+    const { data: lead } = await sb.from('crm_leads').select('id').ilike('email', email).limit(1).maybeSingle();
+    if (lead && lead.id) {
+      await sb.from('crm_activities').insert({
+        lead_id: lead.id, type: 'email', description: 'Lead unsubscribed from emails (one-click)'
+      }).catch(() => {});
+    }
+    return res.status(200).json({ success: true });
+  } catch (e) {
+    console.error('unsubscribe error:', e.message);
+    return res.status(500).json({ error: 'Could not process your request. Please email veronica@fleet.ins2day.com.' });
+  }
+}
