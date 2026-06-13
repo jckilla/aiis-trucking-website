@@ -205,12 +205,16 @@ async function handleUnsubscribe(req, res) {
       console.error('unsubscribe update failed:', error.message);
       return res.status(500).json({ error: 'Could not process your request. Please email veronica@fleet.ins2day.com.' });
     }
-    const { data: lead } = await sb.from('crm_leads').select('id').ilike('email', email).limit(1).maybeSingle();
-    if (lead && lead.id) {
-      await sb.from('crm_activities').insert({
-        lead_id: lead.id, type: 'email', description: 'Lead unsubscribed from emails (one-click)'
-      }).catch(() => {});
-    }
+    // Best-effort activity log — must never affect the opt-out result (the opt-out already succeeded).
+    try {
+      const { data: leads } = await sb.from('crm_leads').select('id').ilike('email', email).limit(1);
+      const lead = leads && leads[0];
+      if (lead && lead.id) {
+        await sb.from('crm_activities').insert({
+          lead_id: lead.id, type: 'email', description: 'Lead unsubscribed from emails (one-click)'
+        });
+      }
+    } catch (_) { /* ignore — opt-out is recorded */ }
     return res.status(200).json({ success: true });
   } catch (e) {
     console.error('unsubscribe error:', e.message);
