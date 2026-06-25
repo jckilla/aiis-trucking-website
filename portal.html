@@ -529,7 +529,16 @@ body {
   outline: none;
 }
 
-.dialer-lines { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.dialer-lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.dispo-quick { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+.dispo-btn { padding: 8px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.dispo-btn:hover { border-color: var(--text-muted); }
+.dispo-na { border-color: var(--warning); color: var(--warning); }
+.dispo-na:hover { background: var(--warning); color: #000; }
+.dispo-booked { border-color: var(--success); color: var(--success); }
+.dispo-booked:hover { background: var(--success); color: #000; }
+.dispo-ni { border-color: var(--danger); color: var(--danger); }
+.dispo-ni:hover { background: var(--danger); color: #fff; }
 
 .dialer-line {
   background: var(--bg-card);
@@ -978,6 +987,7 @@ select option { background: var(--bg-card); color: var(--text-primary); }
     <div class="nav-item" data-page="email"><span class="icon">&#x1F4E7;</span> Email Campaigns</div>
     <div class="nav-item" data-page="sms"><span class="icon">&#x1F4AC;</span> SMS Campaigns</div>
     <div class="nav-section">SYSTEM</div>
+    <div class="nav-item" data-page="team" data-role="master" style="display:none;"><span class="icon">&#x1F451;</span> Team</div>
     <div class="nav-item" data-page="settings"><span class="icon">&#x2699;&#xFE0F;</span> Settings</div>
   </div>
   <div class="sidebar-stats">
@@ -1053,15 +1063,23 @@ function getWeekStartSunday() {
 async function loadWeeklyDialerStats() {
   var weekStart = getWeekStartSunday();
   try {
-    var res = await sb.from('crm_calls').select('status, outcome').gte('created_at', weekStart);
+    var q = sb.from('crm_calls')
+      .select('status, outcome, disposition, dial_seconds, duration_seconds, agent_id')
+      .gte('created_at', weekStart);
+    if (currentUser) q = q.eq('agent_id', currentUser.id);  // each user sees their OWN weekly stats
+    var res = await q;
     var calls = res.data || [];
-    var stats = { total: calls.length, connected: 0, noAnswer: 0, voicemail: 0, interested: 0 };
+    var stats = { total: calls.length, connected: 0, noAnswer: 0, voicemail: 0, interested: 0, booked: 0, dialSec: 0, talkSec: 0 };
     calls.forEach(function(c) {
       if (c.status === 'completed') stats.connected++;
-      if (c.status === 'no_answer') stats.noAnswer++;
-      if (c.status === 'voicemail') stats.voicemail++;
-      if (c.outcome === 'interested' || c.outcome === 'quote_requested') stats.interested++;
+      if (c.status === 'no_answer' || c.disposition === 'no_answer') stats.noAnswer++;
+      if (c.status === 'voicemail' || c.disposition === 'voicemail_left') stats.voicemail++;
+      if (c.disposition === 'booked') stats.booked++;
+      if (c.outcome === 'interested' || c.outcome === 'quote_requested' || c.disposition === 'booked') stats.interested++;
+      stats.dialSec += (c.dial_seconds || 0);
+      stats.talkSec += (c.duration_seconds || 0);
     });
+    stats.totalDialSec = stats.dialSec + stats.talkSec;
     dialerStats = stats;
   } catch(e) {
     console.error('Failed to load weekly stats:', e);
@@ -1070,6 +1088,42 @@ async function loadWeeklyDialerStats() {
 let dialerLeadMap = {};
 let dialerUsedIds = new Set();
 
+// ===== Multi-user + dialer config =====
+var currentUser = null;            // supabase auth user (set in checkAuth)
+var currentProfile = null;         // public.profiles row (role, active, ...)
+var agentIdentity = 'aiis-agent';  // unique Twilio Client identity per agent
+var dialerLineCount = 3;           // parallel dials, 1-5 (default 3)
+var lineDialTimes = {};            // line -> dial-start ms (for dial_seconds)
+
+// Disposition catalog. Top 3 (in order) are surfaced as quick buttons.
+var DISPOSITIONS = [
+  ['no_answer','No Answer'],
+  ['booked','Booked Lead'],
+  ['not_interested','Not Interested'],
+  ['wrong_number','Wrong Number'],
+  ['fax_number','Fax Number'],
+  ['bad_number',"Number Doesn't Work"],
+  ['callback_3mo','Call Back — 3 Months'],
+  ['callback_6mo','Call Back — 6 Months'],
+  ['gatekeeper','Gatekeeper'],
+  ['voicemail_left','Voicemail Left'],
+  ['already_insured','Already Insured'],
+  ['dm_unavailable','Decision-Maker Unavailable'],
+  ['language_barrier','Language Barrier'],
+  ['dnc','Do Not Call / Remove']
+];
+var DISPO_LABEL = {}; DISPOSITIONS.forEach(function(d){ DISPO_LABEL[d[0]] = d[1]; });
+var DISPO_OPTIONS_HTML = DISPOSITIONS.map(function(d){ return '<option value="'+d[0]+'">'+d[1]+'</option>'; }).join('');
+
+function formatDialTime(sec) {
+  sec = Math.max(0, Math.floor(sec || 0));
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if (h > 0) return h + 'h ' + m + 'm';
+  if (m > 0) return m + 'm ' + s + 's';
+  return s + 's';
+}
+function isMaster() { return !!(currentProfile && currentProfile.role === 'master'); }
+
 // ==================== AUTH ====================
 async function checkAuth() {
   const { data: { session } } = await sb.auth.getSession();
@@ -1077,7 +1131,30 @@ async function checkAuth() {
     window.location.href = 'login.html';
     return false;
   }
+  currentUser = session.user;
+  // Unique Twilio Client identity per agent so simultaneous agents never cross-bridge.
+  agentIdentity = 'agent_' + String(currentUser.id).replace(/-/g, '');
+  // Load the profile (role / active / caller id)
+  try {
+    const pr = await sb.from('profiles')
+      .select('id, email, full_name, role, active, twilio_caller_id, timezone')
+      .eq('id', currentUser.id).single();
+    currentProfile = pr.data || null;
+  } catch (e) { currentProfile = null; }
+  // Deactivated agents are denied access
+  if (currentProfile && currentProfile.active === false) {
+    await sb.auth.signOut();
+    window.location.href = 'login.html';
+    return false;
+  }
+  applyRoleUI();
   return true;
+}
+
+function applyRoleUI() {
+  document.querySelectorAll('[data-role="master"]').forEach(function(el) {
+    el.style.display = isMaster() ? '' : 'none';
+  });
 }
 
 async function signOut() {
@@ -1154,6 +1231,7 @@ async function loadPage(page) {
     case 'dialer': await renderDialer(el); break;
     case 'email': await renderEmailCampaigns(el); break;
     case 'sms': await renderSMSCampaigns(el); break;
+    case 'team': await renderTeam(el); break;
     case 'settings': renderSettings(el); break;
   }
 }
@@ -1646,7 +1724,7 @@ async function initTwilioDevice() {
     var resp = await fetch('/api/twilio/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
-      body: JSON.stringify({ identity: 'aiis-agent' })
+      body: JSON.stringify({ identity: agentIdentity })
     });
     if (!resp.ok) {
       var errText = await resp.text();
@@ -1695,7 +1773,7 @@ async function initTwilioDevice() {
         // Fall back to matching by From phone number
         var fromNum = call.parameters.From || '';
         console.log('Matching by From number:', fromNum);
-        for (var n = 1; n <= 3; n++) {
+        for (var n = 1; n <= dialerLineCount; n++) {
           if (dialerLeadMap[n]) {
             var leadPhone = normalizePhoneForMatch(dialerLeadMap[n].phone || dialerLeadMap[n].cell_phone || '');
             if (leadPhone === fromNum || fromNum.indexOf(leadPhone.replace('+1','')) > -1) {
@@ -1707,7 +1785,7 @@ async function initTwilioDevice() {
       }
       // If still no match, pick first active line
       if (!connLine) {
-        for (var n = 1; n <= 3; n++) {
+        for (var n = 1; n <= dialerLineCount; n++) {
           if (lineCallSids[n] && activeLiveCall !== n) { connLine = n; break; }
         }
       }
@@ -1753,7 +1831,7 @@ async function initTwilioDevice() {
       fetch('/api/twilio/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
-        body: JSON.stringify({ identity: 'aiis-agent' })
+        body: JSON.stringify({ identity: agentIdentity })
       }).then(function(r) { return r.json(); }).then(function(d) {
         if (d.token) twilioDevice.updateToken(d.token);
       });
@@ -1834,7 +1912,7 @@ async function startSingleDial() {
     var resp = await fetch('/api/twilio/dial', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
-      body: JSON.stringify({ to: phone, from: '+12137211724', agentIdentity: 'aiis-agent', leadId: 'manual', line: 0 })
+      body: JSON.stringify({ to: phone, from: '+12137211724', agentIdentity: agentIdentity, leadId: 'manual', line: 0 })
     });
     var data = await resp.json();
     if (data.error) {
@@ -1943,7 +2021,7 @@ function stopCallTimer(line) {
 async function hangupOtherLines(keepLine) {
   stopStatusPolling(); // No need to poll while on a live call
   var sidsToKill = [];
-  for (var n = 1; n <= 3; n++) {
+  for (var n = 1; n <= dialerLineCount; n++) {
     if (n === keepLine) continue;
     if (lineTimeouts[n]) { clearTimeout(lineTimeouts[n]); lineTimeouts[n] = null; }
     var otherLead = dialerLeadMap[n];
@@ -1953,7 +2031,7 @@ async function hangupOtherLines(keepLine) {
     }
     if (otherLead) {
       try {
-        sb.from('crm_calls').insert({ lead_id: otherLead.id, status: 'no_answer', dialer_line: n });
+        sb.from('crm_calls').insert({ lead_id: otherLead.id, status: 'no_answer', disposition: 'no_answer', dialer_line: n, dial_seconds: dialSecFor(n), agent_id: currentUser ? currentUser.id : null });
         sb.from('crm_activities').insert({ lead_id: otherLead.id, type: 'call', description: 'Call dropped — another line connected' });
       } catch(e) {}
       dialerStats.noAnswer++;
@@ -2036,7 +2114,7 @@ async function renderDialer(el) {
 
   // ======== PARALLEL DIALER ========
   html += '<div class="page-header"><h2>Parallel Dialer</h2>';
-  html += '<p>Calls 3 leads simultaneously from (213) &mdash; first person to answer gets connected to you, other calls auto-drop.</p></div>';
+  html += '<p>Calls multiple leads simultaneously from (213) &mdash; first person to answer connects to you, the rest auto-drop. Pick how many lines to dial in parallel.</p></div>';
 
   // Controls row 1: Filters
   html += '<div class="dialer-controls" style="flex-wrap:wrap;">';
@@ -2053,8 +2131,12 @@ async function renderDialer(el) {
   html += '<span id="dialerLeadCount" style="font-size:12px;color:var(--text-secondary);margin-left:4px;"></span>';
   html += '</div>';
 
-  // Controls row 2: Start/Stop + Twilio status
+  // Controls row 2: parallel-line count + Start/Stop + Twilio status
   html += '<div class="dialer-controls" style="margin-top:0;">';
+  html += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-right:4px;">Parallel lines';
+  html += '<select id="dialerLineCount" onchange="changeDialerLineCount(this.value)">';
+  [1,2,3,4,5].forEach(function(k){ html += '<option value="' + k + '"' + (k === dialerLineCount ? ' selected' : '') + '>' + k + (k === 3 ? ' (recommended)' : '') + '</option>'; });
+  html += '</select></label>';
   html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">&#x1F4DE; Start Parallel Dialer</button>';
   html += '<button class="btn btn-danger" id="dialerStopBtn" onclick="stopDialer()" style="display:none;">&#x23F9; Stop Dialer</button>';
   html += '<span id="twilioStatus" style="font-size:12px;color:var(--text-muted);margin-left:8px;"></span>';
@@ -2062,7 +2144,7 @@ async function renderDialer(el) {
 
   html += '<div class="dialer-layout"><div><div class="dialer-lines" id="dialerLines">';
 
-  for (var n = 1; n <= 3; n++) {
+  for (var n = 1; n <= dialerLineCount; n++) {
     html += '<div class="dialer-line" id="dialerLine' + n + '">';
     html += '<div class="line-header"><span class="line-number">Line ' + n + '</span><span id="lineStatus' + n + '"><span class="line-status">Idle</span></span></div>';
     html += '<div class="lead-name" id="lineName' + n + '">&mdash;</div>';
@@ -2080,13 +2162,14 @@ async function renderDialer(el) {
     html += '<button class="btn btn-danger btn-sm" onclick="hangupLiveCall(' + n + ')">&#x260E; End Call</button>';
     html += '</div>';
 
-    // Connected form (outcome + notes)
+    // Connected form: 3 priority dispositions first, then the full list
     html += '<div class="connected-form" id="lineForm' + n + '">';
-    html += '<select id="lineOutcomeSelect' + n + '">';
-    html += '<option value="interested">&#x2B50; Interested</option><option value="callback">&#x1F4C5; Callback Requested</option>';
-    html += '<option value="info_gathered">&#x1F4CB; Info Gathered</option><option value="quote_requested">&#x1F525; Quote Requested!</option>';
-    html += '<option value="not_interested">&#x274C; Not Interested</option><option value="wrong_number">&#x2753; Wrong Number</option>';
-    html += '</select>';
+    html += '<div class="dispo-quick">';
+    html += '<button type="button" class="dispo-btn dispo-na" onclick="saveCallResult(' + n + ', \'no_answer\')">No Answer</button>';
+    html += '<button type="button" class="dispo-btn dispo-booked" onclick="saveCallResult(' + n + ', \'booked\')">Booked Lead</button>';
+    html += '<button type="button" class="dispo-btn dispo-ni" onclick="saveCallResult(' + n + ', \'not_interested\')">Not Interested</button>';
+    html += '</div>';
+    html += '<select id="lineOutcomeSelect' + n + '">' + DISPO_OPTIONS_HTML + '</select>';
     html += '<textarea id="lineNotes' + n + '" placeholder="Call notes..."></textarea>';
     html += '<button class="btn btn-primary btn-sm" onclick="saveCallResult(' + n + ')">Save &amp; Dial Next</button>';
     html += '</div>';
@@ -2107,7 +2190,9 @@ async function renderDialer(el) {
   html += '<div class="stat-row"><span class="stat-label">No Answer</span><span class="stat-value" id="statNoAnswer" style="color:var(--warning)">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Voicemail</span><span class="stat-value" id="statVoicemail" style="color:var(--info)">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Interested</span><span class="stat-value" id="statInterested" style="color:var(--accent)">0</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">Booked Leads</span><span class="stat-value" id="statBooked" style="color:var(--success)">0</span></div>';
   html += '<div class="stat-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px"><span class="stat-label">Connect Rate</span><span class="stat-value" id="statConnectRate" style="color:var(--accent)">0%</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">Total Dial Time</span><span class="stat-value" id="statDialTime" style="color:var(--accent)" title="Time spent dialing + talking this week">0s</span></div>';
   html += '</div>';
 
   // Caller ID info
@@ -2166,6 +2251,25 @@ async function updateDialerLeadCount() {
 }
 
 
+function changeDialerLineCount(v) {
+  if (dialerRunning) {
+    toast('Stop the dialer before changing the line count', 'error');
+    var sel = document.getElementById('dialerLineCount'); if (sel) sel.value = dialerLineCount;
+    return;
+  }
+  var n = parseInt(v, 10);
+  dialerLineCount = (n >= 1 && n <= 5) ? n : 3;
+  renderDialer(document.getElementById('pageContent'));
+}
+
+// Full ring/dial effort for a line (no talk component) — used for no-answer/dropped rows.
+function dialSecFor(line) {
+  return lineDialTimes[line] ? Math.max(0, Math.floor((Date.now() - lineDialTimes[line]) / 1000)) : 0;
+}
+function addMonthsISO(m) {
+  var d = new Date(); d.setMonth(d.getMonth() + m); return d.toISOString();
+}
+
 async function startDialer() {
   var statusEl = document.getElementById('twilioStatus');
 
@@ -2199,7 +2303,7 @@ async function startDialer() {
 
   // Create dialer session in Supabase
   try {
-    var sessRes = await sb.from('crm_dialer_sessions').insert({ status: 'active', lines_active: 3 }).select('id').single();
+    var sessRes = await sb.from('crm_dialer_sessions').insert({ status: 'active', lines_active: dialerLineCount, agent_id: currentUser ? currentUser.id : null }).select('id').single();
     dialerSessionId = sessRes.data ? sessRes.data.id : null;
   } catch(e) { dialerSessionId = null; }
 
@@ -2217,7 +2321,7 @@ async function stopDialer() {
 
   // Collect all active call SIDs to hang up
   var sidsToKill = [];
-  for (var n = 1; n <= 3; n++) {
+  for (var n = 1; n <= dialerLineCount; n++) {
     if (lineCallSids[n]) { sidsToKill.push(lineCallSids[n]); lineCallSids[n] = null; }
     if (lineTimeouts[n]) { clearTimeout(lineTimeouts[n]); lineTimeouts[n] = null; }
     stopCallTimer(n);
@@ -2276,7 +2380,7 @@ async function loadDialerLeads() {
 
   var res = await buildDialerQuery().order('lead_score', { ascending: false }).limit(500);
   console.log('Dialer query:', res.data ? res.data.length + ' leads found' : 'error', res.error);
-  var data = (res.data || []).filter(function(l) { return !dialerUsedIds.has(l.id); }).slice(0, 3);
+  var data = (res.data || []).filter(function(l) { return !dialerUsedIds.has(l.id); }).slice(0, dialerLineCount);
 
   if (data.length === 0) {
     toast('No more eligible leads. Try different filters.', 'error');
@@ -2324,6 +2428,7 @@ async function loadDialerLeads() {
 
 async function dialLineViaTwilio(line, lead, phone) {
   try {
+    lineDialTimes[line] = Date.now();
     console.log('Line ' + line + ': Dialing ' + phone + '...');
     var resp = await fetch('/api/twilio/dial', {
       method: 'POST',
@@ -2332,7 +2437,7 @@ async function dialLineViaTwilio(line, lead, phone) {
         to: phone,
         leadId: lead.id,
         line: line,
-        agentIdentity: 'aiis-agent'
+        agentIdentity: agentIdentity
       })
     });
     var data = await resp.json();
@@ -2379,7 +2484,7 @@ async function pollCallStatuses() {
   // Collect active call SIDs
   var sids = [];
   var sidToLine = {};
-  for (var n = 1; n <= 3; n++) {
+  for (var n = 1; n <= dialerLineCount; n++) {
     if (lineCallSids[n] && activeLiveCall !== n) {
       sids.push(lineCallSids[n]);
       sidToLine[lineCallSids[n]] = n;
@@ -2470,7 +2575,7 @@ function handleLineNoAnswer(line, reason) {
   var lead = dialerLeadMap[line];
   if (lead) {
     try {
-      sb.from('crm_calls').insert({ lead_id: lead.id, status: 'no_answer', dialer_line: line });
+      sb.from('crm_calls').insert({ lead_id: lead.id, status: 'no_answer', disposition: 'no_answer', dialer_line: line, dial_seconds: dialSecFor(line), agent_id: currentUser ? currentUser.id : null });
       sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: ' + (reason || 'no answer') });
       sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString() }).eq('id', lead.id);
     } catch(e) {}
@@ -2488,7 +2593,7 @@ function handleLineCompleted(line, info) {
 
 function checkAllLinesDone() {
   var anyActive = false;
-  for (var n = 1; n <= 3; n++) {
+  for (var n = 1; n <= dialerLineCount; n++) {
     if (lineCallSids[n] || activeLiveCall === n) { anyActive = true; break; }
   }
   if (!anyActive && dialerRunning && !activeLiveCall) {
@@ -2520,7 +2625,7 @@ async function handleLineTimeout(line) {
   updateDialerStatsUI();
 
   try {
-    await sb.from('crm_calls').insert({ lead_id: lead.id, status: 'no_answer', dialer_line: line });
+    await sb.from('crm_calls').insert({ lead_id: lead.id, status: 'no_answer', disposition: 'no_answer', dialer_line: line, dial_seconds: dialSecFor(line), agent_id: currentUser ? currentUser.id : null });
     await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: no_answer (timeout)' });
     await sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString() }).eq('id', lead.id);
   } catch(e) {}
@@ -2551,16 +2656,26 @@ async function hangupLiveCall(line) {
   setLineState(line, 'call-ended');
 }
 
-async function saveCallResult(line) {
+async function saveCallResult(line, forcedDispo) {
   var lead = dialerLeadMap[line];
   if (!lead) return;
 
-  var outcome = document.getElementById('lineOutcomeSelect' + line).value;
-  var notes = document.getElementById('lineNotes' + line).value;
-  var duration = lineStartTimes[line] ? Math.floor((Date.now() - lineStartTimes[line]) / 1000) : 0;
+  var selEl = document.getElementById('lineOutcomeSelect' + line);
+  var dispo = forcedDispo || (selEl ? selEl.value : 'not_interested');
+  var notesEl = document.getElementById('lineNotes' + line);
+  var notes = notesEl ? notesEl.value : '';
 
-  if (outcome === 'interested' || outcome === 'quote_requested') dialerStats.interested++;
-  dialerStats.connected++;
+  // Talk time (since connect) + ring/dial time (call placed -> connect)
+  var talkSec = lineStartTimes[line] ? Math.floor((Date.now() - lineStartTimes[line]) / 1000) : 0;
+  var dialSec = lineDialTimes[line] ? Math.max(0, Math.floor((Date.now() - lineDialTimes[line]) / 1000) - talkSec) : 0;
+
+  // Live session stats
+  dialerStats.connected = (dialerStats.connected || 0) + 1;
+  if (dispo === 'booked') dialerStats.booked = (dialerStats.booked || 0) + 1;
+  if (dispo === 'booked' || dispo === 'already_insured') dialerStats.interested = (dialerStats.interested || 0) + 1;
+  dialerStats.talkSec = (dialerStats.talkSec || 0) + talkSec;
+  dialerStats.dialSec = (dialerStats.dialSec || 0) + dialSec;
+  dialerStats.totalDialSec = (dialerStats.dialSec || 0) + (dialerStats.talkSec || 0);
 
   // Hang up Twilio call if still active
   if (lineCallSids[line]) {
@@ -2577,48 +2692,59 @@ async function saveCallResult(line) {
   stopCallTimer(line);
   activeLiveCall = null;
 
-  // Advance stage if appropriate
-  var newStage = null;
-  if (outcome === 'interested' && lead.stage === 'prospect') newStage = 'lead';
-  if (outcome === 'quote_requested') newStage = 'info_pending';
-  if (outcome === 'info_gathered') newStage = 'info_pending';
+  // Map disposition -> stage / follow-up / DNC + a VALID call_outcome enum value (if any).
+  var leadUpdate = { last_contacted_at: new Date().toISOString() };
+  var newStage = null, outcomeEnum = null;
+  if (dispo === 'booked') { newStage = (lead.stage === 'prospect' || lead.stage === 'lead') ? 'info_pending' : lead.stage; outcomeEnum = 'quote_requested'; }
+  else if (dispo === 'not_interested') { outcomeEnum = 'not_interested'; }
+  else if (dispo === 'wrong_number') { outcomeEnum = 'wrong_number'; }
+  else if (dispo === 'callback_3mo') { outcomeEnum = 'callback'; leadUpdate.next_follow_up = addMonthsISO(3); }
+  else if (dispo === 'callback_6mo') { outcomeEnum = 'callback'; leadUpdate.next_follow_up = addMonthsISO(6); }
+  else if (dispo === 'dnc') { leadUpdate.do_not_call = true; }
+
+  var callRow = {
+    lead_id: lead.id, status: 'completed', notes: notes, dialer_line: line,
+    duration_seconds: talkSec, dial_seconds: dialSec, disposition: dispo,
+    answered_at: lineStartTimes[line] ? new Date(lineStartTimes[line]).toISOString() : null,
+    agent_id: currentUser ? currentUser.id : null
+  };
+  if (outcomeEnum) callRow.outcome = outcomeEnum;
 
   try {
-    await sb.from('crm_calls').insert({
-      lead_id: lead.id, status: 'completed', outcome: outcome,
-      notes: notes, dialer_line: line, duration_seconds: duration
-    });
+    await sb.from('crm_calls').insert(callRow);
     await sb.from('crm_activities').insert({
       lead_id: lead.id, type: 'call',
-      description: 'Call connected (' + formatCallTime(duration) + '): ' + outcome + (notes ? ' - ' + notes : '')
+      description: 'Call (' + formatCallTime(talkSec) + '): ' + (DISPO_LABEL[dispo] || dispo) + (notes ? ' - ' + notes : '')
     });
-    var updateData = { last_contacted_at: new Date().toISOString() };
-    if (newStage) updateData.stage = newStage;
-    await sb.from('crm_leads').update(updateData).eq('id', lead.id);
-    if (newStage) {
-      await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'stage_change', description: 'Stage changed to ' + newStage + ' (from dialer)' });
+    if (newStage && newStage !== lead.stage) leadUpdate.stage = newStage;
+    await sb.from('crm_leads').update(leadUpdate).eq('id', lead.id);
+    if (leadUpdate.stage) {
+      await sb.from('crm_activities').insert({ lead_id: lead.id, type: 'stage_change', description: 'Stage changed to ' + leadUpdate.stage + ' (from dialer)' });
     }
   } catch(e) { console.error('Save call error:', e); }
 
   document.getElementById('lineForm' + line).classList.remove('active');
-  document.getElementById('lineNotes' + line).value = '';
-  toast('Call saved' + (newStage ? ' — lead moved to ' + newStage.replace(/_/g, ' ') : ''));
+  if (notesEl) notesEl.value = '';
+  toast('Saved: ' + (DISPO_LABEL[dispo] || dispo) + (leadUpdate.stage ? ' — moved to ' + leadUpdate.stage.replace(/_/g, ' ') : ''));
   updateDialerStatsUI();
 
-  // After a connected call ends, reload all 3 lines with fresh leads
+  // After the call is logged, reload the lines with fresh leads
   await loadDialerLeads();
 }
 
 // loadNextLead is no longer used — loadDialerLeads reloads all 3 lines
 
 function updateDialerStatsUI() {
-  document.getElementById('statTotal').textContent = dialerStats.total;
-  document.getElementById('statConnected').textContent = dialerStats.connected;
-  document.getElementById('statNoAnswer').textContent = dialerStats.noAnswer;
-  document.getElementById('statVoicemail').textContent = dialerStats.voicemail;
-  document.getElementById('statInterested').textContent = dialerStats.interested;
+  var setT = function(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; };
+  setT('statTotal', dialerStats.total || 0);
+  setT('statConnected', dialerStats.connected || 0);
+  setT('statNoAnswer', dialerStats.noAnswer || 0);
+  setT('statVoicemail', dialerStats.voicemail || 0);
+  setT('statInterested', dialerStats.interested || 0);
+  setT('statBooked', dialerStats.booked || 0);
   var rate = dialerStats.total > 0 ? Math.round((dialerStats.connected / dialerStats.total) * 100) : 0;
-  document.getElementById('statConnectRate').textContent = rate + '%';
+  setT('statConnectRate', rate + '%');
+  setT('statDialTime', formatDialTime(dialerStats.totalDialSec || 0));
 }
 
 // ==================== EMAIL CAMPAIGNS ====================
@@ -3242,6 +3368,115 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ==================== INIT ====================
+// ==================== TEAM / MASTER ADMIN ====================
+async function renderTeam(el) {
+  if (!isMaster()) { el.innerHTML = '<div class="page-header"><h2>Team</h2><p>Master access only.</p></div>'; return; }
+  el.innerHTML = '<div class="page-header"><h2>Team</h2><p>Manage cold-calling agents, assign leads, and review everyone’s weekly performance.</p></div><div id="teamBody">Loading…</div>';
+
+  var weekStart = getWeekStartSunday();
+  var profRes, callRes, listRes;
+  try { profRes = await sb.from('profiles').select('id, email, full_name, role, active, twilio_caller_id, timezone').order('created_at'); } catch(e) { profRes = { data: [] }; }
+  try { callRes = await sb.from('crm_calls').select('agent_id, status, disposition, dial_seconds, duration_seconds').gte('created_at', weekStart); } catch(e) { callRes = { data: [] }; }
+  try { listRes = await sb.from('crm_leads').select('call_list').not('call_list','is',null).limit(5000); } catch(e) { listRes = { data: [] }; }
+
+  var profiles = profRes.data || [];
+  var calls = callRes.data || [];
+
+  // Weekly stats per agent
+  var byAgent = {};
+  calls.forEach(function(c){
+    var a = c.agent_id || 'unassigned';
+    if (!byAgent[a]) byAgent[a] = { dials:0, connected:0, booked:0, dialSec:0, talkSec:0 };
+    var s = byAgent[a];
+    s.dials++;
+    if (c.status === 'completed') s.connected++;
+    if (c.disposition === 'booked') s.booked++;
+    s.dialSec += (c.dial_seconds||0); s.talkSec += (c.duration_seconds||0);
+  });
+
+  var html = '';
+
+  // Add agent
+  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>➕ Add Agent</h3>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">';
+  html += '<input id="newAgentName" placeholder="Full name" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
+  html += '<input id="newAgentEmail" type="email" placeholder="email@advancedins.ai" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
+  html += '<input id="newAgentPass" type="text" placeholder="Temp password" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
+  html += '<button class="btn btn-primary btn-sm" onclick="createAgent()">Create Login</button>';
+  html += '</div><div style="font-size:11px;color:var(--text-muted);margin-top:6px;">The agent signs in at the portal with this email + password.</div></div>';
+
+  // Agents + weekly performance
+  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>👥 Agents &amp; Weekly Performance</h3>';
+  html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">';
+  html += '<thead><tr style="text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);"><th style="padding:6px;">Agent</th><th>Role</th><th>Active</th><th>Dials</th><th>Connected</th><th>Booked</th><th>Dial Time</th><th>Caller ID</th></tr></thead><tbody>';
+  profiles.forEach(function(p){
+    var s = byAgent[p.id] || { dials:0, connected:0, booked:0, dialSec:0, talkSec:0 };
+    var total = (s.dialSec||0)+(s.talkSec||0);
+    html += '<tr style="border-bottom:1px solid var(--border);">';
+    html += '<td style="padding:6px;"><strong>' + escHtml(p.full_name || p.email) + '</strong><br><span style="color:var(--text-muted);font-size:11px;">' + escHtml(p.email) + '</span></td>';
+    html += '<td>' + (p.role === 'master' ? '👑 master' : 'agent') + '</td>';
+    html += '<td>' + (p.role === 'master' ? '—' : '<input type="checkbox" ' + (p.active ? 'checked' : '') + ' onchange="setAgentActive(\'' + p.id + '\', this.checked)">') + '</td>';
+    html += '<td>' + s.dials + '</td><td>' + s.connected + '</td><td style="color:var(--success);font-weight:600;">' + s.booked + '</td><td>' + formatDialTime(total) + '</td>';
+    html += '<td><input value="' + escHtml(p.twilio_caller_id || '') + '" placeholder="+1…" onchange="setAgentCallerId(\'' + p.id + '\', this.value)" style="width:120px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:12px;"></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+
+  // Assign leads
+  var clCounts = {}; (listRes.data||[]).forEach(function(r){ if (r.call_list) clCounts[r.call_list] = (clCounts[r.call_list]||0)+1; });
+  html += '<div class="session-stats"><h3>📋 Assign Leads</h3>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">';
+  html += 'Assign <select id="assignList" style="padding:6px;"><option value="">Unassigned leads</option>';
+  Object.keys(clCounts).sort().forEach(function(name){ html += '<option value="' + escHtml(name) + '">' + escHtml(name) + ' (' + clCounts[name] + ')</option>'; });
+  html += '</select> to <select id="assignAgent" style="padding:6px;">';
+  profiles.filter(function(p){ return p.active !== false; }).forEach(function(p){ html += '<option value="' + p.id + '">' + escHtml(p.full_name || p.email) + '</option>'; });
+  html += '</select> <input id="assignLimit" type="number" value="200" min="1" style="width:80px;padding:6px;"> leads ';
+  html += '<button class="btn btn-primary btn-sm" onclick="assignLeads()">Assign</button>';
+  html += '</div><div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Agents dial only the leads assigned to them (once isolation is enabled).</div></div>';
+
+  document.getElementById('teamBody').innerHTML = html;
+}
+
+async function createAgent() {
+  var name = document.getElementById('newAgentName').value.trim();
+  var email = document.getElementById('newAgentEmail').value.trim();
+  var pass = document.getElementById('newAgentPass').value;
+  if (!email || !pass) { toast('Email and password required', 'error'); return; }
+  try {
+    var r = await sb.functions.invoke('admin-create-agent', { body: { email: email, password: pass, full_name: name } });
+    if (r.error) { toast('Create failed: ' + (r.error.message || r.error), 'error'); return; }
+    if (r.data && r.data.error) { toast('Create failed: ' + r.data.error, 'error'); return; }
+    toast('Agent created: ' + email);
+    renderTeam(document.getElementById('pageContent'));
+  } catch(e) { toast('Create failed: ' + e.message, 'error'); }
+}
+
+async function setAgentActive(id, active) {
+  try { await sb.from('profiles').update({ active: active }).eq('id', id); toast('Updated'); }
+  catch(e) { toast('Update failed', 'error'); }
+}
+async function setAgentCallerId(id, val) {
+  try { await sb.from('profiles').update({ twilio_caller_id: val || null }).eq('id', id); toast('Caller ID saved'); }
+  catch(e) { toast('Update failed', 'error'); }
+}
+
+async function assignLeads() {
+  var list = document.getElementById('assignList').value;
+  var agentId = document.getElementById('assignAgent').value;
+  var limit = parseInt(document.getElementById('assignLimit').value, 10) || 200;
+  if (!agentId) { toast('Pick an agent', 'error'); return; }
+  try {
+    var q = sb.from('crm_leads').select('id').not('phone','is',null).neq('phone','');
+    if (list) q = q.eq('call_list', list); else q = q.is('assigned_to', null);
+    var res = await q.limit(limit);
+    var ids = (res.data||[]).map(function(l){ return l.id; });
+    if (!ids.length) { toast('No matching leads', 'error'); return; }
+    await sb.from('crm_leads').update({ assigned_to: agentId }).in('id', ids);
+    toast('Assigned ' + ids.length + ' leads');
+    renderTeam(document.getElementById('pageContent'));
+  } catch(e) { toast('Assign failed: ' + e.message, 'error'); }
+}
+
 async function init() {
   var authed = await checkAuth();
   if (!authed) return;
