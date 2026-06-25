@@ -2365,7 +2365,7 @@ async function updateDialerLeadCount() {
   // When a Call List is chosen it overrides the geo/segment/stage filters — disable them so it's clear.
   ['dialerState','dialerSegment','dialerStage'].forEach(function(id){ var el = document.getElementById(id); if (el) el.disabled = !!callList; });
 
-  var query = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('phone', 'is', null).neq('phone', '');
+  var query = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('phone', 'is', null).neq('phone', '').not('do_not_call', 'is', true);
   if (callList) {
     query = query.eq('call_list', callList);
   } else {
@@ -2491,7 +2491,7 @@ async function stopDialer() {
 
 function buildDialerQuery() {
   var callList = document.getElementById('dialerCallList') ? document.getElementById('dialerCallList').value : '';
-  var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '');
+  var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '').not('do_not_call', 'is', true);
   // A Call List is an explicit, curated set (e.g. a HubSpot import). Dial it exactly as-is and
   // ignore the State/Segment/Stage filters — those leads often have no state/segment, so applying
   // the default CA state filter would wrongly return zero.
@@ -2855,6 +2855,15 @@ async function saveCallResult(line, forcedDispo) {
   else if (dispo === 'callback_3mo') { outcomeEnum = 'callback'; leadUpdate.next_follow_up = addMonthsISO(3); }
   else if (dispo === 'callback_6mo') { outcomeEnum = 'callback'; leadUpdate.next_follow_up = addMonthsISO(6); }
   else if (dispo === 'dnc') { leadUpdate.do_not_call = true; }
+
+  // Dead-end dispositions: drop the lead from the dial list (don't call again) and stamp the
+  // reason + notes onto the lead record so it's ready to push/export to HubSpot.
+  var REMOVE_DISPOS = ['not_interested', 'wrong_number', 'bad_number', 'fax_number', 'dnc'];
+  if (REMOVE_DISPOS.indexOf(dispo) !== -1) {
+    leadUpdate.do_not_call = true;
+    var _stamp = new Date().toLocaleDateString();
+    leadUpdate.notes = (lead.notes ? lead.notes + '\n' : '') + '[' + _stamp + ' — ' + (DISPO_LABEL[dispo] || dispo) + (notes ? ': ' + notes : '') + ']';
+  }
 
   var callRow = {
     lead_id: lead.id, status: callStatus, notes: notes, dialer_line: line,
