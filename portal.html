@@ -979,16 +979,16 @@ select option { background: var(--bg-card); color: var(--text-primary); }
   </div>
   <div class="sidebar-nav">
     <div class="nav-section">OPERATIONS</div>
-    <div class="nav-item active" data-page="dashboard"><span class="icon">&#x1F4CA;</span> Dashboard</div>
-    <div class="nav-item" data-page="pipeline"><span class="icon">&#x1F504;</span> Pipeline Board</div>
-    <div class="nav-item" data-page="leads"><span class="icon">&#x1F465;</span> All Leads</div>
+    <div class="nav-item active" data-page="dashboard" data-role="master"><span class="icon">&#x1F4CA;</span> Dashboard</div>
+    <div class="nav-item" data-page="pipeline" data-role="master"><span class="icon">&#x1F504;</span> Pipeline Board</div>
+    <div class="nav-item" data-page="leads" data-role="master"><span class="icon">&#x1F465;</span> All Leads</div>
     <div class="nav-section">OUTREACH</div>
     <div class="nav-item" data-page="dialer"><span class="icon">&#x1F4DE;</span> Parallel Dialer</div>
-    <div class="nav-item" data-page="email"><span class="icon">&#x1F4E7;</span> Email Campaigns</div>
-    <div class="nav-item" data-page="sms"><span class="icon">&#x1F4AC;</span> SMS Campaigns</div>
+    <div class="nav-item" data-page="email" data-role="master"><span class="icon">&#x1F4E7;</span> Email Campaigns</div>
+    <div class="nav-item" data-page="sms" data-role="master"><span class="icon">&#x1F4AC;</span> SMS Campaigns</div>
     <div class="nav-section">SYSTEM</div>
     <div class="nav-item" data-page="team" data-role="master" style="display:none;"><span class="icon">&#x1F451;</span> Team</div>
-    <div class="nav-item" data-page="settings"><span class="icon">&#x2699;&#xFE0F;</span> Settings</div>
+    <div class="nav-item" data-page="settings" data-role="master"><span class="icon">&#x2699;&#xFE0F;</span> Settings</div>
   </div>
   <div class="sidebar-stats">
     <div class="sidebar-stat"><span class="label">Leads</span><span class="value" id="sidebarLeads">0</span></div>
@@ -1848,7 +1848,7 @@ async function initTwilioDevice() {
       twilioDevice.on('registered', function() {
         clearTimeout(timeoutId);
         twilioReady = true;
-        console.log('Twilio Device REGISTERED — ready for incoming calls as client:aiis-agent');
+        console.log('Twilio Device REGISTERED — ready as client:' + agentIdentity);
         resolve(true);
       });
 
@@ -2393,6 +2393,7 @@ async function loadDialerLeads() {
   for (var i = 0; i < data.length; i++) {
     var lead = data[i];
     var n = i + 1;
+    lineStartTimes[n] = 0; lineDialTimes[n] = 0;  // fresh batch — never carry prior timing
     dialerLeadMap[n] = lead;
     dialerUsedIds.add(lead.id);
     dialerStats.total++;
@@ -2541,12 +2542,14 @@ function handleVoicemailDetected(line) {
   setLineState(line, 'voicemail-detected');
   document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">VM Drop</span>';
   dialerStats.voicemail++;
+  dialerStats.dialSec = (dialerStats.dialSec || 0) + dialSecFor(line);
+  dialerStats.totalDialSec = (dialerStats.dialSec || 0) + (dialerStats.talkSec || 0);
   updateDialerStatsUI();
 
   var lead = dialerLeadMap[line];
   if (lead) {
     try {
-      sb.from('crm_calls').insert({ lead_id: lead.id, status: 'voicemail', dialer_line: line });
+      sb.from('crm_calls').insert({ lead_id: lead.id, status: 'voicemail', disposition: 'voicemail_left', dialer_line: line, dial_seconds: dialSecFor(line), agent_id: currentUser ? currentUser.id : null });
       sb.from('crm_activities').insert({ lead_id: lead.id, type: 'call', description: 'Call: voicemail detected, message dropped' });
       sb.from('crm_leads').update({ last_contacted_at: new Date().toISOString() }).eq('id', lead.id);
     } catch(e) {}
@@ -2560,7 +2563,13 @@ function handleLineBusy(line) {
   setLineState(line, 'no-answer');
   document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">Busy</span>';
   dialerStats.noAnswer++;
+  dialerStats.dialSec = (dialerStats.dialSec || 0) + dialSecFor(line);
+  dialerStats.totalDialSec = (dialerStats.dialSec || 0) + (dialerStats.talkSec || 0);
   updateDialerStatsUI();
+  var lead = dialerLeadMap[line];
+  if (lead) {
+    try { sb.from('crm_calls').insert({ lead_id: lead.id, status: 'no_answer', disposition: 'no_answer', dialer_line: line, dial_seconds: dialSecFor(line), agent_id: currentUser ? currentUser.id : null }); } catch(e) {}
+  }
   checkAllLinesDone();
 }
 
@@ -2570,6 +2579,8 @@ function handleLineNoAnswer(line, reason) {
   setLineState(line, 'no-answer');
   document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">' + (reason || 'No answer') + '</span>';
   dialerStats.noAnswer++;
+  dialerStats.dialSec = (dialerStats.dialSec || 0) + dialSecFor(line);
+  dialerStats.totalDialSec = (dialerStats.dialSec || 0) + (dialerStats.talkSec || 0);
   updateDialerStatsUI();
 
   var lead = dialerLeadMap[line];
@@ -2622,6 +2633,8 @@ async function handleLineTimeout(line) {
   setLineState(line, 'no-answer');
   document.getElementById('lineAreaBadge' + line).innerHTML = '<span class="area-code-badge fallback">No answer</span>';
   dialerStats.noAnswer++;
+  dialerStats.dialSec = (dialerStats.dialSec || 0) + dialSecFor(line);
+  dialerStats.totalDialSec = (dialerStats.dialSec || 0) + (dialerStats.talkSec || 0);
   updateDialerStatsUI();
 
   try {
@@ -2669,8 +2682,13 @@ async function saveCallResult(line, forcedDispo) {
   var talkSec = lineStartTimes[line] ? Math.floor((Date.now() - lineStartTimes[line]) / 1000) : 0;
   var dialSec = lineDialTimes[line] ? Math.max(0, Math.floor((Date.now() - lineDialTimes[line]) / 1000) - talkSec) : 0;
 
+  // Status derived from disposition (No Answer / Voicemail are NOT "completed/connected")
+  var callStatus = (dispo === 'no_answer') ? 'no_answer' : (dispo === 'voicemail_left' ? 'voicemail' : 'completed');
+
   // Live session stats
-  dialerStats.connected = (dialerStats.connected || 0) + 1;
+  if (callStatus === 'completed') dialerStats.connected = (dialerStats.connected || 0) + 1;
+  else if (callStatus === 'no_answer') dialerStats.noAnswer = (dialerStats.noAnswer || 0) + 1;
+  else if (callStatus === 'voicemail') dialerStats.voicemail = (dialerStats.voicemail || 0) + 1;
   if (dispo === 'booked') dialerStats.booked = (dialerStats.booked || 0) + 1;
   if (dispo === 'booked' || dispo === 'already_insured') dialerStats.interested = (dialerStats.interested || 0) + 1;
   dialerStats.talkSec = (dialerStats.talkSec || 0) + talkSec;
@@ -2695,7 +2713,7 @@ async function saveCallResult(line, forcedDispo) {
   // Map disposition -> stage / follow-up / DNC + a VALID call_outcome enum value (if any).
   var leadUpdate = { last_contacted_at: new Date().toISOString() };
   var newStage = null, outcomeEnum = null;
-  if (dispo === 'booked') { newStage = (lead.stage === 'prospect' || lead.stage === 'lead') ? 'info_pending' : lead.stage; outcomeEnum = 'quote_requested'; }
+  if (dispo === 'booked') { newStage = (lead.stage === 'prospect' || lead.stage === 'lead') ? 'info_pending' : lead.stage; outcomeEnum = 'interested'; }
   else if (dispo === 'not_interested') { outcomeEnum = 'not_interested'; }
   else if (dispo === 'wrong_number') { outcomeEnum = 'wrong_number'; }
   else if (dispo === 'callback_3mo') { outcomeEnum = 'callback'; leadUpdate.next_follow_up = addMonthsISO(3); }
@@ -2703,9 +2721,9 @@ async function saveCallResult(line, forcedDispo) {
   else if (dispo === 'dnc') { leadUpdate.do_not_call = true; }
 
   var callRow = {
-    lead_id: lead.id, status: 'completed', notes: notes, dialer_line: line,
-    duration_seconds: talkSec, dial_seconds: dialSec, disposition: dispo,
-    answered_at: lineStartTimes[line] ? new Date(lineStartTimes[line]).toISOString() : null,
+    lead_id: lead.id, status: callStatus, notes: notes, dialer_line: line,
+    duration_seconds: (callStatus === 'completed' ? talkSec : 0), dial_seconds: dialSec, disposition: dispo,
+    answered_at: (callStatus === 'completed' && lineStartTimes[line]) ? new Date(lineStartTimes[line]).toISOString() : null,
     agent_id: currentUser ? currentUser.id : null
   };
   if (outcomeEnum) callRow.outcome = outcomeEnum;
@@ -2723,7 +2741,7 @@ async function saveCallResult(line, forcedDispo) {
     }
   } catch(e) { console.error('Save call error:', e); }
 
-  document.getElementById('lineForm' + line).classList.remove('active');
+  var _f = document.getElementById('lineForm' + line); if (_f) _f.classList.remove('active');
   if (notesEl) notesEl.value = '';
   toast('Saved: ' + (DISPO_LABEL[dispo] || dispo) + (leadUpdate.stage ? ' — moved to ' + leadUpdate.stage.replace(/_/g, ' ') : ''));
   updateDialerStatsUI();
@@ -3481,7 +3499,11 @@ async function init() {
   var authed = await checkAuth();
   if (!authed) return;
   updateSidebarStats();
-  loadPage('dashboard');
+  // Agents land on the dialer (their only page); master lands on the dashboard.
+  var landing = isMaster() ? 'dashboard' : 'dialer';
+  currentPage = landing;
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active', n.dataset.page === landing); });
+  loadPage(landing);
 }
 
 init();

@@ -11,7 +11,8 @@ function corsHeaders(origin: string): Record<string, string> {
     'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
     'Vary': 'Origin',
   };
-  if (ALLOWED.includes(origin) || origin.endsWith('.vercel.app')) {
+  // production + this project's own Vercel preview deployments only (no open *.vercel.app)
+  if (ALLOWED.includes(origin) || /^https:\/\/aiis-trucking-website[a-z0-9-]*\.vercel\.app$/.test(origin)) {
     h['Access-Control-Allow-Origin'] = origin;
   }
   return h;
@@ -73,10 +74,13 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: createErr.message }), { status: 400, headers });
   }
 
-  // 4) Ensure the profile row reflects name/role/active (the trigger already inserted it)
-  await admin.from('profiles')
-    .update({ full_name: full_name || email, role: 'agent', active: true })
-    .eq('id', created.user!.id);
+  // 4) Ensure the profile reflects name/role/active. Upsert in case the signup
+  //    trigger has not committed yet (race) — never leave a half-created agent.
+  const { error: profErr } = await admin.from('profiles')
+    .upsert({ id: created.user!.id, email, full_name: full_name || email, role: 'agent', active: true }, { onConflict: 'id' });
+  if (profErr) {
+    return new Response(JSON.stringify({ ok: true, id: created.user!.id, email, warning: 'profile sync failed: ' + profErr.message }), { headers });
+  }
 
   return new Response(JSON.stringify({ ok: true, id: created.user!.id, email }), { headers });
 });
