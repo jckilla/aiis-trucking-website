@@ -1097,8 +1097,7 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
 <!-- Sidebar -->
 <div class="sidebar">
   <div class="sidebar-brand">
-    <h1>ADVANCEDINS.AI</h1>
-    <p>$10M GWP CRM</p>
+    <h1>Aduna Dialer</h1>
   </div>
   <div class="sidebar-nav">
     <div class="nav-section">OPERATIONS</div>
@@ -1210,6 +1209,8 @@ async function loadWeeklyDialerStats() {
 }
 let dialerLeadMap = {};
 let dialerUsedIds = new Set();
+var _dialerStatesCache = null;     // cached state list (avoids re-querying on every dialer open)
+var _dialerCallListsCache = null;  // cached call lists
 
 // ===== Multi-user + dialer config =====
 var currentUser = null;            // supabase auth user (set in checkAuth)
@@ -1450,20 +1451,28 @@ async function renderDashboard(el) {
 
   var gwpBound = 0, gwpPipeline = 0, pipelineData = [], segmentData = [], stateData = [];
 
-  // GWP stats
-  try {
-    var gwpRes = await sb.rpc('crm_gwp_stats');
-    var gwp = gwpRes.data;
-    if (gwp) {
-      if (Array.isArray(gwp) && gwp.length > 0) {
-        gwpBound = parseFloat(gwp[0].gwp_bound) || 0;
-        gwpPipeline = parseFloat(gwp[0].gwp_pipeline) || 0;
-      } else if (gwp.gwp_bound !== undefined) {
-        gwpBound = parseFloat(gwp.gwp_bound) || 0;
-        gwpPipeline = parseFloat(gwp.gwp_pipeline) || 0;
-      }
+  // Run the breakdown RPCs + recent activity in PARALLEL (they're independent) so the
+  // dashboard loads in one round-trip instead of five sequential ones.
+  var _safe = function(p) { return p.then(function(r) { return r; }, function(e) { return { error: e, data: null }; }); };
+  var rpcRes = await Promise.all([
+    _safe(sb.rpc('crm_gwp_stats')),
+    _safe(sb.rpc('crm_pipeline_stats')),
+    _safe(sb.rpc('crm_segment_breakdown')),
+    _safe(sb.rpc('crm_state_breakdown')),
+    _safe(sb.from('crm_activities').select('*').order('created_at', { ascending: false }).limit(20))
+  ]);
+
+  // GWP (with fallback if the RPC is unavailable)
+  var gwp = rpcRes[0].data;
+  if (gwp) {
+    if (Array.isArray(gwp) && gwp.length > 0) {
+      gwpBound = parseFloat(gwp[0].gwp_bound) || 0;
+      gwpPipeline = parseFloat(gwp[0].gwp_pipeline) || 0;
+    } else if (gwp.gwp_bound !== undefined) {
+      gwpBound = parseFloat(gwp.gwp_bound) || 0;
+      gwpPipeline = parseFloat(gwp.gwp_pipeline) || 0;
     }
-  } catch(e) {
+  } else {
     try {
       var clRes = await sb.from('crm_leads').select('estimated_premium').eq('stage', 'client');
       (clRes.data || []).forEach(function(r) { gwpBound += (r.estimated_premium || 0); });
@@ -1471,28 +1480,10 @@ async function renderDashboard(el) {
       (plRes.data || []).forEach(function(r) { gwpPipeline += (r.estimated_premium || 0); });
     } catch(e2) {}
   }
-
-  // Pipeline stats
-  try {
-    var pipRes = await sb.rpc('crm_pipeline_stats');
-    pipelineData = pipRes.data || [];
-  } catch(e) {}
-
-  // Segment breakdown
-  try {
-    var segRes = await sb.rpc('crm_segment_breakdown');
-    segmentData = segRes.data || [];
-  } catch(e) {}
-
-  // State breakdown
-  try {
-    var stRes = await sb.rpc('crm_state_breakdown');
-    stateData = stRes.data || [];
-  } catch(e) {}
-
-  // Recent activity
-  var actRes = await sb.from('crm_activities').select('*').order('created_at', { ascending: false }).limit(20);
-  var recentActivity = actRes.data || [];
+  pipelineData = rpcRes[1].data || [];
+  segmentData = rpcRes[2].data || [];
+  stateData = rpcRes[3].data || [];
+  var recentActivity = rpcRes[4].data || [];
 
   var gwpTarget = 10000000;
   var boundPct = Math.min((gwpBound / gwpTarget) * 100, 100);
@@ -2189,39 +2180,33 @@ async function hangupOtherLines(keepLine) {
 }
 
 async function renderDialer(el) {
-  // Load available states for the dropdown with accurate counts
+  // States dropdown — cached for the session, and NO per-state COUNT queries.
+  // (The live "X left to call of Y" already shows the count for the chosen filter.)
+  // This removes ~30-50 full-table count scans that ran on every dialer open.
   var stateOptions = '';
   try {
-    // Step 1: Get distinct state values (small sample to find all unique states)
-    var stRes = await sb.from('crm_leads').select('state').not('state', 'is', null).neq('state', '').not('phone', 'is', null).neq('phone', '').limit(1000);
-    var uniqueStates = {};
-    (stRes.data || []).forEach(function(r) { uniqueStates[r.state] = true; });
-    var stateList = Object.keys(uniqueStates);
-
-    // Step 2: Get accurate count for each state using server-side count
-    var stateCounts = {};
-    var countPromises = stateList.map(function(st) {
-      return sb.from('crm_leads').select('*', { count: 'exact', head: true })
-        .eq('state', st).not('phone', 'is', null).neq('phone', '')
-        .then(function(r) { stateCounts[st] = r.count || 0; });
-    });
-    await Promise.all(countPromises);
-
-    var sortedStates = Object.entries(stateCounts).sort(function(a,b) { return b[1] - a[1]; });
-    sortedStates.forEach(function(s) {
-      var selected = s[0] === 'CA' ? ' selected' : '';
-      stateOptions += '<option value="' + s[0] + '"' + selected + '>' + s[0] + ' (' + s[1].toLocaleString() + ' leads)</option>';
+    if (!_dialerStatesCache) {
+      var stRes = await sb.from('crm_leads').select('state').not('state', 'is', null).neq('state', '').not('phone', 'is', null).neq('phone', '').limit(2000);
+      var us = {};
+      (stRes.data || []).forEach(function(r) { us[r.state] = true; });
+      _dialerStatesCache = Object.keys(us).sort();
+    }
+    _dialerStatesCache.forEach(function(st) {
+      stateOptions += '<option value="' + st + '"' + (st === 'CA' ? ' selected' : '') + '>' + st + '</option>';
     });
   } catch(e) { console.error('Failed to load states:', e); }
 
-  // Load Call Lists (imported dial lists, e.g. from HubSpot) with counts
+  // Call Lists — cached; counts computed from the fetched rows (no extra query).
   var callListOptions = '';
   try {
-    var clRes = await sb.from('crm_leads').select('call_list').not('call_list', 'is', null).limit(5000);
-    var clCounts = {};
-    (clRes.data || []).forEach(function(r) { if (r.call_list) clCounts[r.call_list] = (clCounts[r.call_list] || 0) + 1; });
-    Object.keys(clCounts).sort().forEach(function(name) {
-      callListOptions += '<option value="' + escHtml(name) + '">' + escHtml(name) + ' (' + clCounts[name].toLocaleString() + ')</option>';
+    if (!_dialerCallListsCache) {
+      var clRes = await sb.from('crm_leads').select('call_list').not('call_list', 'is', null).limit(5000);
+      var clc = {};
+      (clRes.data || []).forEach(function(r) { if (r.call_list) clc[r.call_list] = (clc[r.call_list] || 0) + 1; });
+      _dialerCallListsCache = Object.keys(clc).sort().map(function(name) { return { name: name, count: clc[name] }; });
+    }
+    _dialerCallListsCache.forEach(function(cl) {
+      callListOptions += '<option value="' + escHtml(cl.name) + '">' + escHtml(cl.name) + ' (' + cl.count.toLocaleString() + ')</option>';
     });
   } catch(e) { console.error('Failed to load call lists:', e); }
 
