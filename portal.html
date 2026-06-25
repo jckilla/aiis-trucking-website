@@ -2365,21 +2365,30 @@ async function updateDialerLeadCount() {
   // When a Call List is chosen it overrides the geo/segment/stage filters — disable them so it's clear.
   ['dialerState','dialerSegment','dialerStage'].forEach(function(id){ var el = document.getElementById(id); if (el) el.disabled = !!callList; });
 
-  var query = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('phone', 'is', null).neq('phone', '').not('do_not_call', 'is', true);
-  if (callList) {
-    query = query.eq('call_list', callList);
-  } else {
-    var state = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
-    var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
-    var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
-    if (state) query = query.eq('state', state);
-    if (segment) query = query.eq('segment', segment);
-    if (stage) query = query.eq('stage', stage);
+  function buildCount(neverDialedOnly) {
+    var q = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('phone', 'is', null).neq('phone', '').not('do_not_call', 'is', true);
+    if (callList) {
+      q = q.eq('call_list', callList);
+    } else {
+      var state = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
+      var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
+      var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
+      if (state) q = q.eq('state', state);
+      if (segment) q = q.eq('segment', segment);
+      if (stage) q = q.eq('stage', stage);
+    }
+    if (neverDialedOnly) q = q.is('last_dialed_at', null);
+    return q;
   }
 
-  var res = await query;
-  var count = res.count || 0;
-  countEl.innerHTML = '<strong>' + count.toLocaleString() + '</strong> dialable leads' + (callList ? ' <span style="color:var(--text-muted)">(Call List &mdash; other filters ignored)</span>' : '');
+  var totRes = await buildCount(false);
+  var remRes = await buildCount(true);
+  var total = totRes.count || 0;
+  var remaining = remRes.count || 0;
+  var called = Math.max(0, total - remaining);
+  countEl.innerHTML = '<strong>' + remaining.toLocaleString() + '</strong> left to call of ' + total.toLocaleString()
+    + (called > 0 ? ' <span style="color:var(--text-muted)">&middot; ' + called.toLocaleString() + ' already called (resuming where you left off)</span>' : '')
+    + (callList ? ' <span style="color:var(--text-muted)">(Call List)</span>' : '');
 }
 
 
@@ -2512,7 +2521,11 @@ async function loadDialerLeads() {
   activeLiveCall = null;
   dialerPhoneMap = {};
 
-  var res = await buildDialerQuery().order('lead_score', { ascending: false }).limit(500);
+  // Resume where we left off: never-dialed leads first (last_dialed_at NULLS FIRST), then by score.
+  var res = await buildDialerQuery()
+    .order('last_dialed_at', { ascending: true, nullsFirst: true })
+    .order('lead_score', { ascending: false })
+    .limit(500);
   console.log('Dialer query:', res.data ? res.data.length + ' leads found' : 'error', res.error);
   var data = (res.data || []).filter(function(l) { return !dialerUsedIds.has(l.id); }).slice(0, dialerLineCount);
 
@@ -2521,6 +2534,9 @@ async function loadDialerLeads() {
     stopDialer();
     return;
   }
+
+  // Mark this batch as dialed so next time we resume past them (persists across sessions/reloads).
+  try { sb.from('crm_leads').update({ last_dialed_at: new Date().toISOString() }).in('id', data.map(function(l){ return l.id; })); } catch(e) {}
 
   // Load leads into UI and dial all simultaneously
   var dialPromises = [];
