@@ -64,9 +64,7 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      const baseUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : (process.env.BASE_URL || 'https://fleet.ins2day.com');
+      const baseUrl = process.env.BASE_URL || 'https://fleet.ins2day.com';
 
       // Search available numbers
       const available = await client.availablePhoneNumbers('US')

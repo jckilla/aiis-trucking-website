@@ -101,9 +101,9 @@ async function findOrProvisionNumber(client, targetAreaCode, defaultNumber) {
       const purchased = await client.incomingPhoneNumbers.create({
         phoneNumber: available[0].phoneNumber,
         friendlyName: `AIIS-AutoPool-${targetAreaCode}`,
-        voiceUrl: (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.BASE_URL || 'https://fleet.ins2day.com') + '/api/twilio/voice',
+        voiceUrl: (process.env.BASE_URL || 'https://fleet.ins2day.com') + '/api/twilio/voice',
         voiceMethod: 'POST',
-        statusCallback: (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.BASE_URL || 'https://fleet.ins2day.com') + '/api/twilio/status',
+        statusCallback: (process.env.BASE_URL || 'https://fleet.ins2day.com') + '/api/twilio/status',
         statusCallbackMethod: 'POST'
       });
 
@@ -187,9 +187,10 @@ module.exports = async function handler(req, res) {
 
     console.log(`Using fixed caller ID: ${callerId}`);
 
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : (process.env.BASE_URL || 'https://fleet.ins2day.com');
+    // Use the PUBLIC custom domain for Twilio webhooks. The per-deployment
+    // VERCEL_URL is behind Vercel Deployment Protection (returns 302), so Twilio
+    // cannot fetch the bridge TwiML -> "an application error has occurred".
+    const baseUrl = process.env.BASE_URL || 'https://fleet.ins2day.com';
 
     // Create the outbound call
     // This calls the lead's phone, and when they pick up the TwiML from /api/twilio/voice

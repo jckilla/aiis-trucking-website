@@ -47,9 +47,8 @@ module.exports = async function handler(req, res) {
   } else {
     // Human answered — connect them to the agent's browser
     console.log(`Human answered on line ${line}! Bridging to client:${agentIdentity}`);
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : (process.env.BASE_URL || 'https://fleet.ins2day.com');
+    // Public custom domain only — VERCEL_URL is auth-walled (302) for Twilio.
+    const baseUrl = process.env.BASE_URL || 'https://fleet.ins2day.com';
     const dial = twiml.dial({ timeout: 10 });
     const client = dial.client(
       {
