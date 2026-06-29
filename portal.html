@@ -568,6 +568,8 @@ body {
 .live-notes-label { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600; }
 .live-notes textarea { width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border, var(--border)); border-radius: 8px; color: var(--text-primary); font-size: 12px; outline: none; min-height: 54px; resize: vertical; font-family: inherit; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .live-notes textarea:focus { border-color: var(--accent-border); }
+.book-meeting-btn { display: block; width: 100%; margin-bottom: 8px; padding: 9px 12px; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-border); border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s, box-shadow 0.2s; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.book-meeting-btn:hover { background: var(--accent); color: #000; box-shadow: 0 2px 14px rgba(0, 229, 160, 0.35); }
 
 /* "X left to call of Y" — turquoise glass pill */
 #dialerLeadCount {
@@ -2315,6 +2317,7 @@ async function renderDialer(el) {
 
     // Live notes — editable DURING the call (appears the moment the call connects)
     html += '<div class="live-notes" id="lineNotesWrap' + n + '" style="display:none;">';
+    html += '<button type="button" class="book-meeting-btn" onclick="openBookMeeting(' + n + ')">&#x1F4C5; Book Meeting</button>';
     html += '<div class="live-notes-label">&#x1F4DD; Live notes</div>';
     html += '<textarea id="lineNotes' + n + '" placeholder="Type notes while you are on the call..."></textarea>';
     html += '</div>';
@@ -2433,6 +2436,24 @@ function dialSecFor(line) {
 }
 function addMonthsISO(m) {
   var d = new Date(); d.setMonth(d.getMonth() + m); return d.toISOString();
+}
+
+// Open the HubSpot meeting scheduler for the prospect on this line, pre-filled with their details
+// so the rep can book a demo live on the call without retyping anything.
+function openBookMeeting(n) {
+  var lead = (typeof dialerLeadMap !== 'undefined' && dialerLeadMap[n]) ? dialerLeadMap[n] : {};
+  var qs = [];
+  var nm = (lead.contact_name || '').trim();
+  if (nm) {
+    var parts = nm.split(/\s+/);
+    qs.push('firstname=' + encodeURIComponent(parts.shift()));
+    if (parts.length) qs.push('lastname=' + encodeURIComponent(parts.join(' ')));
+  }
+  if (lead.email) qs.push('email=' + encodeURIComponent(lead.email));
+  if (lead.company_name) qs.push('company=' + encodeURIComponent(lead.company_name));
+  if (lead.phone) qs.push('phone=' + encodeURIComponent(lead.phone));
+  var url = 'https://meetings.hubspot.com/kaduna/demo' + (qs.length ? '?' + qs.join('&') : '');
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 async function startDialer() {
