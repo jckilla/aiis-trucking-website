@@ -1211,8 +1211,18 @@ function getWeekStartSunday() {
   return start.toISOString();
 }
 
+// Rolling window: midnight 6 days ago → covers the last 7 calendar days (today + prior 6).
+// Used for the dialer panel and Team metrics so stats reflect recent activity and never
+// reset to near-empty on Sunday.
+function getLast7DaysStart() {
+  var d = new Date();
+  d.setDate(d.getDate() - 6);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
 async function loadWeeklyDialerStats() {
-  var weekStart = getWeekStartSunday();
+  var weekStart = getLast7DaysStart();
   try {
     var q = sb.from('crm_calls')
       .select('status, outcome, disposition, dial_seconds, duration_seconds, agent_id')
@@ -2328,9 +2338,9 @@ async function renderDialer(el) {
   html += '<div class="dialer-sidebar">';
 
   // Weekly Stats (resets every Sunday)
-  var weekLabel = 'Week of ' + new Date(getWeekStartSunday()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  html += '<div class="session-stats"><h3>&#x1F4CA; Weekly Stats</h3>';
-  html += '<div style="font-size:10px;color:var(--text-muted);margin:-4px 0 8px;">' + weekLabel + ' &mdash; resets Sunday</div>';
+  var weekLabel = 'Last 7 days (' + new Date(getLast7DaysStart()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' &ndash; ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ')';
+  html += '<div class="session-stats"><h3>&#x1F4CA; Last 7 Days</h3>';
+  html += '<div style="font-size:10px;color:var(--text-muted);margin:-4px 0 8px;">' + weekLabel + '</div>';
   html += '<div class="stat-row"><span class="stat-label">Total Dialed</span><span class="stat-value" id="statTotal">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Connected</span><span class="stat-value" id="statConnected" style="color:var(--success)">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">No Answer</span><span class="stat-value" id="statNoAnswer" style="color:var(--warning)">0</span></div>';
@@ -2338,7 +2348,7 @@ async function renderDialer(el) {
   html += '<div class="stat-row"><span class="stat-label">Interested</span><span class="stat-value" id="statInterested" style="color:var(--accent)">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Booked Leads</span><span class="stat-value" id="statBooked" style="color:var(--success)">0</span></div>';
   html += '<div class="stat-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px"><span class="stat-label">Connect Rate</span><span class="stat-value" id="statConnectRate" style="color:var(--accent)">0%</span></div>';
-  html += '<div class="stat-row"><span class="stat-label">Total Dial Time</span><span class="stat-value" id="statDialTime" style="color:var(--accent)" title="Time spent dialing + talking this week">0s</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">Total Dial Time</span><span class="stat-value" id="statDialTime" style="color:var(--accent)" title="Time spent dialing + talking, last 7 days">0s</span></div>';
   html += '</div>';
 
   // Caller ID info
@@ -3571,7 +3581,7 @@ async function renderTeam(el) {
   if (!isMaster()) { el.innerHTML = '<div class="page-header"><h2>Team</h2><p>Master access only.</p></div>'; return; }
   el.innerHTML = '<div class="page-header"><h2>Team</h2><p>Manage cold-calling agents, assign leads, and review everyone’s weekly performance.</p></div><div id="teamBody">Loading…</div>';
 
-  var weekStart = getWeekStartSunday();
+  var weekStart = getLast7DaysStart();
   var profRes, callRes, listRes;
   try { profRes = await sb.from('profiles').select('id, email, full_name, role, active, twilio_caller_id, timezone').order('created_at'); } catch(e) { profRes = { data: [] }; }
   try { callRes = await sb.from('crm_calls').select('agent_id, status, disposition, outcome, dial_seconds, duration_seconds, created_at').gte('created_at', weekStart); } catch(e) { callRes = { data: [] }; }
@@ -3580,7 +3590,7 @@ async function renderTeam(el) {
   var profiles = profRes.data || [];
   var calls = callRes.data || [];
 
-  // Per-agent metrics for two windows: today and this week (week starts Sunday).
+  // Per-agent metrics for two windows: today and the last 7 days (weekStart = getLast7DaysStart()).
   var todayStartMs = (function(){ var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(); })();
   function blankM(){ return { dialed:0, connected:0, noAnswer:0, voicemail:0, interested:0, booked:0, sec:0 }; }
   function bumpM(m, c){
@@ -3625,7 +3635,7 @@ async function renderTeam(el) {
   }
 
   html += '<div class="session-stats" style="margin-bottom:16px;"><h3>📊 Performance — All Users</h3>';
-  html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">Each cell shows <strong style="color:var(--text-secondary);">today</strong> / this&nbsp;week (week starts Sunday). Connect rate = connected ÷ dialed. Dial time = ringing + talking.</div>';
+  html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">Each cell shows <strong style="color:var(--text-secondary);">today</strong> / last&nbsp;7&nbsp;days. Connect rate = connected ÷ dialed. Dial time = ringing + talking.</div>';
   html += '<div style="overflow-x:auto;"><table class="team-perf">';
   html += '<thead><tr>'
         + '<th>User</th><th>Dialed</th><th>Connected</th><th>No&nbsp;Answer</th><th>Voicemail</th><th>Interested</th><th>Booked</th><th>Connect&nbsp;Rate</th><th>Dial&nbsp;Time</th></tr></thead><tbody>';
