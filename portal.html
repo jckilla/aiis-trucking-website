@@ -591,6 +591,13 @@ body {
 #dialerLeadCount strong { font-weight: 800; }
 #dialerLeadCount .count-sub { color: rgba(0, 229, 160, 0.62); font-weight: 600; text-shadow: none; }
 
+/* Team → per-user performance table */
+.team-perf { width: 100%; border-collapse: collapse; font-size: 13px; }
+.team-perf th, .team-perf td { padding: 8px 16px; text-align: left; white-space: nowrap; vertical-align: top; }
+.team-perf thead th { color: var(--text-muted); border-bottom: 1px solid var(--border); font-weight: 600; }
+.team-perf tbody tr { border-bottom: 1px solid var(--border); }
+.team-perf th:first-child, .team-perf td:first-child { white-space: normal; word-break: break-word; min-width: 150px; }
+
 .outcome-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
 .outcome-btn {
@@ -3606,22 +3613,22 @@ async function renderTeam(el) {
 
   // Per-user performance metrics (today / this week)
   function dwCell(d, w, color){
-    return '<td style="padding:6px;"><strong style="color:' + (color || 'var(--text-primary)') + ';">' + d.toLocaleString()
+    return '<td><strong style="color:' + (color || 'var(--text-primary)') + ';">' + d.toLocaleString()
          + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + w.toLocaleString() + '</span></td>';
   }
   function rate(m){ return m.dialed ? Math.round(100 * m.connected / m.dialed) + '%' : '—'; }
   function rateCell(d, w){
-    return '<td style="padding:6px;"><strong>' + rate(d) + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + rate(w) + '</span></td>';
+    return '<td><strong>' + rate(d) + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + rate(w) + '</span></td>';
   }
   function timeCell(d, w){
-    return '<td style="padding:6px;"><strong>' + formatDialTime(d.sec) + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + formatDialTime(w.sec) + '</span></td>';
+    return '<td><strong>' + formatDialTime(d.sec) + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + formatDialTime(w.sec) + '</span></td>';
   }
 
   html += '<div class="session-stats" style="margin-bottom:16px;"><h3>📊 Performance — All Users</h3>';
   html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">Each cell shows <strong style="color:var(--text-secondary);">today</strong> / this&nbsp;week (week starts Sunday). Connect rate = connected ÷ dialed. Dial time = ringing + talking.</div>';
-  html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">';
-  html += '<thead><tr style="text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);">'
-        + '<th style="padding:6px;">User</th><th>Dialed</th><th>Connected</th><th>No&nbsp;Answer</th><th>Voicemail</th><th>Interested</th><th>Booked</th><th>Connect&nbsp;Rate</th><th>Dial&nbsp;Time</th></tr></thead><tbody>';
+  html += '<div style="overflow-x:auto;"><table class="team-perf">';
+  html += '<thead><tr>'
+        + '<th>User</th><th>Dialed</th><th>Connected</th><th>No&nbsp;Answer</th><th>Voicemail</th><th>Interested</th><th>Booked</th><th>Connect&nbsp;Rate</th><th>Dial&nbsp;Time</th></tr></thead><tbody>';
 
   var totDay = blankM(), totWeek = blankM();
   profiles.forEach(function(p){
@@ -3629,7 +3636,7 @@ async function renderTeam(el) {
     var d = ag.day, w = ag.week;
     ['dialed','connected','noAnswer','voicemail','interested','booked','sec'].forEach(function(k){ totDay[k] += d[k]; totWeek[k] += w[k]; });
     html += '<tr style="border-bottom:1px solid var(--border);">';
-    html += '<td style="padding:6px;"><strong>' + escHtml(p.full_name || p.email) + '</strong>' + (p.role === 'master' ? ' <span style="font-size:10px;">👑</span>' : '') + '<br><span style="color:var(--text-muted);font-size:11px;">' + escHtml(p.email) + '</span></td>';
+    html += '<td><strong>' + escHtml(p.full_name || p.email) + '</strong>' + (p.role === 'master' ? ' <span style="font-size:10px;">👑</span>' : '') + '<br><span style="color:var(--text-muted);font-size:11px;">' + escHtml(p.email) + '</span></td>';
     html += dwCell(d.dialed, w.dialed);
     html += dwCell(d.connected, w.connected, 'var(--accent)');
     html += dwCell(d.noAnswer, w.noAnswer);
@@ -3641,7 +3648,7 @@ async function renderTeam(el) {
     html += '</tr>';
   });
   html += '<tr style="border-top:2px solid var(--border);font-weight:600;background:var(--accent-dim);">';
-  html += '<td style="padding:6px;">All users</td>';
+  html += '<td>All users</td>';
   html += dwCell(totDay.dialed, totWeek.dialed);
   html += dwCell(totDay.connected, totWeek.connected, 'var(--accent)');
   html += dwCell(totDay.noAnswer, totWeek.noAnswer);
