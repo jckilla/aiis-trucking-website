@@ -3567,22 +3567,30 @@ async function renderTeam(el) {
   var weekStart = getWeekStartSunday();
   var profRes, callRes, listRes;
   try { profRes = await sb.from('profiles').select('id, email, full_name, role, active, twilio_caller_id, timezone').order('created_at'); } catch(e) { profRes = { data: [] }; }
-  try { callRes = await sb.from('crm_calls').select('agent_id, status, disposition, dial_seconds, duration_seconds').gte('created_at', weekStart); } catch(e) { callRes = { data: [] }; }
+  try { callRes = await sb.from('crm_calls').select('agent_id, status, disposition, outcome, dial_seconds, duration_seconds, created_at').gte('created_at', weekStart); } catch(e) { callRes = { data: [] }; }
   try { listRes = await sb.from('crm_leads').select('call_list').not('call_list','is',null).limit(5000); } catch(e) { listRes = { data: [] }; }
 
   var profiles = profRes.data || [];
   var calls = callRes.data || [];
 
-  // Weekly stats per agent
-  var byAgent = {};
+  // Per-agent metrics for two windows: today and this week (week starts Sunday).
+  var todayStartMs = (function(){ var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(); })();
+  function blankM(){ return { dialed:0, connected:0, noAnswer:0, voicemail:0, interested:0, booked:0, sec:0 }; }
+  function bumpM(m, c){
+    m.dialed++;
+    if (c.status === 'completed') m.connected++;
+    if (c.status === 'no_answer' || c.disposition === 'no_answer') m.noAnswer++;
+    if (c.status === 'voicemail' || c.disposition === 'voicemail_left') m.voicemail++;
+    if (c.outcome === 'interested' || c.outcome === 'quote_requested' || c.disposition === 'booked') m.interested++;
+    if (c.disposition === 'booked') m.booked++;
+    m.sec += (c.dial_seconds||0) + (c.duration_seconds||0);
+  }
+  var byAgent = {};  // agent id -> { day, week }
   calls.forEach(function(c){
     var a = c.agent_id || 'unassigned';
-    if (!byAgent[a]) byAgent[a] = { dials:0, connected:0, booked:0, dialSec:0, talkSec:0 };
-    var s = byAgent[a];
-    s.dials++;
-    if (c.status === 'completed') s.connected++;
-    if (c.disposition === 'booked') s.booked++;
-    s.dialSec += (c.dial_seconds||0); s.talkSec += (c.duration_seconds||0);
+    if (!byAgent[a]) byAgent[a] = { day: blankM(), week: blankM() };
+    bumpM(byAgent[a].week, c);
+    if (new Date(c.created_at).getTime() >= todayStartMs) bumpM(byAgent[a].day, c);
   });
 
   var html = '';
@@ -3596,18 +3604,64 @@ async function renderTeam(el) {
   html += '<button class="btn btn-primary btn-sm" onclick="createAgent()">Create Login</button>';
   html += '</div><div style="font-size:11px;color:var(--text-muted);margin-top:6px;">The agent signs in at the portal with this email + password.</div></div>';
 
-  // Agents + weekly performance
-  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>👥 Agents &amp; Weekly Performance</h3>';
-  html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">';
-  html += '<thead><tr style="text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);"><th style="padding:6px;">Agent</th><th>Role</th><th>Active</th><th>Dials</th><th>Connected</th><th>Booked</th><th>Dial Time</th><th>Caller ID</th></tr></thead><tbody>';
+  // Per-user performance metrics (today / this week)
+  function dwCell(d, w, color){
+    return '<td style="padding:6px;"><strong style="color:' + (color || 'var(--text-primary)') + ';">' + d.toLocaleString()
+         + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + w.toLocaleString() + '</span></td>';
+  }
+  function rate(m){ return m.dialed ? Math.round(100 * m.connected / m.dialed) + '%' : '—'; }
+  function rateCell(d, w){
+    return '<td style="padding:6px;"><strong>' + rate(d) + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + rate(w) + '</span></td>';
+  }
+  function timeCell(d, w){
+    return '<td style="padding:6px;"><strong>' + formatDialTime(d.sec) + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + formatDialTime(w.sec) + '</span></td>';
+  }
+
+  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>📊 Performance — All Users</h3>';
+  html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">Each cell shows <strong style="color:var(--text-secondary);">today</strong> / this&nbsp;week (week starts Sunday). Connect rate = connected ÷ dialed. Dial time = ringing + talking.</div>';
+  html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">';
+  html += '<thead><tr style="text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);">'
+        + '<th style="padding:6px;">User</th><th>Dialed</th><th>Connected</th><th>No&nbsp;Answer</th><th>Voicemail</th><th>Interested</th><th>Booked</th><th>Connect&nbsp;Rate</th><th>Dial&nbsp;Time</th></tr></thead><tbody>';
+
+  var totDay = blankM(), totWeek = blankM();
   profiles.forEach(function(p){
-    var s = byAgent[p.id] || { dials:0, connected:0, booked:0, dialSec:0, talkSec:0 };
-    var total = (s.dialSec||0)+(s.talkSec||0);
+    var ag = byAgent[p.id] || { day: blankM(), week: blankM() };
+    var d = ag.day, w = ag.week;
+    ['dialed','connected','noAnswer','voicemail','interested','booked','sec'].forEach(function(k){ totDay[k] += d[k]; totWeek[k] += w[k]; });
+    html += '<tr style="border-bottom:1px solid var(--border);">';
+    html += '<td style="padding:6px;"><strong>' + escHtml(p.full_name || p.email) + '</strong>' + (p.role === 'master' ? ' <span style="font-size:10px;">👑</span>' : '') + '<br><span style="color:var(--text-muted);font-size:11px;">' + escHtml(p.email) + '</span></td>';
+    html += dwCell(d.dialed, w.dialed);
+    html += dwCell(d.connected, w.connected, 'var(--accent)');
+    html += dwCell(d.noAnswer, w.noAnswer);
+    html += dwCell(d.voicemail, w.voicemail);
+    html += dwCell(d.interested, w.interested);
+    html += dwCell(d.booked, w.booked, 'var(--success)');
+    html += rateCell(d, w);
+    html += timeCell(d, w);
+    html += '</tr>';
+  });
+  html += '<tr style="border-top:2px solid var(--border);font-weight:600;background:var(--accent-dim);">';
+  html += '<td style="padding:6px;">All users</td>';
+  html += dwCell(totDay.dialed, totWeek.dialed);
+  html += dwCell(totDay.connected, totWeek.connected, 'var(--accent)');
+  html += dwCell(totDay.noAnswer, totWeek.noAnswer);
+  html += dwCell(totDay.voicemail, totWeek.voicemail);
+  html += dwCell(totDay.interested, totWeek.interested);
+  html += dwCell(totDay.booked, totWeek.booked, 'var(--success)');
+  html += rateCell(totDay, totWeek);
+  html += timeCell(totDay, totWeek);
+  html += '</tr>';
+  html += '</tbody></table></div></div>';
+
+  // Manage users (role / active / caller ID)
+  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>⚙️ Manage Users</h3>';
+  html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">';
+  html += '<thead><tr style="text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);"><th style="padding:6px;">User</th><th>Role</th><th>Active</th><th>Caller ID</th></tr></thead><tbody>';
+  profiles.forEach(function(p){
     html += '<tr style="border-bottom:1px solid var(--border);">';
     html += '<td style="padding:6px;"><strong>' + escHtml(p.full_name || p.email) + '</strong><br><span style="color:var(--text-muted);font-size:11px;">' + escHtml(p.email) + '</span></td>';
     html += '<td>' + (p.role === 'master' ? '👑 master' : 'agent') + '</td>';
     html += '<td>' + (p.role === 'master' ? '—' : '<input type="checkbox" ' + (p.active ? 'checked' : '') + ' onchange="setAgentActive(\'' + p.id + '\', this.checked)">') + '</td>';
-    html += '<td>' + s.dials + '</td><td>' + s.connected + '</td><td style="color:var(--success);font-weight:600;">' + s.booked + '</td><td>' + formatDialTime(total) + '</td>';
     html += '<td><input value="' + escHtml(p.twilio_caller_id || '') + '" placeholder="+1…" onchange="setAgentCallerId(\'' + p.id + '\', this.value)" style="width:120px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:12px;"></td>';
     html += '</tr>';
   });
