@@ -569,6 +569,28 @@ body {
 .live-notes textarea { width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border, var(--border)); border-radius: 8px; color: var(--text-primary); font-size: 12px; outline: none; min-height: 54px; resize: vertical; font-family: inherit; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .live-notes textarea:focus { border-color: var(--accent-border); }
 
+/* "X left to call of Y" — turquoise glass pill */
+#dialerLeadCount {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+  padding: 4px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--accent);
+  background: rgba(0, 229, 160, 0.12);
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  backdrop-filter: blur(8px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 12px rgba(0, 229, 160, 0.18);
+  text-shadow: 0 0 10px rgba(0, 229, 160, 0.35);
+}
+#dialerLeadCount:empty { display: none; }
+#dialerLeadCount strong { font-weight: 800; }
+#dialerLeadCount .count-sub { color: rgba(0, 229, 160, 0.62); font-weight: 600; text-shadow: none; }
+
 .outcome-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
 .outcome-btn {
@@ -2239,7 +2261,7 @@ async function renderDialer(el) {
   html += '<select id="dialerStage"><option value="">All Stages</option>';
   STAGES.forEach(function(s) { html += '<option value="' + s.key + '">' + s.label + '</option>'; });
   html += '</select>';
-  html += '<span id="dialerLeadCount" style="font-size:12px;color:var(--text-secondary);margin-left:4px;"></span>';
+  html += '<span id="dialerLeadCount"></span>';
   html += '</div>';
 
   // Controls row 2: parallel-line count + Start/Stop + Twilio status
@@ -2372,8 +2394,8 @@ async function updateDialerLeadCount() {
   var remaining = remRes.count || 0;
   var called = Math.max(0, total - remaining);
   countEl.innerHTML = '<strong>' + remaining.toLocaleString() + '</strong> left to call of ' + total.toLocaleString()
-    + (called > 0 ? ' <span style="color:var(--text-muted)">&middot; ' + called.toLocaleString() + ' already called (resuming where you left off)</span>' : '')
-    + (callList ? ' <span style="color:var(--text-muted)">(Call List)</span>' : '');
+    + (called > 0 ? ' <span class="count-sub">&middot; ' + called.toLocaleString() + ' already called (resuming where you left off)</span>' : '')
+    + (callList ? ' <span class="count-sub">(Call List)</span>' : '');
 }
 
 
@@ -2520,8 +2542,12 @@ async function loadDialerLeads() {
     return;
   }
 
-  // Mark this batch as dialed so next time we resume past them (persists across sessions/reloads).
-  try { sb.from('crm_leads').update({ last_dialed_at: new Date().toISOString() }).in('id', data.map(function(l){ return l.id; })); } catch(e) {}
+  // Mark this batch as dialed so next time we resume past them (persists across sessions/reloads),
+  // then refresh the "X left to call" pill so it visibly counts down by the batch size as you dial.
+  try {
+    sb.from('crm_leads').update({ last_dialed_at: new Date().toISOString() }).in('id', data.map(function(l){ return l.id; }))
+      .then(function(){ updateDialerLeadCount(); }, function(){});
+  } catch(e) {}
 
   // Load leads into UI and dial all simultaneously
   var dialPromises = [];
