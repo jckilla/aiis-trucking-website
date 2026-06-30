@@ -13,7 +13,7 @@
  *  5. Initiate call from matching number to lead
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifySession } = require('../../lib/twilio-auth');
+const { setCorsHeaders, verifySession, getCallerIdForRequest } = require('../../lib/twilio-auth');
 
 // In-memory cache of owned numbers (refreshed every 5 min)
 let numberPoolCache = null;
@@ -182,10 +182,11 @@ module.exports = async function handler(req, res) {
 
     const targetAreaCode = extractAreaCode(e164To);
 
-    // Fixed caller ID — always use the configured default number
-    const callerId = TWILIO_DEFAULT_NUMBER;
+    // Per-agent caller ID: each rep dials from their own assigned number
+    // (profiles.twilio_caller_id), falling back to the shared default if none is set.
+    const callerId = await getCallerIdForRequest(req, TWILIO_DEFAULT_NUMBER);
 
-    console.log(`Using fixed caller ID: ${callerId}`);
+    console.log(`Caller ID: ${callerId} (agent-specific if set, else default ${TWILIO_DEFAULT_NUMBER})`);
 
     // Use the PUBLIC custom domain for Twilio webhooks. The per-deployment
     // VERCEL_URL is behind Vercel Deployment Protection (returns 302), so Twilio
