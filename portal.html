@@ -1132,16 +1132,16 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
   </div>
   <div class="sidebar-nav">
     <div class="nav-section">OPERATIONS</div>
-    <div class="nav-item active" data-page="dashboard" data-role="master"><span class="icon">&#x1F4CA;</span> Dashboard</div>
-    <div class="nav-item" data-page="pipeline" data-role="master"><span class="icon">&#x1F504;</span> Pipeline Board</div>
-    <div class="nav-item" data-page="leads" data-role="master"><span class="icon">&#x1F465;</span> All Leads</div>
+    <div class="nav-item active" data-page="dashboard" data-role="master">Dashboard</div>
+    <div class="nav-item" data-page="pipeline" data-role="master">Pipeline Board</div>
+    <div class="nav-item" data-page="leads" data-role="master">All Leads</div>
     <div class="nav-section">OUTREACH</div>
-    <div class="nav-item" data-page="dialer"><span class="icon">&#x1F4DE;</span> Parallel Dialer</div>
-    <div class="nav-item" data-page="email" data-role="master"><span class="icon">&#x1F4E7;</span> Email Campaigns</div>
-    <div class="nav-item" data-page="sms" data-role="master"><span class="icon">&#x1F4AC;</span> SMS Campaigns</div>
+    <div class="nav-item" data-page="dialer">Parallel Dialer</div>
+    <div class="nav-item" data-page="email" data-role="master">Email Campaigns</div>
+    <div class="nav-item" data-page="sms" data-role="master">SMS Campaigns</div>
     <div class="nav-section">SYSTEM</div>
-    <div class="nav-item" data-page="team" data-role="master" style="display:none;"><span class="icon">&#x1F451;</span> Team</div>
-    <div class="nav-item" data-page="settings" data-role="master"><span class="icon">&#x2699;&#xFE0F;</span> Settings</div>
+    <div class="nav-item" data-page="team" data-role="master" style="display:none;">Team</div>
+    <div class="nav-item" data-page="settings" data-role="master">Settings</div>
   </div>
   <div class="sidebar-stats">
     <div class="sidebar-stat"><span class="label">Leads</span><span class="value" id="sidebarLeads">0</span></div>
@@ -1157,7 +1157,7 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
 <div class="main-content">
   <div class="top-bar">
     <div class="search-container">
-      <span class="search-icon">&#x1F50D;</span>
+      <span class="search-icon"></span>
       <input type="text" class="search-box" id="globalSearch" placeholder="Search leads by name, company, DOT, phone...">
       <div class="search-results" id="searchResults"></div>
     </div>
@@ -1633,7 +1633,7 @@ async function renderDashboard(el) {
     html += '<div class="empty-state">No recent activity</div>';
   } else {
     recentActivity.forEach(function(a) {
-      var icon = a.type === 'call' ? '&#x1F4DE;' : a.type === 'email' ? '&#x1F4E7;' : a.type === 'sms' ? '&#x1F4AC;' : '&#x1F4DD;';
+      var icon = a.type === 'call' ? 'Call' : a.type === 'email' ? 'Email' : a.type === 'sms' ? 'SMS' : 'Note';
       html += '<div class="activity-item">';
       html += '<div class="activity-icon">' + icon + '</div>';
       html += '<div class="activity-text"><div class="desc">' + escHtml(a.description || a.type) + '</div>';
@@ -1677,7 +1677,7 @@ async function renderPipeline(el) {
         html += '<div class="' + cardClass + '" draggable="true" data-id="' + l.id + '" onclick="openLeadDetail(' + l.id + ')">';
         html += '<div class="card-company">' + escHtml(l.company_name || 'Unknown') + '</div>';
         html += '<div class="card-contact">' + escHtml(l.contact_name) + '</div>';
-        html += '<div class="card-meta"><span class="trucks">&#x1F69B; ' + (l.trucks || l.power_units || 0) + '</span><span>' + escHtml(l.state) + '</span></div>';
+        html += '<div class="card-meta"><span class="trucks">' + (l.trucks || l.power_units || 0) + '</span><span>' + escHtml(l.state) + '</span></div>';
         if (l.segment) html += '<span class="badge badge-segment" style="margin-top:6px;">' + escHtml(l.segment) + '</span>';
         html += '<div class="card-meta" style="margin-top:6px;"><span class="premium">' + fmt$(l.estimated_premium) + '</span></div>';
         if (isAutoMoved && isRecentlyMoved) html += '<div class="auto-moved-badge">Auto-moved from email reply</div>';
@@ -2060,7 +2060,7 @@ async function startSingleDial() {
   }
 
   // Place the call
-  statusEl.innerHTML = '<span style="color:var(--warning)">&#x1F4DE; Dialing ' + phone + '...</span>';
+  statusEl.innerHTML = '<span style="color:var(--warning)">Dialing ' + phone + '...</span>';
   dialBtn.style.display = 'none';
   hangupBtn.style.display = 'inline-flex';
 
@@ -2078,7 +2078,7 @@ async function startSingleDial() {
       return;
     }
     singleDialCallSid = data.callSid;
-    statusEl.innerHTML = '<span style="color:var(--info)">&#x1F50A; Ringing...</span>';
+    statusEl.innerHTML = '<span style="color:var(--info)">Ringing...</span>';
 
     // Poll for status
     var pollCount = 0;
@@ -2094,7 +2094,7 @@ async function startSingleDial() {
           var s = sd.statuses[0].status;
           if (s === 'in-progress') {
             clearInterval(pollInterval);
-            statusEl.innerHTML = '<span style="color:var(--success)">&#x2705; Connected!</span>';
+            statusEl.innerHTML = '<span style="color:var(--success)">Connected!</span>';
             timerEl.style.display = 'block';
             singleDialStartTime = Date.now();
             singleDialTimerInterval = setInterval(function() {
@@ -2149,9 +2149,9 @@ function setLineState(line, state) {
   if (!el) return;
   el.className = 'dialer-line ' + state;
   var statusEl = document.getElementById('lineStatus' + line);
-  if (state === 'ringing') { statusEl.innerHTML = '<span class="line-status active">&#x1F4DE; Ringing...</span>'; }
+  if (state === 'ringing') { statusEl.innerHTML = '<span class="line-status active">Ringing...</span>'; }
   else if (state === 'on-call') { statusEl.innerHTML = '<span class="live-indicator"><span class="dot"></span> LIVE</span>'; }
-  else if (state === 'voicemail-detected') { statusEl.innerHTML = '<span class="vm-badge">&#x1F4E9; Voicemail</span>'; }
+  else if (state === 'voicemail-detected') { statusEl.innerHTML = '<span class="vm-badge">Voicemail</span>'; }
   else if (state === 'call-ended') { statusEl.innerHTML = '<span class="line-status">Ended</span>'; }
   else if (state === 'no-answer') { statusEl.innerHTML = '<span class="line-status">No Answer</span>'; }
   else { statusEl.innerHTML = '<span class="line-status">Idle</span>'; }
@@ -2253,12 +2253,12 @@ async function renderDialer(el) {
 
   // ======== SINGLE DIALER — Manual dial any number ========
   var html = '<div style="margin-bottom:24px;padding:20px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;">';
-  html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><h3 style="margin:0;">&#x260E; Single Dialer</h3>';
+  html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><h3 style="margin:0;">Single Dialer</h3>';
   html += '<span style="font-size:12px;color:var(--text-muted);">Dial any number from (213) 721-1724</span></div>';
   html += '<div style="display:flex;gap:8px;align-items:center;">';
   html += '<input type="tel" id="singleDialNumber" placeholder="(555) 123-4567 or +15551234567" style="flex:1;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:15px;">';
-  html += '<button class="btn btn-primary" id="singleDialBtn" onclick="startSingleDial()" style="white-space:nowrap;padding:10px 20px;">&#x1F4DE; Dial</button>';
-  html += '<button class="btn btn-danger" id="singleHangupBtn" onclick="hangupSingleDial()" style="display:none;white-space:nowrap;padding:10px 20px;">&#x23F9; Hang Up</button>';
+  html += '<button class="btn btn-primary" id="singleDialBtn" onclick="startSingleDial()" style="white-space:nowrap;padding:10px 20px;">Dial</button>';
+  html += '<button class="btn btn-danger" id="singleHangupBtn" onclick="hangupSingleDial()" style="display:none;white-space:nowrap;padding:10px 20px;">Hang Up</button>';
   html += '</div>';
   html += '<div id="singleDialStatus" style="margin-top:8px;font-size:13px;color:var(--text-muted);display:none;"></div>';
   html += '<div id="singleDialTimer" style="margin-top:4px;font-size:20px;font-weight:700;color:var(--success);display:none;">00:00</div>';
@@ -2289,8 +2289,8 @@ async function renderDialer(el) {
   html += '<select id="dialerLineCount" onchange="changeDialerLineCount(this.value)">';
   [1,2,3,4,5].forEach(function(k){ html += '<option value="' + k + '"' + (k === dialerLineCount ? ' selected' : '') + '>' + k + (k === 3 ? ' (recommended)' : '') + '</option>'; });
   html += '</select></label>';
-  html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">&#x1F4DE; Start Parallel Dialer</button>';
-  html += '<button class="btn btn-danger" id="dialerStopBtn" onclick="stopDialer()" style="display:none;">&#x23F9; Stop Dialer</button>';
+  html += '<button class="btn btn-primary" id="dialerStartBtn" onclick="startDialer()">Start Parallel Dialer</button>';
+  html += '<button class="btn btn-danger" id="dialerStopBtn" onclick="stopDialer()" style="display:none;">Stop Dialer</button>';
   html += '<span id="twilioStatus" style="font-size:12px;color:var(--text-muted);margin-left:8px;"></span>';
   html += '</div>';
 
@@ -2312,13 +2312,13 @@ async function renderDialer(el) {
 
     // Hangup button (shown during live call)
     html += '<div id="lineHangup' + n + '" style="display:none;text-align:center;margin-top:8px;">';
-    html += '<button class="btn btn-danger btn-sm" onclick="hangupLiveCall(' + n + ')">&#x260E; End Call</button>';
+    html += '<button class="btn btn-danger btn-sm" onclick="hangupLiveCall(' + n + ')">End Call</button>';
     html += '</div>';
 
     // Live notes — editable DURING the call (appears the moment the call connects)
     html += '<div class="live-notes" id="lineNotesWrap' + n + '" style="display:none;">';
-    html += '<button type="button" class="book-meeting-btn" onclick="openBookMeeting(' + n + ')">&#x1F4C5; Book Meeting</button>';
-    html += '<div class="live-notes-label">&#x1F4DD; Live notes</div>';
+    html += '<button type="button" class="book-meeting-btn" onclick="openBookMeeting(' + n + ')">Book Meeting</button>';
+    html += '<div class="live-notes-label">Live notes</div>';
     html += '<textarea id="lineNotes' + n + '" placeholder="Type notes while you are on the call..."></textarea>';
     html += '</div>';
 
@@ -2342,7 +2342,7 @@ async function renderDialer(el) {
 
   // Weekly Stats (resets every Sunday)
   var weekLabel = 'Last 7 days (' + new Date(getLast7DaysStart()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' &ndash; ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ')';
-  html += '<div class="session-stats"><h3>&#x1F4CA; Last 7 Days</h3>';
+  html += '<div class="session-stats"><h3>Last 7 Days</h3>';
   html += '<div style="font-size:10px;color:var(--text-muted);margin:-4px 0 8px;">' + weekLabel + '</div>';
   html += '<div class="stat-row"><span class="stat-label">Total Dialed</span><span class="stat-value" id="statTotal">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Connected</span><span class="stat-value" id="statConnected" style="color:var(--success)">0</span></div>';
@@ -2355,12 +2355,12 @@ async function renderDialer(el) {
   html += '</div>';
 
   // Caller ID info
-  html += '<div class="number-pool-summary"><h3>&#x1F4F1; Caller ID</h3>';
+  html += '<div class="number-pool-summary"><h3>Caller ID</h3>';
   html += '<div style="font-size:12px;color:var(--text-secondary);">All calls display <strong>(213)</strong> area code<br><span style="color:var(--text-muted);font-size:11px;">+1 (213) 721-1724</span></div>';
   html += '</div>';
 
   // Call Script
-  html += '<div class="call-script"><h3>&#x1F4DD; Call Script</h3>';
+  html += '<div class="call-script"><h3>Call Script</h3>';
   html += '<div class="script-section"><div class="script-label">Intro</div><p>"Hi [Name], this is [Your Name] from AdvancedIns.ai. We specialize in commercial trucking insurance."</p></div>';
   html += '<div class="script-section"><div class="script-label">Hook</div><p>"I\'m reaching out because we work with 50+ A-rated carriers and can typically save trucking companies 15-20% on their coverage."</p></div>';
   html += '<div class="script-section"><div class="script-label">Question</div><p>"When does your current policy renew? Are you happy with your current rates?"</p></div>';
@@ -2465,7 +2465,7 @@ async function startDialer() {
     await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch(e) {
     toast('Microphone access denied — the dialer needs your mic to talk to leads', 'error');
-    statusEl.innerHTML = '<span style="color:var(--danger)">&#x274C; Microphone blocked — allow it and try again</span>';
+    statusEl.innerHTML = '<span style="color:var(--danger)">Microphone blocked — allow it and try again</span>';
     return;
   }
 
@@ -2474,11 +2474,11 @@ async function startDialer() {
   var ok = await initTwilioDevice();
   if (!ok) {
     toast('Failed to connect to Twilio — check console for errors', 'error');
-    statusEl.innerHTML = '<span style="color:var(--danger)">&#x274C; Twilio connection failed</span>';
+    statusEl.innerHTML = '<span style="color:var(--danger)">Twilio connection failed</span>';
     return;
   }
 
-  statusEl.innerHTML = '<span style="color:var(--accent)">&#x2705; Connected — calling leads...</span>';
+  statusEl.innerHTML = '<span style="color:var(--accent)">Connected — calling leads...</span>';
 
   dialerRunning = true;
   activeLiveCall = null;
@@ -3250,8 +3250,8 @@ async function previewCampaign(id) {
   html += '</div>';
 
   html += '<div style="display:flex;gap:8px">';
-  html += '<button class="btn" style="flex:1;background:var(--bg-tertiary);border:1px solid var(--border);" onclick="sendTestCampaign(' + id + ')">&#x1F4E7; Send Test to Me</button>';
-  html += '<button class="btn btn-primary" style="flex:1" onclick="sendLiveCampaign(' + id + ',' + recipientCount + ')">&#x1F680; Send to ' + recipientCount.toLocaleString() + ' Leads</button>';
+  html += '<button class="btn" style="flex:1;background:var(--bg-tertiary);border:1px solid var(--border);" onclick="sendTestCampaign(' + id + ')">Send Test to Me</button>';
+  html += '<button class="btn btn-primary" style="flex:1" onclick="sendLiveCampaign(' + id + ',' + recipientCount + ')">Send to ' + recipientCount.toLocaleString() + ' Leads</button>';
   html += '<button class="btn" style="flex:0 0 auto;padding:10px 16px;" onclick="closeModal()">Cancel</button>';
   html += '</div>';
 
@@ -3317,7 +3317,7 @@ async function renderSMSCampaigns(el) {
   var campaigns = res.data || [];
 
   var html = '<div class="page-header"><h2>SMS Campaigns</h2><p>Manage SMS outreach to leads</p></div>';
-  html += '<div class="compliance-banner">&#x26A0;&#xFE0F; All SMS messages must comply with TCPA regulations. Ensure you have proper consent before sending messages.</div>';
+  html += '<div class="compliance-banner">All SMS messages must comply with TCPA regulations. Ensure you have proper consent before sending messages.</div>';
   html += '<div style="display:flex; justify-content:flex-end; margin-bottom:16px;">';
   html += '<button class="btn btn-primary" onclick="showCreateSMSCampaignModal()">+ Create SMS Campaign</button></div>';
 
@@ -3387,26 +3387,26 @@ function renderSettings(el) {
   var html = '<div class="page-header"><h2>Settings</h2><p>Configure your CRM integrations and targets</p></div>';
   html += '<div class="settings-grid">';
 
-  html += '<div class="settings-card"><h3>&#x1F4DE; Twilio Settings</h3>';
+  html += '<div class="settings-card"><h3>Twilio Settings</h3>';
   html += '<div class="setting-field"><label>Account SID</label><input type="text" placeholder="ACxxxxxxxxxxxxxxx"></div>';
   html += '<div class="setting-field"><label>Auth Token</label><input type="password" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;"></div>';
   html += '<div class="setting-field"><label>Phone Number</label><input type="text" placeholder="+1XXXXXXXXXX"></div>';
   html += '<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="toast(\'Settings saved\')">Save</button></div>';
 
-  html += '<div class="settings-card"><h3>&#x1F4E7; Email SMTP</h3>';
+  html += '<div class="settings-card"><h3>Email SMTP</h3>';
   html += '<div class="setting-field"><label>SMTP Host</label><input type="text" placeholder="smtp.example.com"></div>';
   html += '<div class="setting-field"><label>Port</label><input type="text" placeholder="587"></div>';
   html += '<div class="setting-field"><label>Username</label><input type="text" placeholder="user@example.com"></div>';
   html += '<div class="setting-field"><label>Password</label><input type="password" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;"></div>';
   html += '<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="toast(\'Settings saved\')">Save</button></div>';
 
-  html += '<div class="settings-card"><h3>&#x1F3E2; Company Info</h3>';
+  html += '<div class="settings-card"><h3>Company Info</h3>';
   html += '<div class="setting-field"><label>Company Name</label><input type="text" value="Advanced Insurance Solutions"></div>';
   html += '<div class="setting-field"><label>Agent Name</label><input type="text" placeholder="Your Name"></div>';
   html += '<div class="setting-field"><label>License Number</label><input type="text" placeholder="License #"></div>';
   html += '<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="toast(\'Settings saved\')">Save</button></div>';
 
-  html += '<div class="settings-card"><h3>&#x1F3AF; $10M GWP Targets</h3>';
+  html += '<div class="settings-card"><h3>$10M GWP Targets</h3>';
   html += '<div class="setting-field"><label>GWP Target</label><input type="text" value="10,000,000"></div>';
   html += '<div class="setting-field"><label>Policy Target</label><input type="text" value="820"></div>';
   html += '<div class="setting-field"><label>Commission Target</label><input type="text" value="1,000,000"></div>';
@@ -3464,7 +3464,7 @@ async function openLeadDetail(id) {
 
   // Quick Actions
   html += '<div class="quick-actions">';
-  html += '<button class="btn btn-primary btn-sm" onclick="if(\''+escHtml(lead.phone)+'\') window.open(\'tel:'+escHtml(lead.phone)+'\')">&#x1F4DE; Call</button>';
+  html += '<button class="btn btn-primary btn-sm" onclick="if(\''+escHtml(lead.phone)+'\') window.open(\'tel:'+escHtml(lead.phone)+'\')">Call</button>';
   html += '<select class="btn btn-secondary btn-sm" style="appearance:auto; padding-right:24px;" onchange="changeLeadStage(' + lead.id + ', this.value)">';
   html += '<option value="">Change Stage...</option>';
   STAGES.forEach(function(s) { html += '<option value="' + s.key + '"' + (lead.stage === s.key ? ' selected' : '') + '>' + s.label + '</option>'; });
@@ -3480,7 +3480,7 @@ async function openLeadDetail(id) {
     html += '<div class="empty-state">No activity yet</div>';
   } else {
     activities.forEach(function(a) {
-      var icon = a.type === 'call' ? '&#x1F4DE;' : a.type === 'email' ? '&#x1F4E7;' : a.type === 'stage_change' ? '&#x1F504;' : '&#x1F4DD;';
+      var icon = a.type === 'call' ? 'Call' : a.type === 'email' ? 'Email' : a.type === 'stage_change' ? 'Updated' : 'Note';
       html += '<div class="activity-item">';
       html += '<div class="activity-icon">' + icon + '</div>';
       html += '<div class="activity-text"><div class="desc">' + escHtml(a.description || a.type) + '</div>';
@@ -3634,7 +3634,7 @@ async function renderTeam(el) {
   var html = '';
 
   // Add agent
-  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>➕ Add Agent</h3>';
+  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>Add Agent</h3>';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">';
   html += '<input id="newAgentName" placeholder="Full name" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
   html += '<input id="newAgentEmail" type="email" placeholder="email@advancedins.ai" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
@@ -3655,7 +3655,7 @@ async function renderTeam(el) {
     return '<td><strong>' + formatDialTime(d.sec) + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + formatDialTime(w.sec) + '</span></td>';
   }
 
-  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>📊 Performance — All Users</h3>';
+  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>Performance — All Users</h3>';
   html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">Each cell shows <strong style="color:var(--text-secondary);">today</strong> / last&nbsp;7&nbsp;days. Connect rate = connected ÷ dialed. Dial time = ringing + talking.</div>';
   html += '<div style="overflow-x:auto;"><table class="team-perf">';
   html += '<thead><tr>'
@@ -3667,7 +3667,7 @@ async function renderTeam(el) {
     var d = ag.day, w = ag.week;
     ['dialed','connected','noAnswer','voicemail','interested','booked','sec'].forEach(function(k){ totDay[k] += d[k]; totWeek[k] += w[k]; });
     html += '<tr style="border-bottom:1px solid var(--border);">';
-    html += '<td><strong>' + escHtml(p.full_name || p.email) + '</strong>' + (p.role === 'master' ? ' <span style="font-size:10px;">👑</span>' : '') + '<br><span style="color:var(--text-muted);font-size:11px;">' + escHtml(p.email) + '</span></td>';
+    html += '<td><strong>' + escHtml(p.full_name || p.email) + '</strong>' + (p.role === 'master' ? ' <span style="font-size:10px;color:var(--text-muted);">master</span>' : '') + '<br><span style="color:var(--text-muted);font-size:11px;">' + escHtml(p.email) + '</span></td>';
     html += dwCell(d.dialed, w.dialed);
     html += dwCell(d.connected, w.connected, 'var(--accent)');
     html += dwCell(d.noAnswer, w.noAnswer);
@@ -3692,13 +3692,13 @@ async function renderTeam(el) {
   html += '</tbody></table></div></div>';
 
   // Manage users (role / active / caller ID)
-  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>⚙️ Manage Users</h3>';
+  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>Manage Users</h3>';
   html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">';
   html += '<thead><tr style="text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);"><th style="padding:6px;">User</th><th>Role</th><th>Active</th><th>Caller ID</th></tr></thead><tbody>';
   profiles.forEach(function(p){
     html += '<tr style="border-bottom:1px solid var(--border);">';
     html += '<td style="padding:6px;"><strong>' + escHtml(p.full_name || p.email) + '</strong><br><span style="color:var(--text-muted);font-size:11px;">' + escHtml(p.email) + '</span></td>';
-    html += '<td>' + (p.role === 'master' ? '👑 master' : 'agent') + '</td>';
+    html += '<td>' + (p.role === 'master' ? 'master' : 'agent') + '</td>';
     html += '<td>' + (p.role === 'master' ? '—' : '<input type="checkbox" ' + (p.active ? 'checked' : '') + ' onchange="setAgentActive(\'' + p.id + '\', this.checked)">') + '</td>';
     html += '<td><input value="' + escHtml(p.twilio_caller_id || '') + '" placeholder="+1…" onchange="setAgentCallerId(\'' + p.id + '\', this.value)" style="width:120px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:12px;"></td>';
     html += '</tr>';
@@ -3707,7 +3707,7 @@ async function renderTeam(el) {
 
   // Assign leads
   var clCounts = {}; (listRes.data||[]).forEach(function(r){ if (r.call_list) clCounts[r.call_list] = (clCounts[r.call_list]||0)+1; });
-  html += '<div class="session-stats"><h3>📋 Assign Leads</h3>';
+  html += '<div class="session-stats"><h3>Assign Leads</h3>';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">';
   html += 'Assign <select id="assignList" style="padding:6px;"><option value="">Unassigned leads</option>';
   Object.keys(clCounts).sort().forEach(function(name){ html += '<option value="' + escHtml(name) + '">' + escHtml(name) + ' (' + clCounts[name] + ')</option>'; });
