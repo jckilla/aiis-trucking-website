@@ -12,8 +12,8 @@
 const twilio = require('twilio');
 const { setCorsHeaders } = require('../../lib/twilio-auth');
 
-// Veronica's personal cell for callback forwarding
-const FORWARD_NUMBER = process.env.FORWARD_NUMBER || '+16573665312';
+// All inbound callbacks are forwarded to this number.
+const FORWARD_NUMBER = '+19499698505';
 
 module.exports = async function handler(req, res) {
   setCorsHeaders(req, res);
