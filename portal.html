@@ -1137,6 +1137,7 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
     <div class="nav-item" data-page="leads" data-role="master">All Leads</div>
     <div class="nav-section">OUTREACH</div>
     <div class="nav-item" data-page="dialer">Parallel Dialer</div>
+    <div class="nav-item" data-page="calls">Call History</div>
     <div class="nav-item" data-page="email" data-role="master">Email Campaigns</div>
     <div class="nav-item" data-page="sms" data-role="master">SMS Campaigns</div>
     <div class="nav-section">SYSTEM</div>
@@ -1394,6 +1395,7 @@ async function loadPage(page) {
     case 'pipeline': await renderPipeline(el); break;
     case 'leads': await renderLeads(el); break;
     case 'dialer': await renderDialer(el); break;
+    case 'calls': await renderCallHistory(el); break;
     case 'email': await renderEmailCampaigns(el); break;
     case 'sms': await renderSMSCampaigns(el); break;
     case 'team': await renderTeam(el); break;
@@ -3561,6 +3563,59 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ==================== INIT ====================
+// ==================== CALL HISTORY ====================
+// Last 100 calls, most recent first. RLS scopes it automatically:
+// masters see the whole team's calls, agents see only their own.
+async function renderCallHistory(el) {
+  el.innerHTML = '<div class="page-header"><h2>Call History</h2><p>The last 100 calls' + (isMaster() ? ' across the team' : ' you made') + ' &mdash; most recent first.</p></div><div id="callHistoryBody">Loading&hellip;</div>';
+
+  var res = await sb.from('crm_calls')
+    .select('created_at, duration_seconds, status, disposition, agent_id, crm_leads(company_name, contact_name, phone)')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  var calls = res.data || [];
+
+  var agentName = {};
+  if (isMaster() && calls.length) {
+    try {
+      var pr = await sb.from('profiles').select('id, full_name, email');
+      (pr.data || []).forEach(function(p){ agentName[p.id] = p.full_name || p.email; });
+    } catch(e) {}
+  }
+
+  var STATUS_LABEL = { completed: 'Connected', no_answer: 'No Answer', voicemail: 'Voicemail', busy: 'Busy', failed: 'Failed', initiated: 'Initiated', ringing: 'Ringing', connected: 'Connected' };
+
+  var body = document.getElementById('callHistoryBody');
+  if (!calls.length) {
+    body.innerHTML = '<div class="session-stats"><div style="color:var(--text-muted);padding:12px;">No calls yet &mdash; they\'ll appear here as soon as you start dialing.</div></div>';
+    return;
+  }
+
+  var html = '<div class="session-stats"><div style="overflow-x:auto;"><table class="team-perf">';
+  html += '<thead><tr><th>When</th><th>Lead</th><th>Duration</th><th>Disposition</th>' + (isMaster() ? '<th>Agent</th>' : '') + '</tr></thead><tbody>';
+  calls.forEach(function(c) {
+    var d = new Date(c.created_at);
+    var when = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    var lead = c.crm_leads || {};
+    var who = escHtml(lead.contact_name || lead.company_name || '—');
+    var sub = escHtml([(lead.contact_name && lead.company_name) ? lead.company_name : '', lead.phone || ''].filter(Boolean).join(' · '));
+    var connected = (c.status === 'completed');
+    var dur = (c.duration_seconds && c.duration_seconds > 0) ? formatDialTime(c.duration_seconds) : '—';
+    var dispo = DISPO_LABEL[c.disposition] || STATUS_LABEL[c.status] || '—';
+    var dispoStyle = c.disposition === 'booked' ? ' style="color:var(--success);font-weight:600;"'
+                   : (c.disposition === 'dnc' || c.disposition === 'not_interested') ? ' style="color:var(--danger);"' : '';
+    html += '<tr>';
+    html += '<td>' + when + '</td>';
+    html += '<td><strong>' + who + '</strong>' + (sub ? '<br><span style="color:var(--text-muted);font-size:11px;">' + sub + '</span>' : '') + '</td>';
+    html += '<td' + (connected ? ' style="color:var(--accent);font-weight:600;"' : '') + '>' + dur + '</td>';
+    html += '<td' + dispoStyle + '>' + escHtml(dispo) + '</td>';
+    if (isMaster()) html += '<td>' + escHtml(agentName[c.agent_id] || '—') + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  body.innerHTML = html;
+}
+
 // ==================== TEAM / MASTER ADMIN ====================
 async function renderTeam(el) {
   if (!isMaster()) { el.innerHTML = '<div class="page-header"><h2>Team</h2><p>Master access only.</p></div>'; return; }
