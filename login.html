@@ -43,6 +43,10 @@
     .btn-signin:disabled { opacity: 0.5; cursor: not-allowed; }
     .error-message { background: rgba(255,71,87,0.08); border: 1px solid rgba(255,71,87,0.25); color: var(--danger); padding: 12px 16px; border-radius: 2px; font-size: 13px; text-align: center; display: none; }
     .error-message.visible { display: block; }
+    .error-message.ok { background: rgba(0,229,160,0.08); border-color: rgba(0,229,160,0.25); color: #00e5a0; }
+    .forgot-link { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); text-decoration: none; transition: color 0.3s; cursor: pointer; }
+    .forgot-link:hover { color: var(--accent); }
+    .forgot-link[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
     .login-footer { text-align: center; margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--border); }
     .login-footer p { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); }
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #050505; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 8px; }
@@ -109,6 +113,9 @@
         <div id="errorMsg" class="error-message d3"></div>
         <div class="d3">
           <button type="submit" class="btn-signin" id="btnSignin">SIGN IN</button>
+        </div>
+        <div class="d3" style="text-align:center;margin-top:14px;">
+          <a id="forgotLink" class="forgot-link" role="button" tabindex="0">Forgot password?</a>
         </div>
       </form>
       <div class="login-footer d4">
@@ -194,6 +201,40 @@
           btn.innerHTML = 'SIGN IN';
         }
       });
+
+      // Forgot password — sends a Supabase recovery email that lands on set-password.html
+      var forgotLink = document.getElementById('forgotLink');
+      async function sendReset() {
+        var email = document.getElementById('email').value.trim();
+        errorEl.classList.remove('visible', 'ok');
+        if (!email) {
+          errorEl.textContent = 'Enter your email address above first, then click "Forgot password?".';
+          errorEl.classList.add('visible');
+          document.getElementById('email').focus();
+          return;
+        }
+        forgotLink.setAttribute('aria-disabled', 'true');
+        forgotLink.textContent = 'Sending…';
+        try {
+          var res = await sb.auth.resetPasswordForEmail(email, {
+            redirectTo: 'https://fleet.ins2day.com/set-password.html'
+          });
+          if (res.error) throw res.error;
+          errorEl.textContent = 'If an account exists for ' + email + ', a reset link is on its way — check your inbox and spam. The link expires after about an hour.';
+          errorEl.classList.add('visible', 'ok');
+        } catch (err) {
+          console.error('Reset error:', err);
+          var msg = (err && err.message) || '';
+          errorEl.textContent = /rate|seconds|too many/i.test(msg)
+            ? 'Too many reset requests — please wait a minute and try again.'
+            : 'Could not send the reset email. Please try again shortly.';
+          errorEl.classList.add('visible');
+        }
+        forgotLink.removeAttribute('aria-disabled');
+        forgotLink.textContent = 'Forgot password?';
+      }
+      forgotLink.addEventListener('click', function(e){ e.preventDefault(); sendReset(); });
+      forgotLink.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sendReset(); } });
     });
   </script>
   <script>
