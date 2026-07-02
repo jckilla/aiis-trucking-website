@@ -1250,7 +1250,6 @@ async function loadWeeklyDialerStats() {
 }
 let dialerLeadMap = {};
 let dialerUsedIds = new Set();
-var _dialerStatesCache = null;     // cached state list (avoids re-querying on every dialer open)
 var _dialerCallListsCache = null;  // cached call lists (per user — see _dialerCallListsCacheUid)
 var _dialerCallListsCacheUid = null;  // uid the list cache was built for
 
@@ -2222,22 +2221,6 @@ async function hangupOtherLines(keepLine) {
 }
 
 async function renderDialer(el) {
-  // States dropdown — cached for the session, and NO per-state COUNT queries.
-  // (The live "X left to call of Y" already shows the count for the chosen filter.)
-  // This removes ~30-50 full-table count scans that ran on every dialer open.
-  var stateOptions = '';
-  try {
-    if (!_dialerStatesCache) {
-      var stRes = await sb.from('crm_leads').select('state').not('state', 'is', null).neq('state', '').not('phone', 'is', null).neq('phone', '').limit(2000);
-      var us = {};
-      (stRes.data || []).forEach(function(r) { us[r.state] = true; });
-      _dialerStatesCache = Object.keys(us).sort();
-    }
-    _dialerStatesCache.forEach(function(st) {
-      stateOptions += '<option value="' + st + '"' + (st === 'CA' ? ' selected' : '') + '>' + st + '</option>';
-    });
-  } catch(e) { console.error('Failed to load states:', e); }
-
   // Call Lists — cached per user. Lists are scoped by assignment: you only see lists
   // that contain leads assigned to YOU or unassigned. A list fully assigned to another
   // rep does not appear in your dropdown at all.
@@ -2275,18 +2258,11 @@ async function renderDialer(el) {
   html += '<div class="page-header"><h2>Parallel Dialer</h2>';
   html += '<p>Calls multiple leads simultaneously from (213) &mdash; first person to answer connects to you, the rest auto-drop. Pick how many lines to dial in parallel.</p></div>';
 
-  // Controls row 1: Filters
+  // Controls row 1: Call List picker + live count. The State/Segment/Stage filters were
+  // removed — every lead belongs to a curated, per-rep call list now, so the list IS the
+  // filter. Defaults to the first list in the user's dropdown.
   html += '<div class="dialer-controls" style="flex-wrap:wrap;">';
-  html += '<select id="dialerCallList" style="min-width:200px;"><option value="">All Leads (no Call List)</option>' + callListOptions + '</select>';
-  html += '<select id="dialerState" style="min-width:160px;"><option value="">All States</option>' + stateOptions + '</select>';
-  html += '<select id="dialerSegment"><option value="">All Segments</option>';
-  [['owner_operator','Owner-Operator'],['small_fleet','Small Fleet'],['commercial_lines','Commercial'],['enterprise','Enterprise']].forEach(function(seg) {
-    html += '<option value="' + seg[0] + '">' + seg[1] + '</option>';
-  });
-  html += '</select>';
-  html += '<select id="dialerStage"><option value="">All Stages</option>';
-  STAGES.forEach(function(s) { html += '<option value="' + s.key + '">' + s.label + '</option>'; });
-  html += '</select>';
+  html += '<select id="dialerCallList" style="min-width:240px;">' + (callListOptions || '<option value="">&mdash; no call lists assigned &mdash;</option>') + '</select>';
   html += '<span id="dialerLeadCount"></span>';
   html += '</div>';
 
@@ -2379,11 +2355,9 @@ async function renderDialer(el) {
 
   el.innerHTML = html;
 
-  // Update lead count on filter change
-  ['dialerCallList','dialerState','dialerSegment','dialerStage'].forEach(function(id) {
-    var sel = document.getElementById(id);
-    if (sel) sel.addEventListener('change', updateDialerLeadCount);
-  });
+  // Update lead count when the selected list changes
+  var _clSel = document.getElementById('dialerCallList');
+  if (_clSel) _clSel.addEventListener('change', updateDialerLeadCount);
   updateDialerLeadCount();
 
   // Load persistent weekly stats from database
@@ -2396,23 +2370,11 @@ async function updateDialerLeadCount() {
   if (!countEl) return;
   var callList = document.getElementById('dialerCallList') ? document.getElementById('dialerCallList').value : '';
 
-  // When a Call List is chosen it overrides the geo/segment/stage filters — disable them so it's clear.
-  ['dialerState','dialerSegment','dialerStage'].forEach(function(id){ var el = document.getElementById(id); if (el) el.disabled = !!callList; });
-
   function buildCount(neverDialedOnly) {
     var q = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('phone', 'is', null).neq('phone', '').not('do_not_call', 'is', true);
     // Same per-rep scoping as the dial pool: your leads or unassigned only.
     if (currentUser && currentUser.id) q = q.or('assigned_to.is.null,assigned_to.eq.' + currentUser.id);
-    if (callList) {
-      q = q.eq('call_list', callList);
-    } else {
-      var state = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
-      var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
-      var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
-      if (state) q = q.eq('state', state);
-      if (segment) q = q.eq('segment', segment);
-      if (stage) q = q.eq('stage', stage);
-    }
+    if (callList) q = q.eq('call_list', callList);
     if (neverDialedOnly) q = q.is('last_dialed_at', null);
     return q;
   }
@@ -2558,18 +2520,8 @@ function buildDialerQuery() {
   // Per-rep scoping: dial only leads assigned to you or unassigned — never another
   // rep's assigned leads, even if a list name is selected manually.
   if (currentUser && currentUser.id) query = query.or('assigned_to.is.null,assigned_to.eq.' + currentUser.id);
-  // A Call List is an explicit, curated set (e.g. a HubSpot import). Dial it exactly as-is and
-  // ignore the State/Segment/Stage filters — those leads often have no state/segment, so applying
-  // the default CA state filter would wrongly return zero.
-  if (callList) {
-    return query.eq('call_list', callList);
-  }
-  var stateVal = document.getElementById('dialerState') ? document.getElementById('dialerState').value : '';
-  var segment = document.getElementById('dialerSegment') ? document.getElementById('dialerSegment').value : '';
-  var stage = document.getElementById('dialerStage') ? document.getElementById('dialerStage').value : '';
-  if (stateVal) query = query.eq('state', stateVal);
-  if (segment) query = query.eq('segment', segment);
-  if (stage) query = query.eq('stage', stage);
+  // The Call List IS the filter now — every lead belongs to a curated, per-rep list.
+  if (callList) query = query.eq('call_list', callList);
   return query;
 }
 
