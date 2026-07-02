@@ -1251,7 +1251,8 @@ async function loadWeeklyDialerStats() {
 let dialerLeadMap = {};
 let dialerUsedIds = new Set();
 var _dialerStatesCache = null;     // cached state list (avoids re-querying on every dialer open)
-var _dialerCallListsCache = null;  // cached call lists
+var _dialerCallListsCache = null;  // cached call lists (per user — see _dialerCallListsCacheUid)
+var _dialerCallListsCacheUid = null;  // uid the list cache was built for
 
 // ===== Multi-user + dialer config =====
 var currentUser = null;            // supabase auth user (set in checkAuth)
@@ -2237,14 +2238,20 @@ async function renderDialer(el) {
     });
   } catch(e) { console.error('Failed to load states:', e); }
 
-  // Call Lists — cached; counts computed from the fetched rows (no extra query).
+  // Call Lists — cached per user. Lists are scoped by assignment: you only see lists
+  // that contain leads assigned to YOU or unassigned. A list fully assigned to another
+  // rep does not appear in your dropdown at all.
   var callListOptions = '';
   try {
-    if (!_dialerCallListsCache) {
-      var clRes = await sb.from('crm_leads').select('call_list').not('call_list', 'is', null).limit(5000);
+    var _clUid = (currentUser && currentUser.id) ? currentUser.id : '';
+    if (!_dialerCallListsCache || _dialerCallListsCacheUid !== _clUid) {
+      var clq = sb.from('crm_leads').select('call_list').not('call_list', 'is', null);
+      if (_clUid) clq = clq.or('assigned_to.is.null,assigned_to.eq.' + _clUid);
+      var clRes = await clq.limit(5000);
       var clc = {};
       (clRes.data || []).forEach(function(r) { if (r.call_list) clc[r.call_list] = (clc[r.call_list] || 0) + 1; });
       _dialerCallListsCache = Object.keys(clc).sort().map(function(name) { return { name: name, count: clc[name] }; });
+      _dialerCallListsCacheUid = _clUid;
     }
     _dialerCallListsCache.forEach(function(cl) {
       callListOptions += '<option value="' + escHtml(cl.name) + '">' + escHtml(cl.name) + ' (' + cl.count.toLocaleString() + ')</option>';
@@ -2394,6 +2401,8 @@ async function updateDialerLeadCount() {
 
   function buildCount(neverDialedOnly) {
     var q = sb.from('crm_leads').select('*', { count: 'exact', head: true }).not('phone', 'is', null).neq('phone', '').not('do_not_call', 'is', true);
+    // Same per-rep scoping as the dial pool: your leads or unassigned only.
+    if (currentUser && currentUser.id) q = q.or('assigned_to.is.null,assigned_to.eq.' + currentUser.id);
     if (callList) {
       q = q.eq('call_list', callList);
     } else {
@@ -2546,6 +2555,9 @@ async function stopDialer() {
 function buildDialerQuery() {
   var callList = document.getElementById('dialerCallList') ? document.getElementById('dialerCallList').value : '';
   var query = sb.from('crm_leads').select('*').not('phone', 'is', null).neq('phone', '').not('do_not_call', 'is', true);
+  // Per-rep scoping: dial only leads assigned to you or unassigned — never another
+  // rep's assigned leads, even if a list name is selected manually.
+  if (currentUser && currentUser.id) query = query.or('assigned_to.is.null,assigned_to.eq.' + currentUser.id);
   // A Call List is an explicit, curated set (e.g. a HubSpot import). Dial it exactly as-is and
   // ignore the State/Segment/Stage filters — those leads often have no state/segment, so applying
   // the default CA state filter would wrongly return zero.
