@@ -593,6 +593,18 @@ body {
 #dialerLeadCount strong { font-weight: 800; }
 #dialerLeadCount .count-sub { color: rgba(0, 229, 160, 0.62); font-weight: 600; text-shadow: none; }
 
+/* CSV import — drop zone */
+.csv-drop { border: 2px dashed var(--glass-border, var(--border)); border-radius: 14px; padding: 36px 20px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+.csv-drop:hover, .csv-drop.dragover { border-color: var(--accent-border); background: var(--accent-dim); }
+.csv-drop .csv-drop-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.csv-drop .csv-drop-sub { font-size: 12px; color: var(--text-muted); }
+.csv-map-grid { display: grid; grid-template-columns: 140px 1fr; gap: 8px 12px; align-items: center; max-width: 460px; }
+.csv-map-grid label { font-size: 12px; color: var(--text-secondary); }
+.csv-map-grid select, .csv-import-opts input[type="text"], .csv-import-opts select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; width: 100%; }
+.csv-preview { width: 100%; border-collapse: collapse; font-size: 12px; }
+.csv-preview th, .csv-preview td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.csv-preview th { color: var(--text-muted); }
+
 /* Team → per-user performance table */
 .team-perf { width: 100%; border-collapse: collapse; font-size: 13px; }
 .team-perf th, .team-perf td { padding: 8px 16px; text-align: left; white-space: nowrap; vertical-align: top; }
@@ -1135,6 +1147,7 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
     <div class="nav-item active" data-page="dashboard" data-role="master">Dashboard</div>
     <div class="nav-item" data-page="pipeline" data-role="master">Pipeline Board</div>
     <div class="nav-item" data-page="leads" data-role="master">All Leads</div>
+    <div class="nav-item" data-page="import" data-role="master">Import Leads</div>
     <div class="nav-section">OUTREACH</div>
     <div class="nav-item" data-page="dialer">Parallel Dialer</div>
     <div class="nav-item" data-page="calls">Call History</div>
@@ -1394,6 +1407,7 @@ async function loadPage(page) {
     case 'dashboard': await renderDashboard(el); break;
     case 'pipeline': await renderPipeline(el); break;
     case 'leads': await renderLeads(el); break;
+    case 'import': await renderImportLeads(el); break;
     case 'dialer': await renderDialer(el); break;
     case 'calls': await renderCallHistory(el); break;
     case 'email': await renderEmailCampaigns(el); break;
@@ -3562,7 +3576,283 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeModal();
 });
 
-// ==================== INIT ====================
+// ==================== IMPORT LEADS (CSV) ====================
+// Master-only. Buyers upload a CSV, map columns, and get a ready-to-dial call
+// list. Duplicate phones are skipped by default (checked server-side against
+// BOTH phone and cell_phone in any stored format via crm_find_existing_phones).
+var _csvImport = { rows: [], headers: [], mapping: {}, fileName: '' };
+var CSV_TARGET_FIELDS = [
+  ['contact_name', 'Contact name'],
+  ['company_name', 'Company'],
+  ['phone', 'Phone (required)'],
+  ['email', 'Email'],
+  ['city', 'City'],
+  ['state', 'State'],
+  ['zip', 'ZIP'],
+  ['notes', 'Notes']
+];
+var CSV_SYNONYMS = {
+  phone: ['phone','phonenumber','phone1','primaryphone','mobile','mobilephone','mobilenumber','cell','cellphone','telephone','tel','number','directphone','workphone'],
+  contact_name: ['name','contactname','contact','fullname','leadname','person','ownername','firstname'],
+  company_name: ['company','companyname','business','businessname','organization','organisation','org','account','employer'],
+  email: ['email','emailaddress','mail','workemail'],
+  city: ['city','town'],
+  state: ['state','st','region','province'],
+  zip: ['zip','zipcode','postal','postalcode'],
+  notes: ['notes','note','comments','comment','description','remarks']
+};
+
+// Minimal CSV parser: quoted fields, "" escapes, CRLF/LF, BOM. Returns array of row-arrays.
+function parseCSV(text) {
+  if (text && text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  var rows = [], row = [], field = '', inQ = false, i = 0, ch;
+  while (i < text.length) {
+    ch = text[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQ = false; i++; continue;
+      }
+      field += ch; i++; continue;
+    }
+    if (ch === '"') { inQ = true; i++; continue; }
+    if (ch === ',') { row.push(field); field = ''; i++; continue; }
+    if (ch === '\r') { i++; continue; }
+    if (ch === '\n') { row.push(field); field = ''; rows.push(row); row = []; i++; continue; }
+    field += ch; i++;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(function(r) { return r.some(function(c) { return String(c).trim() !== ''; }); });
+}
+
+function csvNormHeader(h) { return String(h || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function csvPrettyPhone(d10) { return '(' + d10.slice(0, 3) + ') ' + d10.slice(3, 6) + '-' + d10.slice(6); }
+
+function csvAutoMap(headers) {
+  var mapping = {}, used = {};
+  CSV_TARGET_FIELDS.forEach(function(tf) {
+    var field = tf[0], syns = CSV_SYNONYMS[field] || [];
+    for (var i = 0; i < headers.length; i++) {
+      if (used[i]) continue;
+      if (syns.indexOf(csvNormHeader(headers[i])) > -1) { mapping[field] = i; used[i] = true; break; }
+    }
+  });
+  return mapping;
+}
+
+async function renderImportLeads(el) {
+  if (!isMaster()) { el.innerHTML = '<div class="page-header"><h2>Import Leads</h2><p>Admin access only.</p></div>'; return; }
+  _csvImport = { rows: [], headers: [], mapping: {}, fileName: '' };
+
+  var html = '<div class="page-header"><h2>Import Leads</h2><p>Upload a CSV of leads, map the columns, and get a ready-to-dial call list.</p></div>';
+
+  html += '<div class="session-stats" id="csvStep1" style="margin-bottom:16px;"><h3>1 &mdash; Choose a file</h3>';
+  html += '<div class="csv-drop" id="csvDrop" style="margin-top:10px;">';
+  html += '<div class="csv-drop-title">Drop a .csv file here, or click to browse</div>';
+  html += '<div class="csv-drop-sub">First row must be column headers &middot; up to 25,000 leads per upload</div>';
+  html += '</div>';
+  html += '<input type="file" id="csvFile" accept=".csv,text/csv" style="display:none;">';
+  html += '<div style="font-size:11px;color:var(--text-muted);margin-top:8px;">Need a template? <a href="data:text/csv;charset=utf-8,' + encodeURIComponent('Name,Company,Phone,Email,City,State,Zip,Notes\nJane Smith,Acme Logistics,(555) 201-7788,jane@acme.com,Dallas,TX,75201,Referred by Tom\n') + '" download="aduna-leads-template.csv" style="color:var(--accent);">Download a sample CSV</a></div>';
+  html += '</div>';
+
+  html += '<div class="session-stats" id="csvStep2" style="margin-bottom:16px;display:none;"><h3>2 &mdash; Map your columns</h3>';
+  html += '<div id="csvFileInfo" style="font-size:12px;color:var(--text-secondary);margin:6px 0 12px;"></div>';
+  html += '<div class="csv-map-grid" id="csvMapGrid"></div>';
+  html += '<div style="margin-top:14px;overflow-x:auto;"><table class="csv-preview" id="csvPreview"></table></div>';
+  html += '</div>';
+
+  html += '<div class="session-stats csv-import-opts" id="csvStep3" style="display:none;"><h3>3 &mdash; Import</h3>';
+  html += '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">';
+  html += '<div style="min-width:220px;"><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:6px;">List name (required)</label><input type="text" id="csvListName" placeholder="e.g. March Prospects"><div id="csvListWarn" style="font-size:11px;color:var(--warning);margin-top:4px;display:none;"></div></div>';
+  html += '<div style="min-width:200px;"><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:6px;">Assign to</label><select id="csvAssign"><option value="">Unassigned (shared)</option></select></div>';
+  html += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);padding-bottom:10px;"><input type="checkbox" id="csvSkipDupes" checked> Skip phone numbers already in the CRM</label>';
+  html += '<button class="btn btn-primary" id="csvImportBtn" style="padding:10px 22px;">Import Leads</button>';
+  html += '</div>';
+  html += '<div id="csvProgress" style="display:none;margin-top:16px;max-width:460px;"><div class="progress-bar"><div class="progress-fill" id="csvProgressFill" style="width:0%"></div></div><div id="csvProgressText" style="font-size:12px;color:var(--text-muted);margin-top:6px;"></div></div>';
+  html += '<div id="csvSummary" style="display:none;margin-top:16px;"></div>';
+  html += '</div>';
+
+  el.innerHTML = html;
+
+  // Assign-to dropdown + existing list names (soft duplicate-name warning)
+  var existingLists = {};
+  try {
+    var results = await Promise.all([
+      sb.from('profiles').select('id, full_name, email, active').order('created_at'),
+      sb.from('crm_leads').select('call_list').not('call_list', 'is', null).limit(5000)
+    ]);
+    var assignSel = document.getElementById('csvAssign');
+    (results[0].data || []).filter(function(p) { return p.active !== false; }).forEach(function(p) {
+      var o = document.createElement('option'); o.value = p.id; o.textContent = p.full_name || p.email; assignSel.appendChild(o);
+    });
+    (results[1].data || []).forEach(function(r) { if (r.call_list) existingLists[r.call_list.toLowerCase()] = r.call_list; });
+  } catch (e) { console.error('Import page setup:', e); }
+
+  document.getElementById('csvListName').addEventListener('input', function() {
+    var warn = document.getElementById('csvListWarn');
+    var hit = existingLists[this.value.trim().toLowerCase()];
+    if (hit) { warn.textContent = 'A list named "' + hit + '" already exists — these leads will be added to it.'; warn.style.display = 'block'; }
+    else { warn.style.display = 'none'; }
+  });
+
+  var drop = document.getElementById('csvDrop');
+  var fileInput = document.getElementById('csvFile');
+  drop.addEventListener('click', function() { fileInput.click(); });
+  drop.addEventListener('dragover', function(e) { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', function() { drop.classList.remove('dragover'); });
+  drop.addEventListener('drop', function(e) {
+    e.preventDefault(); drop.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) csvImportHandleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', function() { if (this.files && this.files[0]) csvImportHandleFile(this.files[0]); this.value = ''; });
+  document.getElementById('csvImportBtn').addEventListener('click', runCsvImport);
+}
+
+function csvImportHandleFile(file) {
+  if (file.size > 15 * 1024 * 1024) { toast('File too large — max 15 MB', 'error'); return; }
+  var reader = new FileReader();
+  reader.onload = function() {
+    var rows = parseCSV(String(reader.result || ''));
+    if (rows.length < 2) { toast('That file has no data rows (the first row must be headers)', 'error'); return; }
+    if (rows.length - 1 > 25000) { toast('Too many rows — max 25,000 leads per upload', 'error'); return; }
+    _csvImport.rows = rows;
+    _csvImport.headers = rows[0].map(function(h) { return String(h).trim(); });
+    _csvImport.mapping = csvAutoMap(_csvImport.headers);
+    _csvImport.fileName = file.name;
+    document.getElementById('csvFileInfo').innerHTML = '<strong>' + escHtml(file.name) + '</strong> &middot; ' + (rows.length - 1).toLocaleString() + ' rows';
+    csvRenderMapping();
+    document.getElementById('csvStep2').style.display = '';
+    document.getElementById('csvStep3').style.display = '';
+    document.getElementById('csvSummary').style.display = 'none';
+  };
+  reader.onerror = function() { toast('Could not read that file', 'error'); };
+  reader.readAsText(file);
+}
+
+function csvRenderMapping() {
+  var grid = document.getElementById('csvMapGrid');
+  var opts = '<option value="">(skip)</option>';
+  _csvImport.headers.forEach(function(h, i) { opts += '<option value="' + i + '">' + escHtml(h || ('Column ' + (i + 1))) + '</option>'; });
+  var html = '';
+  CSV_TARGET_FIELDS.forEach(function(tf) {
+    html += '<label>' + tf[1] + '</label>';
+    html += '<select data-field="' + tf[0] + '">' + opts + '</select>';
+  });
+  grid.innerHTML = html;
+  grid.querySelectorAll('select').forEach(function(sel) {
+    var f = sel.getAttribute('data-field');
+    if (_csvImport.mapping[f] != null) sel.value = String(_csvImport.mapping[f]);
+    sel.addEventListener('change', function() {
+      if (this.value === '') delete _csvImport.mapping[f];
+      else _csvImport.mapping[f] = parseInt(this.value, 10);
+      csvRenderPreview();
+    });
+  });
+  csvRenderPreview();
+}
+
+function csvRenderPreview() {
+  var tbl = document.getElementById('csvPreview');
+  var fields = CSV_TARGET_FIELDS.filter(function(tf) { return _csvImport.mapping[tf[0]] != null; });
+  if (!fields.length) { tbl.innerHTML = '<tr><td style="color:var(--text-muted);">Map at least the Phone column to continue.</td></tr>'; return; }
+  var html = '<tr>' + fields.map(function(tf) { return '<th>' + tf[1] + '</th>'; }).join('') + '</tr>';
+  _csvImport.rows.slice(1, 6).forEach(function(row) {
+    html += '<tr>' + fields.map(function(tf) { return '<td>' + escHtml(String(row[_csvImport.mapping[tf[0]]] || '')) + '</td>'; }).join('') + '</tr>';
+  });
+  tbl.innerHTML = html;
+}
+
+async function runCsvImport() {
+  var btn = document.getElementById('csvImportBtn');
+  var listName = document.getElementById('csvListName').value.trim();
+  var assignTo = document.getElementById('csvAssign').value || null;
+  var skipDupes = document.getElementById('csvSkipDupes').checked;
+  if (_csvImport.mapping.phone == null) { toast('Map the Phone column first — the dialer needs a number to call', 'error'); return; }
+  if (!listName) { toast('Give this list a name', 'error'); return; }
+
+  // Build + validate rows: normalize phone, drop invalid + in-file duplicates.
+  var m = _csvImport.mapping;
+  function cell(row, f) { return m[f] != null ? String(row[m[f]] || '').trim() : ''; }
+  var items = [], invalid = 0, inFileDupes = 0, seen = {};
+  _csvImport.rows.slice(1).forEach(function(row) {
+    var digits = cell(row, 'phone').replace(/\D/g, '');
+    if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1);
+    if (!/^[2-9]\d{9}$/.test(digits)) { invalid++; return; }
+    if (seen[digits]) { inFileDupes++; return; }
+    seen[digits] = true;
+    var st = cell(row, 'state').toUpperCase();
+    items.push({
+      _norm: digits,
+      phone: csvPrettyPhone(digits),
+      contact_name: cell(row, 'contact_name') || null,
+      company_name: cell(row, 'company_name') || null,
+      email: cell(row, 'email') || null,
+      city: cell(row, 'city') || null,
+      state: (st.length === 2 ? st : (cell(row, 'state') || null)),
+      zip: cell(row, 'zip') || null,
+      notes: cell(row, 'notes') || null,
+      call_list: listName,
+      assigned_to: assignTo,
+      source: 'csv_upload',
+      lead_score: 0
+    });
+  });
+
+  if (!items.length) { toast('No importable rows — every row was missing a valid US phone number', 'error'); return; }
+
+  btn.disabled = true; btn.textContent = 'Importing…';
+  var prog = document.getElementById('csvProgress'), fill = document.getElementById('csvProgressFill'), ptext = document.getElementById('csvProgressText');
+  prog.style.display = ''; fill.style.width = '2%'; ptext.textContent = 'Preparing…';
+
+  try {
+    // Skip phones already in the CRM (matches any stored format, phone OR cell_phone).
+    var crmDupes = 0;
+    if (skipDupes) {
+      var existing = {};
+      for (var i = 0; i < items.length; i += 500) {
+        var chunk = items.slice(i, i + 500).map(function(it) { return it._norm; });
+        ptext.textContent = 'Checking for existing numbers… ' + Math.min(i + 500, items.length).toLocaleString() + ' / ' + items.length.toLocaleString();
+        var rres = await sb.rpc('crm_find_existing_phones', { p_phones: chunk });
+        if (rres.error) throw rres.error;
+        (rres.data || []).forEach(function(p) { existing[typeof p === 'string' ? p : (p && p.crm_find_existing_phones)] = true; });
+      }
+      var kept = items.filter(function(it) { return !existing[it._norm]; });
+      crmDupes = items.length - kept.length;
+      items = kept;
+    }
+
+    // Insert in batches of 500.
+    var inserted = 0;
+    for (var j = 0; j < items.length; j += 500) {
+      var batch = items.slice(j, j + 500).map(function(it) { var o = {}; for (var k in it) { if (k !== '_norm') o[k] = it[k]; } return o; });
+      var ires = await sb.from('crm_leads').insert(batch);
+      if (ires.error) throw ires.error;
+      inserted += batch.length;
+      fill.style.width = Math.round(5 + 95 * inserted / Math.max(items.length, 1)) + '%';
+      ptext.textContent = 'Importing… ' + inserted.toLocaleString() + ' / ' + items.length.toLocaleString();
+    }
+
+    fill.style.width = '100%'; ptext.textContent = 'Done';
+    _dialerCallListsCache = null;  // the new list shows up in the dialer immediately
+
+    var sm = document.getElementById('csvSummary');
+    sm.style.display = '';
+    sm.innerHTML = '<div style="padding:14px 16px;border:1px solid var(--accent-border);background:var(--accent-dim);border-radius:10px;font-size:13px;">'
+      + '<strong style="color:var(--accent);">' + inserted.toLocaleString() + ' lead' + (inserted === 1 ? '' : 's') + ' imported</strong> into "' + escHtml(listName) + '"'
+      + (crmDupes ? ' &middot; ' + crmDupes.toLocaleString() + ' skipped (already in the CRM)' : '')
+      + (inFileDupes ? ' &middot; ' + inFileDupes.toLocaleString() + ' duplicate' + (inFileDupes === 1 ? '' : 's') + ' within the file' : '')
+      + (invalid ? ' &middot; ' + invalid.toLocaleString() + ' row' + (invalid === 1 ? '' : 's') + ' without a valid US phone' : '')
+      + '<br><span style="color:var(--text-secondary);">Open the Parallel Dialer and pick "' + escHtml(listName) + '" to start calling.</span></div>';
+    toast(inserted ? 'Imported ' + inserted.toLocaleString() + ' leads' : 'Nothing imported — all rows were duplicates', inserted ? 'success' : 'error');
+  } catch (err) {
+    console.error('CSV import failed:', err);
+    toast('Import failed: ' + (err.message || 'unknown error'), 'error');
+    ptext.textContent = 'Import stopped: ' + (err.message || 'unknown error');
+    _dialerCallListsCache = null;  // earlier batches may have inserted rows — don't serve a stale list
+  }
+  btn.disabled = false; btn.textContent = 'Import Leads';
+}
+
 // ==================== CALL HISTORY ====================
 // Last 100 calls, most recent first. RLS scopes it automatically:
 // masters see the whole team's calls, agents see only their own.
