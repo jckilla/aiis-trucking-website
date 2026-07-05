@@ -2244,12 +2244,20 @@ async function renderDialer(el) {
   try {
     var _clUid = (currentUser && currentUser.id) ? currentUser.id : '';
     if (!_dialerCallListsCache || _dialerCallListsCacheUid !== _clUid) {
-      var clq = sb.from('crm_leads').select('call_list').not('call_list', 'is', null);
-      if (_clUid) clq = clq.or('assigned_to.is.null,assigned_to.eq.' + _clUid);
-      var clRes = await clq.limit(5000);
-      var clc = {};
-      (clRes.data || []).forEach(function(r) { if (r.call_list) clc[r.call_list] = (clc[r.call_list] || 0) + 1; });
-      _dialerCallListsCache = Object.keys(clc).sort().map(function(name) { return { name: name, count: clc[name] }; });
+      // Exact server-side aggregate (every list, true counts). The old 5000-row
+      // client sample silently dropped whole lists once the pool grew past it.
+      var aggRes = await sb.rpc('crm_my_call_lists');
+      if (!aggRes.error && aggRes.data && aggRes.data.length) {
+        _dialerCallListsCache = aggRes.data.map(function(r) { return { name: r.call_list, count: Number(r.n) || 0 }; });
+      } else {
+        // Fallback: legacy sample (approximate) if the RPC is unavailable.
+        var clq = sb.from('crm_leads').select('call_list').not('call_list', 'is', null);
+        if (_clUid) clq = clq.or('assigned_to.is.null,assigned_to.eq.' + _clUid);
+        var clRes = await clq.limit(5000);
+        var clc = {};
+        (clRes.data || []).forEach(function(r) { if (r.call_list) clc[r.call_list] = (clc[r.call_list] || 0) + 1; });
+        _dialerCallListsCache = Object.keys(clc).sort().map(function(name) { return { name: name, count: clc[name] }; });
+      }
       _dialerCallListsCacheUid = _clUid;
     }
     _dialerCallListsCache.forEach(function(cl) {
