@@ -6,9 +6,11 @@
  * and auto-detects interest signals to move leads through the pipeline.
  */
 const { createClient } = require('@supabase/supabase-js');
+const { readRawBody, verifySvix } = require('../../lib/svix-verify');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cqijyhudfiteivejcgox.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+const INBOUND_WEBHOOK_SECRET = process.env.RESEND_INBOUND_WEBHOOK_SECRET || process.env.RESEND_WEBHOOK_SECRET || '';
 
 // Interest detection keywords
 const INTERESTED_KEYWORDS = [
@@ -31,8 +33,26 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
+  // Read the RAW body (bodyParser disabled at the bottom of this file) for signature
+  // verification. When a secret is configured, verify and FAIL CLOSED — an unsigned inbound
+  // "reply" must not be trusted to move leads through the pipeline or write notes. Set
+  // RESEND_INBOUND_WEBHOOK_SECRET (or RESEND_WEBHOOK_SECRET) in Vercel + the Resend inbound
+  // webhook to enable this. Without it, behavior is unchanged — so configure it.
+  const rawBody = await readRawBody(req);
+  if (INBOUND_WEBHOOK_SECRET) {
+    if (!rawBody || !verifySvix(rawBody, req.headers, INBOUND_WEBHOOK_SECRET)) {
+      console.error('Inbound reply webhook: signature verification failed or raw body unavailable — rejecting.');
+      return res.status(401).json({ error: 'Invalid webhook signature' });
+    }
+  }
+
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const body = req.body;
+  let body;
+  try {
+    body = rawBody ? JSON.parse(rawBody) : req.body;
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON payload' });
+  }
 
   if (!body) {
     return res.status(400).json({ error: 'Empty request body' });
@@ -205,3 +225,8 @@ async function incrementCampaignReplyCount(sb) {
     console.error('Failed to update campaign reply count:', e.message);
   }
 }
+
+// Disable Vercel's automatic body parsing so we can read the raw body and verify the
+// Svix signature over the exact bytes. NOTE: after deploying, confirm inbound replies
+// still return 200 (send a test from the Resend inbound webhook).
+module.exports.config = { api: { bodyParser: false } };

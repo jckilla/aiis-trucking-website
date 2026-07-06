@@ -27,15 +27,11 @@ module.exports = async function handler(req, res) {
   const isVercelCron = cronSecret && cronSecret === 'Bearer ' + process.env.CRON_SECRET;
   const isApiKey = apiKey && apiKey === DIALER_API_KEY;
 
+  // Fail closed: every request MUST present the Vercel Cron bearer (CRON_SECRET) or the
+  // DIALER_API_KEY. There is no unauthenticated GET path — this endpoint returns customer
+  // PII and runs under the service-role key, which bypasses RLS.
   if (!isVercelCron && !isApiKey) {
-    // Allow GET without auth for manual trigger during development
-    if (req.method === 'GET' && !process.env.CRON_SECRET) {
-      // OK — no cron secret configured, allow manual trigger
-    } else if (req.method === 'GET') {
-      // Allow GET with API key
-    } else {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);

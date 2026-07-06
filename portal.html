@@ -1388,7 +1388,14 @@ function timeAgo(d) {
 
 function escHtml(str) {
   if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');
+}
+
+// Open a tel: dialer for a phone value carried in a data-attribute. Reading via
+// getAttribute keeps untrusted phone text out of any inline-handler JS context.
+function dialLeadPhone(btn) {
+  var p = btn && btn.getAttribute('data-phone');
+  if (p) window.open('tel:' + encodeURIComponent(p));
 }
 
 // ==================== NAVIGATION ====================
@@ -3452,7 +3459,7 @@ async function openLeadDetail(id) {
 
   // Quick Actions
   html += '<div class="quick-actions">';
-  html += '<button class="btn btn-primary btn-sm" onclick="if(\''+escHtml(lead.phone)+'\') window.open(\'tel:'+escHtml(lead.phone)+'\')">Call</button>';
+  html += '<button class="btn btn-primary btn-sm" data-phone="'+escHtml(lead.phone || '')+'" onclick="dialLeadPhone(this)">Call</button>';
   html += '<select class="btn btn-secondary btn-sm" style="appearance:auto; padding-right:24px;" onchange="changeLeadStage(' + lead.id + ', this.value)">';
   html += '<option value="">Change Stage...</option>';
   STAGES.forEach(function(s) { html += '<option value="' + s.key + '"' + (lead.stage === s.key ? ' selected' : '') + '>' + s.label + '</option>'; });

@@ -15,6 +15,24 @@ const { setCorsHeaders } = require('../../lib/twilio-auth');
 // All inbound callbacks are forwarded to this number.
 const FORWARD_NUMBER = '+19499698505';
 
+// SECURITY: this TwiML webhook is publicly reachable, so its outbound-bridge branch is
+// restricted to valid US, non-premium destinations with a valid US caller ID — mirroring
+// the checks in /api/twilio/dial — so it cannot be abused for premium/international toll
+// fraud or to echo a garbage/injected caller ID.
+const US_PHONE_REGEX = /^\+1[2-9]\d{9}$/;
+const PREMIUM_PREFIXES = ['+1900', '+1976'];
+function normalizeUsPhone(p) {
+  if (!p) return null;
+  let d = String(p).replace(/\D/g, '');
+  if (d.length === 10) d = '1' + d;
+  if (d.length === 11 && d[0] === '1') return '+' + d;
+  return null;
+}
+function isBlockedUsPhone(e164) {
+  if (!e164 || !US_PHONE_REGEX.test(e164)) return true;
+  return PREMIUM_PREFIXES.some((pre) => e164.startsWith(pre));
+}
+
 module.exports = async function handler(req, res) {
   setCorsHeaders(req, res);
   res.setHeader('Content-Type', 'text/xml');
@@ -55,8 +73,20 @@ module.exports = async function handler(req, res) {
 
   // OUTBOUND CALL — browser initiated
   if (to && to !== '' && !to.startsWith('client:')) {
+    // Restrict outbound bridging to valid US, non-premium destinations with a valid US
+    // caller ID (see the SECURITY note at the top of this file).
+    const e164To = normalizeUsPhone(to);
+    if (isBlockedUsPhone(e164To)) {
+      twiml.say({ voice: 'Polly.Joanna' }, 'This destination is not allowed.');
+      return res.status(200).send(twiml.toString());
+    }
+    const dialCallerId = normalizeUsPhone(callerId);
+    if (!dialCallerId) {
+      twiml.say({ voice: 'Polly.Joanna' }, 'A valid caller ID is required.');
+      return res.status(200).send(twiml.toString());
+    }
     if (conferenceId) {
-      const dial = twiml.dial({ callerId: callerId, timeout: 30, answerOnBridge: true });
+      const dial = twiml.dial({ callerId: dialCallerId, timeout: 30, answerOnBridge: true });
       dial.conference({
         startConferenceOnEnter: true,
         endConferenceOnExit: true,
@@ -65,7 +95,7 @@ module.exports = async function handler(req, res) {
       }, conferenceId);
     } else {
       const dial = twiml.dial({
-        callerId: callerId,
+        callerId: dialCallerId,
         timeout: 30,
         answerOnBridge: true,
         action: '/api/twilio/status'
@@ -73,7 +103,7 @@ module.exports = async function handler(req, res) {
       dial.number({
         statusCallback: '/api/twilio/status',
         statusCallbackEvent: 'initiated ringing answered completed'
-      }, to);
+      }, e164To);
     }
   } else if (to && to.startsWith('client:')) {
     // Call to agent's browser client

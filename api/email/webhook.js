@@ -12,6 +12,7 @@
  * No API key auth — this is a webhook from Resend.
  */
 const { createClient } = require('@supabase/supabase-js');
+const { readRawBody, verifySvix } = require('../../lib/svix-verify');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cqijyhudfiteivejcgox.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
@@ -26,36 +27,31 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
+  // Read the RAW body (bodyParser is disabled at the bottom of this file) so the Svix
+  // HMAC can be verified over the exact bytes Resend signed.
+  const rawBody = await readRawBody(req);
+
+  // When a signing secret is configured, verify the signature and FAIL CLOSED. If the raw
+  // body could not be captured we cannot verify, so we reject rather than accept a possibly
+  // forged event. Set RESEND_WEBHOOK_SECRET in Vercel (and in the Resend dashboard) to
+  // enable this. Without it, events are unverified (behavior unchanged) — so configure it.
+  if (RESEND_WEBHOOK_SECRET) {
+    if (!rawBody || !verifySvix(rawBody, req.headers, RESEND_WEBHOOK_SECRET)) {
+      console.error('Resend webhook: signature verification failed or raw body unavailable — rejecting.');
+      return res.status(401).json({ error: 'Invalid webhook signature' });
+    }
+  }
+
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const body = req.body;
+  let body;
+  try {
+    body = rawBody ? JSON.parse(rawBody) : req.body;
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON payload' });
+  }
 
   if (!body || !body.type) {
     return res.status(400).json({ error: 'Invalid webhook payload — missing type' });
-  }
-
-  // Optional: Validate Resend webhook signature (svix)
-  // Resend uses Svix for webhook signing. If RESEND_WEBHOOK_SECRET is set, we verify.
-  if (RESEND_WEBHOOK_SECRET) {
-    try {
-      const svixId = req.headers['svix-id'];
-      const svixTimestamp = req.headers['svix-timestamp'];
-      const svixSignature = req.headers['svix-signature'];
-
-      if (!svixId || !svixTimestamp || !svixSignature) {
-        console.warn('Missing Svix headers — rejecting webhook');
-        return res.status(401).json({ error: 'Missing webhook signature headers' });
-      }
-
-      // Basic timestamp validation (reject if older than 5 minutes)
-      const now = Math.floor(Date.now() / 1000);
-      const ts = parseInt(svixTimestamp, 10);
-      if (Math.abs(now - ts) > 300) {
-        return res.status(401).json({ error: 'Webhook timestamp too old' });
-      }
-    } catch (e) {
-      console.error('Webhook signature validation error:', e.message);
-      return res.status(401).json({ error: 'Signature validation failed' });
-    }
   }
 
   const eventType = body.type;
@@ -229,3 +225,8 @@ async function handleComplained(sb, leadId, email, data) {
     }).eq('id', leadId).catch(() => {});
   }
 }
+
+// Disable Vercel's automatic body parsing so we can read the raw body and verify the
+// Svix signature over the exact bytes. NOTE: after deploying, confirm delivery events
+// still return 200 (send a test event from the Resend dashboard).
+module.exports.config = { api: { bodyParser: false } };

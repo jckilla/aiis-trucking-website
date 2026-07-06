@@ -13,7 +13,7 @@
  */
 const { Resend } = require('resend');
 const { createClient } = require('@supabase/supabase-js');
-const { verifySession } = require('../../lib/twilio-auth');
+const { requireMaster } = require('../../lib/twilio-auth');
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cqijyhudfiteivejcgox.supabase.co';
@@ -42,8 +42,11 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Auth — require a logged-in CRM session (replaces the public static key)
-  if (!(await verifySession(req, res))) return;
+  // Auth — sending on the company's verified domain is an admin action. Require an
+  // authenticated MASTER, not just any logged-in user (an agent must not be able to emit
+  // arbitrary HTML from veronica@fleet.ins2day.com to an address of their choosing).
+  const masterUser = await requireMaster(req, res);
+  if (!masterUser) return;
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
@@ -69,9 +72,11 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
-    // TEST MODE — send single test email
+    // TEST MODE — send single test email. Always send to the authenticated master's own
+    // address (never a client-supplied arbitrary recipient), so "send test" can't be used
+    // to deliver attacker-authored HTML from the trusted domain to a chosen target.
     if (testMode) {
-      const email = testEmail || 'cohua666@gmail.com';
+      const email = masterUser.email || testEmail || 'cohua666@gmail.com';
       const html = buildEmailHtml(campaign.body_html, {
         first_name: 'Test', company: 'Test Trucking Co', city: 'Los Angeles'
       }, email);
