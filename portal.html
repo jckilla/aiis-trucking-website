@@ -570,6 +570,12 @@ body {
 .live-notes textarea:focus { border-color: var(--accent-border); }
 .book-meeting-btn { display: block; width: 100%; margin-bottom: 8px; padding: 9px 12px; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-border); border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s, box-shadow 0.2s; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .book-meeting-btn:hover { background: var(--accent); color: #000; box-shadow: 0 2px 14px rgba(0, 229, 160, 0.35); }
+.mtg-remind { margin-bottom: 10px; }
+.mtg-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
+.mtg-row { display: flex; gap: 6px; }
+.mtg-input { flex: 1; min-width: 0; padding: 7px 9px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 12px; }
+.mtg-btn { flex: 0 0 auto; padding: 7px 12px; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-border); border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 0.2s, color 0.2s; }
+.mtg-btn:hover { background: var(--accent); color: #000; }
 
 /* "X left to call of Y" — turquoise glass pill */
 #dialerLeadCount {
@@ -1151,6 +1157,7 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
     <div class="nav-section">OUTREACH</div>
     <div class="nav-item" data-page="dialer">Parallel Dialer</div>
     <div class="nav-item" data-page="calls">Call History</div>
+    <div class="nav-item" data-page="meetings">Meetings</div>
     <div class="nav-item" data-page="email" data-role="master">Email Campaigns</div>
     <div class="nav-item" data-page="sms" data-role="master">SMS Campaigns</div>
     <div class="nav-section">SYSTEM</div>
@@ -1417,6 +1424,7 @@ async function loadPage(page) {
     case 'import': await renderImportLeads(el); break;
     case 'dialer': await renderDialer(el); break;
     case 'calls': await renderCallHistory(el); break;
+    case 'meetings': await renderMeetings(el); break;
     case 'email': await renderEmailCampaigns(el); break;
     case 'sms': await renderSMSCampaigns(el); break;
     case 'team': await renderTeam(el); break;
@@ -2332,6 +2340,8 @@ async function renderDialer(el) {
     // Live notes — editable DURING the call (appears the moment the call connects)
     html += '<div class="live-notes" id="lineNotesWrap' + n + '" style="display:none;">';
     html += '<button type="button" class="book-meeting-btn" onclick="openBookMeeting(' + n + ')">Book Meeting</button>';
+    html += '<div class="mtg-remind"><label class="mtg-label" for="mtgTime' + n + '">Meeting time &mdash; text the client 1 hr before</label>';
+    html += '<div class="mtg-row"><input type="datetime-local" id="mtgTime' + n + '" class="mtg-input"><button type="button" class="mtg-btn" onclick="scheduleMeetingReminder(' + n + ')">Set reminder</button></div></div>';
     html += '<div class="live-notes-label">Live notes</div>';
     html += '<textarea id="lineNotes' + n + '" placeholder="Type notes while you are on the call..."></textarea>';
     html += '</div>';
@@ -2456,6 +2466,94 @@ function openBookMeeting(n) {
   if (lead.phone) qs.push('phone=' + encodeURIComponent(lead.phone));
   var url = 'https://meetings.hubspot.com/kaduna/demo' + (qs.length ? '?' + qs.join('&') : '');
   window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+// Schedule a 1-hour-before SMS reminder for a meeting booked on a live line.
+async function scheduleMeetingReminder(n) {
+  var lead = dialerLeadMap[n];
+  if (!lead) { toast('No lead on this line', 'error'); return; }
+  var el = document.getElementById('mtgTime' + n);
+  var val = el ? el.value : '';
+  if (!val) { toast('Pick the meeting date & time first', 'error'); return; }
+  var when = new Date(val);
+  if (isNaN(when.getTime())) { toast('That date/time looks invalid', 'error'); return; }
+  if (when.getTime() <= Date.now()) { toast('That meeting time is already in the past', 'error'); return; }
+  var phone = normalizePhoneForMatch(lead.phone || lead.cell_phone || '');
+  if (!/^\+1[2-9]\d{9}$/.test(phone)) { toast('This lead has no valid US number to text', 'error'); return; }
+  // Respect opt-outs (TCPA): never schedule a text for a lead who has opted out. The edge
+  // function re-checks this at send time too; this is fast feedback for the rep.
+  if (lead.id) {
+    var oc = await sb.from('crm_leads').select('do_not_call, do_not_text, unsubscribed').eq('id', lead.id).maybeSingle();
+    if (!oc.error && oc.data && (oc.data.do_not_call || oc.data.do_not_text || oc.data.unsubscribed)) {
+      toast('This lead has opted out of contact — no reminder set', 'error'); return;
+    }
+  }
+  var localStr = when.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  var res = await sb.from('crm_meetings').insert({
+    lead_id: lead.id || null,
+    agent_id: currentUser ? currentUser.id : null,
+    client_name: (lead.contact_name || '').trim() || null,
+    client_phone: phone,
+    meeting_at: when.toISOString(),
+    meeting_local_str: localStr,
+    reminder_offset_minutes: 60,
+    reminder_status: 'pending'
+  });
+  if (res.error) { toast('Could not set reminder: ' + res.error.message, 'error'); return; }
+  toast('Reminder set — client gets a text about 1 hr before ' + localStr, 'success');
+  if (el) el.value = '';
+}
+
+async function cancelMeeting(id) {
+  if (!confirm('Cancel this meeting reminder? The client will not be texted.')) return;
+  var res = await sb.from('crm_meetings').update({ reminder_status: 'canceled' }).eq('id', id).in('reminder_status', ['pending', 'sending']);
+  if (res.error) { toast('Could not cancel: ' + res.error.message, 'error'); return; }
+  toast('Reminder canceled', 'success');
+  renderMeetings(document.getElementById('pageContent'));
+}
+
+async function renderMeetings(el) {
+  el.innerHTML = '<div class="page-header"><h2>Meetings</h2><p>Scheduled meetings' + (isMaster() ? ' across the team' : '') + ' and their 1-hour text reminders — upcoming first.</p></div><div id="meetingsBody">Loading&hellip;</div>';
+  var res = await sb.from('crm_meetings')
+    .select('id, meeting_at, meeting_local_str, client_name, client_phone, reminder_status, agent_id, crm_leads(company_name)')
+    .order('meeting_at', { ascending: true })
+    .limit(200);
+  var rows = res.data || [];
+  var agentName = {};
+  if (isMaster() && rows.length) {
+    try { var pr = await sb.from('profiles').select('id, full_name, email'); (pr.data || []).forEach(function(p){ agentName[p.id] = p.full_name || p.email; }); } catch(e) {}
+  }
+  var STATUS = {
+    pending:  { t: 'Reminder scheduled', c: 'var(--accent)' },
+    sending:  { t: 'Sending…',       c: 'var(--accent)' },
+    sent:     { t: 'Reminder sent',      c: 'var(--success)' },
+    dryrun:   { t: 'Ready (test mode)',  c: 'var(--text-muted)' },
+    failed:   { t: 'Failed',             c: 'var(--danger)' },
+    canceled: { t: 'Canceled',           c: 'var(--text-muted)' }
+  };
+  var body = document.getElementById('meetingsBody');
+  if (!rows.length) { body.innerHTML = '<div class="session-stats"><div style="color:var(--text-muted);padding:12px;">No meetings scheduled yet. Set one from a live call using the "Set reminder" box.</div></div>'; return; }
+  var html = '<div class="session-stats"><div style="overflow-x:auto;"><table class="team-perf">';
+  html += '<thead><tr><th>Meeting</th><th>Client</th><th>Reminder</th>' + (isMaster() ? '<th>Rep</th>' : '') + '<th></th></tr></thead><tbody>';
+  rows.forEach(function(m) {
+    var d = new Date(m.meeting_at);
+    var when = m.meeting_local_str || (d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }));
+    var lead = m.crm_leads || {};
+    var who = escHtml(m.client_name || lead.company_name || '—');
+    var sub = escHtml([(lead.company_name && m.client_name) ? lead.company_name : '', m.client_phone || ''].filter(Boolean).join(' · '));
+    var st = STATUS[m.reminder_status] || { t: m.reminder_status, c: 'var(--text-muted)' };
+    var past = d.getTime() < Date.now();
+    html += '<tr' + (past ? ' style="opacity:0.55;"' : '') + '>';
+    html += '<td>' + escHtml(when) + '</td>';
+    html += '<td><strong>' + who + '</strong>' + (sub ? '<br><span style="color:var(--text-muted);font-size:11px;">' + sub + '</span>' : '') + '</td>';
+    html += '<td style="color:' + st.c + ';font-weight:600;">' + escHtml(st.t) + '</td>';
+    if (isMaster()) html += '<td>' + escHtml(agentName[m.agent_id] || '—') + '</td>';
+    var canCancel = (m.reminder_status === 'pending' || m.reminder_status === 'sending') && !past;
+    html += '<td>' + (canCancel ? '<button class="btn btn-sm btn-secondary" onclick="cancelMeeting(' + m.id + ')">Cancel</button>' : '') + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  body.innerHTML = html;
 }
 
 async function startDialer() {
