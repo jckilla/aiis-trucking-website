@@ -2480,7 +2480,15 @@ async function scheduleMeetingReminder(n) {
   if (when.getTime() <= Date.now()) { toast('That meeting time is already in the past', 'error'); return; }
   var phone = normalizePhoneForMatch(lead.phone || lead.cell_phone || '');
   if (!/^\+1[2-9]\d{9}$/.test(phone)) { toast('This lead has no valid US number to text', 'error'); return; }
-  var localStr = when.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // Respect opt-outs (TCPA): never schedule a text for a lead who has opted out. The edge
+  // function re-checks this at send time too; this is fast feedback for the rep.
+  if (lead.id) {
+    var oc = await sb.from('crm_leads').select('do_not_call, do_not_text, unsubscribed').eq('id', lead.id).maybeSingle();
+    if (!oc.error && oc.data && (oc.data.do_not_call || oc.data.do_not_text || oc.data.unsubscribed)) {
+      toast('This lead has opted out of contact — no reminder set', 'error'); return;
+    }
+  }
+  var localStr = when.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   var res = await sb.from('crm_meetings').insert({
     lead_id: lead.id || null,
     agent_id: currentUser ? currentUser.id : null,
@@ -2496,10 +2504,18 @@ async function scheduleMeetingReminder(n) {
   if (el) el.value = '';
 }
 
+async function cancelMeeting(id) {
+  if (!confirm('Cancel this meeting reminder? The client will not be texted.')) return;
+  var res = await sb.from('crm_meetings').update({ reminder_status: 'canceled' }).eq('id', id).in('reminder_status', ['pending', 'sending']);
+  if (res.error) { toast('Could not cancel: ' + res.error.message, 'error'); return; }
+  toast('Reminder canceled', 'success');
+  renderMeetings(document.getElementById('pageContent'));
+}
+
 async function renderMeetings(el) {
   el.innerHTML = '<div class="page-header"><h2>Meetings</h2><p>Scheduled meetings' + (isMaster() ? ' across the team' : '') + ' and their 1-hour text reminders — upcoming first.</p></div><div id="meetingsBody">Loading&hellip;</div>';
   var res = await sb.from('crm_meetings')
-    .select('meeting_at, meeting_local_str, client_name, client_phone, reminder_status, agent_id, crm_leads(company_name)')
+    .select('id, meeting_at, meeting_local_str, client_name, client_phone, reminder_status, agent_id, crm_leads(company_name)')
     .order('meeting_at', { ascending: true })
     .limit(200);
   var rows = res.data || [];
@@ -2518,7 +2534,7 @@ async function renderMeetings(el) {
   var body = document.getElementById('meetingsBody');
   if (!rows.length) { body.innerHTML = '<div class="session-stats"><div style="color:var(--text-muted);padding:12px;">No meetings scheduled yet. Set one from a live call using the "Set reminder" box.</div></div>'; return; }
   var html = '<div class="session-stats"><div style="overflow-x:auto;"><table class="team-perf">';
-  html += '<thead><tr><th>Meeting</th><th>Client</th><th>Reminder</th>' + (isMaster() ? '<th>Rep</th>' : '') + '</tr></thead><tbody>';
+  html += '<thead><tr><th>Meeting</th><th>Client</th><th>Reminder</th>' + (isMaster() ? '<th>Rep</th>' : '') + '<th></th></tr></thead><tbody>';
   rows.forEach(function(m) {
     var d = new Date(m.meeting_at);
     var when = m.meeting_local_str || (d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }));
@@ -2532,6 +2548,8 @@ async function renderMeetings(el) {
     html += '<td><strong>' + who + '</strong>' + (sub ? '<br><span style="color:var(--text-muted);font-size:11px;">' + sub + '</span>' : '') + '</td>';
     html += '<td style="color:' + st.c + ';font-weight:600;">' + escHtml(st.t) + '</td>';
     if (isMaster()) html += '<td>' + escHtml(agentName[m.agent_id] || '—') + '</td>';
+    var canCancel = (m.reminder_status === 'pending' || m.reminder_status === 'sending') && !past;
+    html += '<td>' + (canCancel ? '<button class="btn btn-sm btn-secondary" onclick="cancelMeeting(' + m.id + ')">Cancel</button>' : '') + '</td>';
     html += '</tr>';
   });
   html += '</tbody></table></div></div>';
