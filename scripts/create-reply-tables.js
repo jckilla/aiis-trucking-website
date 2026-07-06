@@ -40,9 +40,13 @@ const SQL_STATEMENTS = [
   // Index for date-range queries (daily summary)
   `CREATE INDEX IF NOT EXISTS idx_email_replies_received_at ON crm_email_replies(received_at);`,
 
-  // RLS policy — allow anon to insert and read
+  // RLS — these tables hold customer PII, so scope them to signed-in MASTERS only.
+  // Inbound webhook writes use the service-role key (which bypasses RLS), so no
+  // anon/authenticated write policy is needed. NEVER use "FOR ALL USING (true)" — that
+  // opens the table to the public 'anon' role shipped in the frontend.
   `ALTER TABLE crm_email_replies ENABLE ROW LEVEL SECURITY;`,
-  `CREATE POLICY IF NOT EXISTS "Allow all for anon" ON crm_email_replies FOR ALL USING (true) WITH CHECK (true);`,
+  `DROP POLICY IF EXISTS "Allow all for anon" ON crm_email_replies;`,
+  `CREATE POLICY "replies_master" ON crm_email_replies FOR ALL TO authenticated USING (is_master()) WITH CHECK (is_master());`,
 
   // Table: crm_daily_reports
   `CREATE TABLE IF NOT EXISTS crm_daily_reports (
@@ -56,9 +60,10 @@ const SQL_STATEMENTS = [
   created_at TIMESTAMPTZ DEFAULT NOW()
 );`,
 
-  // RLS policy
+  // RLS — masters only (see note above).
   `ALTER TABLE crm_daily_reports ENABLE ROW LEVEL SECURITY;`,
-  `CREATE POLICY IF NOT EXISTS "Allow all for anon" ON crm_daily_reports FOR ALL USING (true) WITH CHECK (true);`,
+  `DROP POLICY IF EXISTS "Allow all for anon" ON crm_daily_reports;`,
+  `CREATE POLICY "reports_master" ON crm_daily_reports FOR ALL TO authenticated USING (is_master()) WITH CHECK (is_master());`,
 
   // Add reply_count and bounce_count to crm_email_campaigns if not present
   `ALTER TABLE crm_email_campaigns ADD COLUMN IF NOT EXISTS reply_count INTEGER DEFAULT 0;`,
