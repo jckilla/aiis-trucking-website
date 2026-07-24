@@ -676,6 +676,166 @@
     width: 100%;
   }
 
+  /* ---------- Product demo ---------- */
+  .demo-shell { padding: 18px; }
+
+  .demo-stage {
+    position: relative;
+    min-height: 400px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .dscene {
+    position: absolute;
+    inset: 0;
+    padding: 26px 28px;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.45s ease;
+  }
+
+  .dscene.on { opacity: 1; visibility: visible; }
+
+  .dhead {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .dtitle {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  .dbody { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+
+  /* scene 1 — upload */
+  .dfile {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 18px; border-radius: 12px;
+    border: 1px dashed var(--accent-border);
+    background: var(--accent-dim);
+  }
+  .dfile .fname { font-family: var(--font-mono); font-size: 0.84rem; color: var(--accent); }
+  .dfile .frows { margin-left: auto; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+
+  .dmap { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; margin-top: 14px; }
+  .dmap .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 0.82rem; color: var(--text-secondary);
+    opacity: 0; transform: translateY(6px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .dmap .row.in { opacity: 1; transform: none; }
+  .dmap .row b { color: var(--text); font-weight: 600; }
+  .dmap .row .tick { margin-left: auto; color: var(--accent); font-weight: 700; }
+
+  /* scene 3 — hello caption */
+  .dhello {
+    margin-top: 16px; text-align: center;
+    font-size: 1.05rem; font-weight: 600; color: var(--accent);
+    opacity: 0; transition: opacity 0.4s ease;
+  }
+  .dhello.in { opacity: 1; }
+
+  /* scene 4 — notes + booking */
+  .dnotes {
+    border-radius: 11px; padding: 14px 16px; min-height: 88px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 0.9rem; color: var(--text-secondary); line-height: 1.55;
+  }
+  .dnotes .caret { color: var(--accent); }
+  .dbook {
+    margin-top: 14px; display: flex; align-items: center; gap: 12px;
+    padding: 13px 16px; border-radius: 11px;
+    border: 1px solid var(--accent-border); background: var(--accent-dim);
+    color: var(--accent); font-weight: 600; font-size: 0.92rem;
+    opacity: 0.45; transition: opacity 0.3s ease, box-shadow 0.3s ease;
+  }
+  .dbook.in { opacity: 1; box-shadow: 0 6px 26px rgba(0, 229, 160, 0.18); }
+  .dbook .chk {
+    width: 20px; height: 20px; border-radius: 50%; flex: none;
+    background: var(--accent); color: #04120c;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 700;
+  }
+  .dconfirm {
+    margin-top: 10px; font-family: var(--font-mono); font-size: 0.72rem;
+    letter-spacing: 0.06em; color: var(--text-muted);
+    opacity: 0; transition: opacity 0.4s ease;
+  }
+  .dconfirm.in { opacity: 1; }
+
+  /* scene 5 — stats */
+  .dstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .dstat {
+    padding: 18px 16px; border-radius: 12px; text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.025);
+  }
+  .dstat .v {
+    font-family: var(--font-head); font-weight: 700;
+    font-size: 1.7rem; color: var(--accent);
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .dstat .k {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-muted); margin-top: 6px;
+  }
+  .dspark { display: flex; align-items: flex-end; gap: 5px; height: 54px; margin-top: 18px; }
+  .dspark i {
+    flex: 1; border-radius: 3px 3px 0 0; height: 8%;
+    background: linear-gradient(var(--accent), var(--accent-dim));
+    transition: height 0.5s ease;
+  }
+
+  /* rail + progress */
+  .demo-rail {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 8px; margin-top: 16px;
+  }
+  .dstep {
+    appearance: none; cursor: pointer; text-align: left;
+    background: transparent; border: none; padding: 10px 4px 0;
+    border-top: 2px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted); transition: color 0.25s ease, border-color 0.25s ease;
+  }
+  .dstep:hover { color: var(--text-secondary); }
+  .dstep:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .dstep[aria-current="true"] { color: var(--text); border-top-color: var(--accent); }
+  .dstep .sn {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    letter-spacing: 0.14em; display: block; margin-bottom: 3px; color: var(--accent);
+  }
+  .dstep .sl { font-size: 0.78rem; font-weight: 600; line-height: 1.3; }
+
+  @media (max-width: 720px) {
+    .demo-rail { grid-template-columns: repeat(2, 1fr); gap: 12px 8px; }
+    .dstep .sl { font-size: 0.72rem; }
+    .dmap { grid-template-columns: 1fr; }
+    .dstats { grid-template-columns: 1fr; }
+    .demo-stage { min-height: 440px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dscene, .dmap .row, .dhello, .dbook, .dconfirm, .dspark i { transition: none; }
+  }
+
   /* ---------- Single plan ---------- */
   .plan-wrap {
     max-width: 620px;
@@ -1059,6 +1219,114 @@
     </div>
   </section>
 
+  <!-- ===================== 60-SECOND DEMO ===================== -->
+  <section id="demo" aria-labelledby="demo-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">See it work</p>
+        <h2 id="demo-title">From spreadsheet to booked meeting in 60 seconds</h2>
+        <p>The whole workflow, start to finish. No setup, no training, no manual dialing.</p>
+        <hr class="divider" />
+      </div>
+
+      <div class="demo-shell glass reveal">
+        <div class="demo-stage" id="demoStage" role="img"
+             aria-label="Product demo: uploading a lead list, dialing five lines at once, connecting to the first person who answers, booking a meeting live, and watching results update.">
+
+          <!-- 1 — Upload -->
+          <div class="dscene" data-i="0">
+            <p class="dhead">Step one</p>
+            <p class="dtitle">Drop in your lead list</p>
+            <div class="dbody">
+              <div class="dfile">
+                <span class="fname">leads_march.csv</span>
+                <span class="frows">2,314 rows</span>
+              </div>
+              <div class="dmap">
+                <div class="row"><b>Name</b> &rarr; Contact <span class="tick">&#10003;</span></div>
+                <div class="row"><b>Phone</b> &rarr; Phone <span class="tick">&#10003;</span></div>
+                <div class="row"><b>Company</b> &rarr; Company <span class="tick">&#10003;</span></div>
+                <div class="row"><b>City</b> &rarr; City <span class="tick">&#10003;</span></div>
+              </div>
+              <p class="dconfirm" id="d1confirm">Columns mapped automatically &middot; 41 duplicates skipped &middot; ready to dial</p>
+            </div>
+          </div>
+
+          <!-- 2 — Dial five -->
+          <div class="dscene" data-i="1">
+            <p class="dhead">Step two</p>
+            <p class="dtitle">Start the dialer &mdash; five lines at once</p>
+            <div class="dbody" id="d2lines">
+              <div class="line-card"><span class="pulse"></span><div class="meta"><div class="name">Dana Whitfield</div><div class="num">+1 (415) 555-0148</div></div><span class="status">Dialing</span></div>
+              <div class="line-card"><span class="pulse"></span><div class="meta"><div class="name">Marcus Reyes</div><div class="num">+1 (312) 555-0192</div></div><span class="status">Dialing</span></div>
+              <div class="line-card"><span class="pulse"></span><div class="meta"><div class="name">Priya Anand</div><div class="num">+1 (646) 555-0177</div></div><span class="status">Dialing</span></div>
+              <div class="line-card"><span class="pulse"></span><div class="meta"><div class="name">Greg Holloway</div><div class="num">+1 (206) 555-0133</div></div><span class="status">Dialing</span></div>
+              <div class="line-card"><span class="pulse"></span><div class="meta"><div class="name">Lena Ortiz</div><div class="num">+1 (305) 555-0119</div></div><span class="status">Dialing</span></div>
+            </div>
+          </div>
+
+          <!-- 3 — First human wins -->
+          <div class="dscene" data-i="2">
+            <p class="dhead">Step three</p>
+            <p class="dtitle">The first real person connects instantly</p>
+            <div class="dbody" id="d3lines">
+              <div class="line-card"><span class="pulse"></span><div class="meta"><div class="name">Dana Whitfield</div><div class="num">+1 (415) 555-0148</div></div><span class="status">Voicemail</span></div>
+              <div class="line-card"><span class="pulse"></span><div class="meta"><div class="name">Marcus Reyes</div><div class="num">+1 (312) 555-0192</div></div><span class="status">No answer</span></div>
+              <div class="line-card live"><span class="pulse"></span><div class="meta"><div class="name">Priya Anand</div><div class="num">+1 (646) 555-0177</div></div><span class="status">Connected</span></div>
+              <div class="line-card"><span class="pulse"></span><div class="meta"><div class="name">Greg Holloway</div><div class="num">+1 (206) 555-0133</div></div><span class="status">Dropped</span></div>
+              <div class="line-card"><span class="pulse"></span><div class="meta"><div class="name">Lena Ortiz</div><div class="num">+1 (305) 555-0119</div></div><span class="status">Dropped</span></div>
+              <p class="dhello" id="d3hello">&ldquo;Hello?&rdquo; &mdash; you&rsquo;re already talking. The rest hang up on their own.</p>
+            </div>
+          </div>
+
+          <!-- 4 — Book live -->
+          <div class="dscene" data-i="3">
+            <p class="dhead">Step four</p>
+            <p class="dtitle">Take notes and book the meeting on the call</p>
+            <div class="dbody">
+              <div class="dnotes"><span id="d4type"></span><span class="caret">|</span></div>
+              <div class="dbook" id="d4book">
+                <span class="chk">&#10003;</span>
+                Meeting booked &mdash; Tuesday, 2:00 PM
+              </div>
+              <p class="dconfirm" id="d4confirm">Logged to the CRM &middot; reminder text scheduled 1 hour before</p>
+            </div>
+          </div>
+
+          <!-- 5 — Results -->
+          <div class="dscene" data-i="4">
+            <p class="dhead">Step five</p>
+            <p class="dtitle">Watch the numbers climb in real time</p>
+            <div class="dbody">
+              <div class="dstats">
+                <div class="dstat"><div class="v" data-to="147">0</div><div class="k">Dials today</div></div>
+                <div class="dstat"><div class="v" data-to="38" data-suffix="%">0%</div><div class="k">Connect rate</div></div>
+                <div class="dstat"><div class="v" data-to="6">0</div><div class="k">Meetings booked</div></div>
+              </div>
+              <div class="dspark" id="d5spark" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
+              <p class="dconfirm" id="d5confirm">Same hours. Three times the conversations.</p>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="demo-rail" role="tablist" aria-label="Demo steps">
+          <button class="dstep" data-s="0" role="tab" aria-current="true"><span class="sn">01</span><span class="sl">Upload leads</span></button>
+          <button class="dstep" data-s="1" role="tab" aria-current="false"><span class="sn">02</span><span class="sl">Dial 5 at once</span></button>
+          <button class="dstep" data-s="2" role="tab" aria-current="false"><span class="sn">03</span><span class="sl">Connect instantly</span></button>
+          <button class="dstep" data-s="3" role="tab" aria-current="false"><span class="sn">04</span><span class="sl">Book live</span></button>
+          <button class="dstep" data-s="4" role="tab" aria-current="false"><span class="sn">05</span><span class="sl">See results</span></button>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:34px;">
+        <a class="btn btn-primary" href="https://meetings.hubspot.com/kaduna/demo">Get started</a>
+      </div>
+    </div>
+  </section>
+
   <!-- ===================== FEATURES ===================== -->
   <section id="features" aria-labelledby="features-title">
     <div class="wrap">
@@ -1429,6 +1697,109 @@
       });
     }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
     items.forEach(function (el) { io.observe(el); });
+  })();
+
+  // 60-second product demo — auto-plays while on screen, pauses when it isn't.
+  (function () {
+    var stage = document.getElementById('demoStage');
+    if (!stage) return;
+
+    var scenes = [].slice.call(stage.querySelectorAll('.dscene'));
+    var steps = [].slice.call(document.querySelectorAll('.dstep'));
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    var MARKS = [0, 10, 22, 36, 50, 60];         // scene boundaries, seconds
+    var NOTE = 'Interested — currently with Progressive, renews in June. Wants a callback Tuesday afternoon.';
+    var t = 0, playing = false, last = 0, shown = -1;
+
+    var d1c = document.getElementById('d1confirm');
+    var mapRows = [].slice.call(stage.querySelectorAll('.dmap .row'));
+    var d2lines = [].slice.call(stage.querySelectorAll('#d2lines .line-card'));
+    var d3lines = [].slice.call(stage.querySelectorAll('#d3lines .line-card'));
+    var d3hello = document.getElementById('d3hello');
+    var d4type = document.getElementById('d4type');
+    var d4book = document.getElementById('d4book');
+    var d4c = document.getElementById('d4confirm');
+    var d5vals = [].slice.call(stage.querySelectorAll('.dstat .v'));
+    var d5bars = [].slice.call(stage.querySelectorAll('#d5spark i'));
+    var d5c = document.getElementById('d5confirm');
+    var SPARK = [14, 26, 20, 38, 33, 48, 44, 61, 57, 74, 86, 97];
+
+    function sceneAt(time) {
+      for (var i = MARKS.length - 2; i >= 0; i--) { if (time >= MARKS[i]) return i; }
+      return 0;
+    }
+    function localP(time, i) {
+      return Math.max(0, Math.min(1, (time - MARKS[i]) / (MARKS[i + 1] - MARKS[i])));
+    }
+    function ease(x) { return 1 - Math.pow(1 - x, 3); }
+
+    function paint() {
+      var i = sceneAt(t), p = localP(t, i);
+
+      if (i !== shown) {
+        scenes.forEach(function (s, si) { s.classList.toggle('on', si === i); });
+        steps.forEach(function (b, bi) { b.setAttribute('aria-current', bi === i ? 'true' : 'false'); });
+        shown = i;
+      }
+
+      if (i === 0) {
+        mapRows.forEach(function (r, ri) { r.classList.toggle('in', p > 0.12 + ri * 0.16); });
+        if (d1c) d1c.classList.toggle('in', p > 0.78);
+      } else if (i === 1) {
+        d2lines.forEach(function (l, li) { l.style.opacity = p > li * 0.1 ? '1' : '0.25'; });
+      } else if (i === 2) {
+        d3lines.forEach(function (l, li) { l.style.opacity = p > 0.08 ? '1' : '0.3'; });
+        if (d3hello) d3hello.classList.toggle('in', p > 0.34);
+      } else if (i === 3) {
+        if (d4type) {
+          var n = Math.floor(ease(Math.min(1, p / 0.6)) * NOTE.length);
+          d4type.textContent = NOTE.slice(0, n);
+        }
+        if (d4book) d4book.classList.toggle('in', p > 0.68);
+        if (d4c) d4c.classList.toggle('in', p > 0.82);
+      } else if (i === 4) {
+        var k = ease(Math.min(1, p / 0.7));
+        d5vals.forEach(function (v) {
+          var to = +v.getAttribute('data-to') || 0;
+          v.textContent = Math.round(to * k) + (v.getAttribute('data-suffix') || '');
+        });
+        d5bars.forEach(function (b, bi) {
+          b.style.height = Math.max(8, (SPARK[bi] || 40) * k) + '%';
+        });
+        if (d5c) d5c.classList.toggle('in', p > 0.72);
+      }
+    }
+
+    function loop(ts) {
+      if (!playing) return;
+      if (!last) last = ts;
+      t += (ts - last) / 1000;
+      last = ts;
+      if (t >= 60) t = 0;              // seamless loop
+      paint();
+      requestAnimationFrame(loop);
+    }
+    function play() { if (playing || reduce) return; playing = true; last = 0; requestAnimationFrame(loop); }
+    function pause() { playing = false; last = 0; }
+
+    steps.forEach(function (b) {
+      b.addEventListener('click', function () {
+        t = MARKS[+b.getAttribute('data-s')] + 0.01;
+        paint();
+      });
+    });
+
+    // Only run while the demo is actually on screen.
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { e.isIntersecting ? play() : pause(); });
+      }, { threshold: 0.25 }).observe(stage);
+    } else {
+      play();
+    }
+
+    paint();
   })();
 </script>
 
