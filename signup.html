@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Start Free — Aduna Dialer</title>
+  <meta name="description" content="Create your Aduna Dialer workspace. $100 per seat, per month. No contract, cancel anytime." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #05070a; --accent: #00e5a0; --accent-dim: rgba(0,229,160,0.08);
+      --text: #f0f0f0; --text-secondary: #888; --text-muted: #555;
+      --danger: #ff4757; --success: #00e5a0;
+    }
+    body { font-family: 'Inter', sans-serif; background: #05070a; color: var(--text); min-height: 100vh; overflow-x: hidden; }
+    .lg-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: #05070a; }
+    .lg-blob { position: absolute; border-radius: 50%; filter: blur(72px); opacity: 0.55; will-change: transform; }
+    .lg-blob.b1 { width: 48vw; height: 48vw; left: -10vw; top: -12vw; background: radial-gradient(circle, rgba(0,255,204,0.55), transparent 62%); animation: f1 28s ease-in-out infinite; }
+    .lg-blob.b2 { width: 42vw; height: 42vw; right: -8vw; top: 4vh; background: radial-gradient(circle, rgba(0,170,255,0.45), transparent 62%); animation: f2 34s ease-in-out infinite; }
+    .lg-blob.b3 { width: 40vw; height: 40vw; left: 26vw; bottom: -16vw; background: radial-gradient(circle, rgba(139,92,246,0.40), transparent 62%); animation: f3 40s ease-in-out infinite; }
+    @keyframes f1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(9vw,7vh) scale(1.14)} }
+    @keyframes f2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-8vw,9vh) scale(1.10)} }
+    @keyframes f3 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(6vw,-7vh) scale(1.16)} }
+
+    .wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 40px 24px; }
+    .card { width: 100%; max-width: 460px; position: relative; padding: 40px 36px; border-radius: 20px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      -webkit-backdrop-filter: blur(22px) saturate(160%) brightness(1.06); backdrop-filter: blur(22px) saturate(160%) brightness(1.06);
+      border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.18); }
+    .head { text-align: center; margin-bottom: 30px; }
+    .head h1 { font-family: 'Syncopate', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+    .accent-line { width: 48px; height: 2px; background: var(--accent); margin: 0 auto 16px; }
+    .head p { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); }
+
+    .form { display: flex; flex-direction: column; gap: 16px; }
+    label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-secondary); display: block; margin-bottom: 8px; }
+    input { width: 100%; padding: 14px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px; outline: none; transition: border-color 0.3s, box-shadow 0.3s; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+    input::placeholder { color: var(--text-muted); font-size: 13px; }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .btn { width: 100%; padding: 16px; background: var(--accent); color: #050505; border: none; border-radius: 10px; font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; transition: all 0.3s; margin-top: 6px; }
+    .btn:hover:not(:disabled) { background: #00e0b4; box-shadow: 0 4px 24px rgba(0,255,204,0.3); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    .msg { padding: 12px 16px; border-radius: 8px; font-size: 13px; text-align: center; display: none; line-height: 1.5; }
+    .msg.err { background: rgba(255,71,87,0.08); border: 1px solid rgba(255,71,87,0.25); color: var(--danger); }
+    .msg.ok { background: rgba(0,229,160,0.08); border: 1px solid rgba(0,229,160,0.25); color: var(--success); }
+    .msg.visible { display: block; }
+
+    .terms { font-size: 12px; color: var(--text-muted); text-align: center; line-height: 1.6; margin-top: 4px; }
+    .foot { text-align: center; margin-top: 22px; font-size: 13px; color: var(--text-secondary); }
+    .foot a { color: var(--accent); text-decoration: none; }
+    .foot a:hover { text-decoration: underline; }
+
+    .perks { display: flex; flex-direction: column; gap: 9px; margin-bottom: 26px; padding: 16px 18px; border-radius: 12px; background: rgba(0,229,160,0.05); border: 1px solid rgba(0,229,160,0.18); }
+    .perks div { font-size: 13px; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 9px; }
+    .perks svg { width: 15px; height: 15px; stroke: var(--accent); fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; flex: none; margin-top: 3px; }
+    .perks b { color: var(--text); font-weight: 600; }
+
+    .spinner { display: inline-block; width: 15px; height: 15px; border: 2px solid #050505; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (prefers-reduced-motion: reduce) { .lg-blob { animation: none !important; } .spinner { animation-duration: 1.5s; } }
+  </style>
+</head>
+<body>
+  <div class="lg-bg" aria-hidden="true"><div class="lg-blob b1"></div><div class="lg-blob b2"></div><div class="lg-blob b3"></div></div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <h1>Start Free</h1>
+        <div class="accent-line"></div>
+        <p>Aduna Dialer &mdash; Create your workspace</p>
+      </div>
+
+      <div class="perks">
+        <div><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg><span><b>All five parallel lines</b> from day one</span></div>
+        <div><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg><span><b>$100 per seat</b>, billed monthly &mdash; cancel anytime</span></div>
+        <div><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg><span><b>Your data stays yours</b> &mdash; isolated from every other team</span></div>
+      </div>
+
+      <form class="form" id="signupForm" novalidate>
+        <div>
+          <label for="fullName">Your name</label>
+          <input type="text" id="fullName" placeholder="Alex Martinez" autocomplete="name" required />
+        </div>
+        <div>
+          <label for="company">Company</label>
+          <input type="text" id="company" placeholder="Martinez Insurance Group" autocomplete="organization" required />
+        </div>
+        <div>
+          <label for="email">Work email</label>
+          <input type="email" id="email" placeholder="you@company.com" autocomplete="email" required />
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="At least 8 characters" autocomplete="new-password" minlength="8" required />
+        </div>
+
+        <div id="msg" class="msg" role="alert"></div>
+
+        <button type="submit" class="btn" id="btn">Create my workspace</button>
+        <p class="terms">No credit card required to create your workspace. Calls are billed at carrier cost.</p>
+      </form>
+
+      <p class="foot">Already have an account? <a href="login.html">Sign in</a></p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var SUPABASE_URL = 'https://cqijyhudfiteivejcgox.supabase.co';
+      var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxaWp5aHVkZml0ZWl2ZWpjZ294Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzI5OTUsImV4cCI6MjA4OTI0ODk5NX0.08wZTXZSQvB98VEKCMLVc0EcuxleNVSOF5Fg0eKENHI';
+      var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      var form = document.getElementById('signupForm');
+      var btn = document.getElementById('btn');
+      var msg = document.getElementById('msg');
+
+      function show(text, kind) {
+        msg.textContent = text;
+        msg.className = 'msg ' + kind + ' visible';
+      }
+      function clear() { msg.className = 'msg'; msg.textContent = ''; }
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        clear();
+
+        var fullName = document.getElementById('fullName').value.trim();
+        var company = document.getElementById('company').value.trim();
+        var email = document.getElementById('email').value.trim().toLowerCase();
+        var password = document.getElementById('password').value;
+
+        if (!fullName) { show('Enter your name.', 'err'); return; }
+        if (company.length < 2) { show('Enter your company name.', 'err'); return; }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { show('Enter a valid email address.', 'err'); return; }
+        if (password.length < 8) { show('Password must be at least 8 characters.', 'err'); return; }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>CREATING&hellip;';
+
+        try {
+          var resp = await fetch(SUPABASE_URL + '/functions/v1/signup-org', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+            body: JSON.stringify({ email: email, password: password, full_name: fullName, company_name: company })
+          });
+          var data = await resp.json();
+
+          if (!resp.ok || data.error) {
+            show(data.error || 'Could not create your workspace. Please try again.', 'err');
+            btn.disabled = false; btn.innerHTML = 'Create my workspace';
+            return;
+          }
+
+          show('Workspace created. Signing you in…', 'ok');
+
+          var signIn = await sb.auth.signInWithPassword({ email: email, password: password });
+          if (signIn.error) {
+            show('Your workspace is ready. Please sign in to continue.', 'ok');
+            setTimeout(function () { window.location.href = 'login.html'; }, 1600);
+            return;
+          }
+          setTimeout(function () { window.location.href = 'portal.html'; }, 700);
+
+        } catch (err) {
+          show('Network error. Please check your connection and try again.', 'err');
+          btn.disabled = false; btn.innerHTML = 'Create my workspace';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
