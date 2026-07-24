@@ -1333,6 +1333,10 @@ async function checkAuth() {
     window.location.href = 'login.html';
     return false;
   }
+  // Take the seat for this browser (signs out any other device on this login),
+  // then watch for someone else taking it.
+  await claimSeat();
+  watchSeat();
   applyRoleUI();
   return true;
 }
@@ -1344,8 +1348,103 @@ function applyRoleUI() {
 }
 
 async function signOut() {
+  releaseSeatWatch();
   await sb.auth.signOut();
   window.location.href = 'login.html';
+}
+
+// ==================== SINGLE SESSION (one seat = one user) ====================
+// Each BROWSER gets a stable id, so several tabs on the same machine coexist, but
+// signing in from another device/browser takes the seat and signs this one out.
+// Fails OPEN by design: any error or unknown state leaves the user signed in.
+var SEAT_KEY = 'aduna_seat_id';
+var mySeatId = null, seatChannel = null, seatTimer = null;
+
+function getDeviceSeatId() {
+  try {
+    var id = localStorage.getItem(SEAT_KEY);
+    if (!id) {
+      id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+         : 'seat-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+      localStorage.setItem(SEAT_KEY, id);
+    }
+    return id;
+  } catch (e) {
+    // private mode / storage blocked — still works, just per page load
+    return 'seat-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  }
+}
+
+async function claimSeat() {
+  mySeatId = getDeviceSeatId();
+  try { await sb.rpc('claim_session', { p_session_id: mySeatId }); } catch (e) {}
+}
+
+// Only ever true for a CONFIRMED different session id.
+function seatTakenOver(activeId) {
+  return !!(activeId && mySeatId && activeId !== mySeatId);
+}
+
+function releaseSeatWatch() {
+  if (seatTimer) { clearInterval(seatTimer); seatTimer = null; }
+  if (seatChannel) { try { sb.removeChannel(seatChannel); } catch (e) {} seatChannel = null; }
+}
+
+async function signOutSeatTaken() {
+  releaseSeatWatch();
+  try { if (typeof stopDialer === 'function') stopDialer(); } catch (e) {}
+  try { if (typeof twilioDevice !== 'undefined' && twilioDevice) twilioDevice.disconnectAll(); } catch (e) {}
+
+  var o = document.createElement('div');
+  o.setAttribute('style', 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;' +
+    'background:rgba(5,7,10,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding:24px;');
+  o.innerHTML =
+    '<div style="max-width:420px;text-align:center;padding:34px 30px;border-radius:18px;' +
+      'background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02));' +
+      'border:1px solid rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.5);">' +
+      '<div style="font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#00e5a0;margin-bottom:14px;">Signed out</div>' +
+      '<div style="color:#f0f0f0;font-size:15px;line-height:1.6;margin-bottom:8px;">This account was just signed in on another device.</div>' +
+      '<div style="color:#888;font-size:13px;line-height:1.6;margin-bottom:22px;">Each seat is for one person. If this wasn\'t you, change your password.</div>' +
+      '<a href="login.html" style="display:inline-block;background:#00e5a0;color:#04120c;font-weight:700;font-size:13px;' +
+        'letter-spacing:1px;text-transform:uppercase;text-decoration:none;padding:12px 22px;border-radius:9px;">Back to sign in</a>' +
+    '</div>';
+  document.body.appendChild(o);
+
+  try { await sb.auth.signOut(); } catch (e) {}
+  setTimeout(function () { window.location.href = 'login.html'; }, 4000);
+}
+
+async function checkSeatStillMine() {
+  if (!currentUser) return;
+  try {
+    var r = await sb.from('profiles')
+      .select('active_session_id, enforce_single_session')
+      .eq('id', currentUser.id).maybeSingle();
+    if (r.error || !r.data) return;                        // fail open
+    if (r.data.enforce_single_session === false) return;   // exempted account
+    if (seatTakenOver(r.data.active_session_id)) await signOutSeatTaken();
+  } catch (e) { /* fail open */ }
+}
+
+function watchSeat() {
+  // Instant: realtime push on our own profile row.
+  try {
+    seatChannel = sb.channel('seat-' + currentUser.id)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: 'id=eq.' + currentUser.id },
+        function (payload) {
+          var row = payload && payload.new;
+          if (!row || row.enforce_single_session === false) return;
+          if (seatTakenOver(row.active_session_id)) signOutSeatTaken();
+        })
+      .subscribe();
+  } catch (e) {}
+
+  // Backstops in case realtime is unavailable: on tab focus, and every 2 minutes.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') checkSeatStillMine();
+  });
+  seatTimer = setInterval(checkSeatStillMine, 120000);
 }
 
 // ==================== HELPERS ====================

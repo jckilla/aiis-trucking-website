@@ -676,6 +676,96 @@
     width: 100%;
   }
 
+  /* ---------- Single plan ---------- */
+  .plan-wrap {
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
+  .price-card.plan {
+    text-align: center;
+    padding: 42px 36px 34px;
+  }
+
+  .price-card.plan .price {
+    font-size: clamp(2.4rem, 6vw, 3.1rem);
+    margin-bottom: 6px;
+  }
+
+  .price-card.plan .tier-desc {
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 26px;
+  }
+
+  .plan-features {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 13px 26px;
+    text-align: left;
+    margin-bottom: 28px;
+  }
+
+  .plan-foot {
+    margin-top: 16px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .billing {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    margin-top: 34px;
+  }
+
+  .billing .item {
+    padding: 26px 24px;
+  }
+
+  .billing .item .label {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .billing .item h3 {
+    font-size: 1.02rem;
+    font-weight: 600;
+    margin-bottom: 9px;
+  }
+
+  .billing .item p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+
+  .billing-note {
+    margin-top: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    max-width: 620px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  @media (max-width: 860px) {
+    .billing { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 560px) {
+    .plan-features { grid-template-columns: 1fr; }
+  }
+
   /* ---------- FAQ ---------- */
   .faq-list {
     max-width: 780px;
@@ -1109,57 +1199,61 @@
     <div class="wrap">
       <div class="section-head reveal">
         <p class="eyebrow">Pricing</p>
-        <h2 id="pricing-title">Simple plans that scale with your team</h2>
-        <p>Start solo and grow into a full calling floor. Every plan includes the core dialer.</p>
+        <h2 id="pricing-title">One plan. Every feature. No contracts.</h2>
+        <p>One price per seat, and calls billed at cost. Nothing to negotiate, nothing held back for a higher tier.</p>
         <hr class="divider" />
       </div>
 
-      <div class="pricing-grid">
+      <div class="plan-wrap">
+        <div class="price-card glass featured plan reveal">
+          <span class="badge">Everything included</span>
+          <p class="tier">Aduna Dialer</p>
+          <p class="price">$100<span>/seat &middot; month</span></p>
+          <p class="tier-desc">
+            The complete platform for every rep on your floor &mdash; including all five parallel lines.
+            Add or remove seats as your team changes.
+          </p>
 
-        <!-- Starter -->
-        <div class="price-card glass reveal">
-          <p class="tier">Starter</p>
-          <p class="price">$X<span>/mo</span></p> <!-- TODO: set real price -->
-          <p class="tier-desc">For a single rep getting started.</p>
-          <ul>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>1 user seat</li>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>1 dialing line</li>
+          <ul class="plan-features">
+            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Five parallel dialing lines</li>
             <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Local-presence caller ID</li>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Live notes + dispositions</li>
-          </ul>
-          <a class="btn btn-secondary" href="https://meetings.hubspot.com/kaduna/demo">Get started</a>
-        </div>
-
-        <!-- Pro -->
-        <div class="price-card glass featured reveal">
-          <span class="badge">Most popular</span>
-          <p class="tier">Pro</p>
-          <p class="price">$X<span>/mo</span></p> <!-- TODO: set real price -->
-          <p class="tier-desc">For closers who want more throughput.</p>
-          <ul>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Up to 3 parallel lines</li>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Per-rep analytics</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Built-in CRM</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Upload your own lead lists</li>
             <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>One-click meeting booking</li>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Resume + voicemail skip</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Automatic text reminders</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Live notes + dispositions</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Per-rep analytics</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Roles + data isolation</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Voicemail detect + skip</li>
           </ul>
+
           <a class="btn btn-primary" href="https://meetings.hubspot.com/kaduna/demo">Get started</a>
+          <p class="plan-foot">Billed monthly &middot; Cancel anytime</p>
         </div>
-
-        <!-- Team -->
-        <div class="price-card glass reveal">
-          <p class="tier">Team</p>
-          <p class="price">$X<span>/mo</span></p> <!-- TODO: set real price -->
-          <p class="tier-desc">For a full calling floor with admins.</p>
-          <ul>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Up to 5 parallel lines</li>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Multi-user, unlimited seats</li>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Roles + lead isolation</li>
-            <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>Secure Postgres backend</li>
-          </ul>
-          <a class="btn btn-secondary" href="https://meetings.hubspot.com/kaduna/demo">Get started</a>
-        </div>
-
       </div>
+
+      <div class="billing">
+        <div class="item glass reveal">
+          <p class="label">Transparent</p>
+          <h3>Calls billed at cost</h3>
+          <p>Your talk time and messaging are passed through at the carrier's own rate. We don't take a margin on your call volume, so the more you dial, the better your economics get.</p>
+        </div>
+        <div class="item glass reveal">
+          <p class="label">Fair</p>
+          <h3>Pay only for what you use</h3>
+          <p>No bundled minutes to buy up front and no overage penalties. A slow month costs less, and a heavy month never triggers a renegotiation.</p>
+        </div>
+        <div class="item glass reveal">
+          <p class="label">Predictable</p>
+          <h3>Usage you can see</h3>
+          <p>Every call is itemized in your dashboard as it happens, so you always know where you stand &mdash; no surprise invoice at the end of the month.</p>
+        </div>
+      </div>
+
+      <p class="billing-note">
+        As a guide, a rep dialing US numbers full-time typically runs about $1&ndash;2 per hour of active
+        dialing. Actual cost varies with call volume, length, and destination.
+      </p>
     </div>
   </section>
 
@@ -1201,8 +1295,33 @@
             <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
           <div class="answer">
-            From a single rep on Starter up to a full team on Team, with master admins managing everyone and
-            agents seeing only their own isolated leads. Roles keep the floor organized as you scale.
+            As many as you like &mdash; add a seat for each rep at $100 per month. Admins manage the whole floor
+            while agents see only their own leads, so the same setup works for one closer or a hundred.
+          </div>
+        </details>
+
+        <details class="faq-item glass reveal">
+          <summary>
+            What do the calls themselves cost?
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="answer">
+            Talk time, phone numbers, and text messages are billed at the carrier's cost and passed straight
+            through &mdash; we add no markup. As a guide, a rep dialing US numbers full-time typically runs about
+            $1&ndash;2 per hour of active dialing, and every call is itemized in your dashboard in real time.
+            You are never charged for minutes you didn't use.
+          </div>
+        </details>
+
+        <details class="faq-item glass reveal">
+          <summary>
+            Can two reps share one seat?
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="answer">
+            Each seat is licensed to one person. Sign-ins are single-session, so if the same login is used
+            somewhere else the earlier session is signed out automatically. That keeps shared passwords out of
+            your organization and makes sure every call, booking, and stat is credited to the rep who earned it.
           </div>
         </details>
 
