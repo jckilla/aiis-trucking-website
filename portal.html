@@ -1357,10 +1357,20 @@ async function checkAuth() {
   return true;
 }
 
+// Seats are dialer seats. On a paid plan the owner account is a free admin
+// login with no dialing seat, so the dialer is hidden for them. This is
+// presentation only - /api/twilio/token and /api/twilio/dial enforce the same
+// rule server-side, so hiding it is a courtesy, not the control.
+function ownerHasNoDialSeat() {
+  return isMaster() && !!currentAccount && currentAccount.plan !== 'internal';
+}
+
 function applyRoleUI() {
   document.querySelectorAll('[data-role="master"]').forEach(function(el) {
     el.style.display = isMaster() ? '' : 'none';
   });
+  var dialNav = document.querySelector('.nav-item[data-page="dialer"]');
+  if (dialNav) dialNav.style.display = ownerHasNoDialSeat() ? 'none' : '';
 }
 
 async function signOut() {
@@ -1487,6 +1497,9 @@ async function renderDialerDashboard(el) {
   // Reps who actually dialed in the last 7 days, not just seats that exist.
   var activeReps = Object.keys(byAgent).filter(function (k) { return byAgent[k].week.dialed > 0; }).length;
   var seatLimit = (currentAccount && currentAccount.seat_limit) || null;
+  // A seat is a DIALER. The owner account is a free admin login that cannot
+  // dial, so it is not counted against the plan.
+  var used = profiles.filter(function (p) { return p.role === 'agent'; }).length;
 
   var html = '';
   html += '<div class="page-header"><h2>Dashboard</h2><p>How your team is dialing &mdash; today and the last 7 days. Everyone on your account, in one place.</p></div>';
@@ -1496,7 +1509,7 @@ async function renderDialerDashboard(el) {
   html += '<div class="kpi-card"><div class="kpi-label">Connect Rate</div><div class="kpi-value">' + rate(today) + '</div><div class="kpi-sub">' + rate(week) + ' over 7 days</div></div>';
   html += '<div class="kpi-card"><div class="kpi-label">Talk Time Today</div><div class="kpi-value">' + formatDialTime(today.sec) + '</div><div class="kpi-sub">' + formatDialTime(week.sec) + ' in last 7 days</div></div>';
   html += '<div class="kpi-card"><div class="kpi-label">Meetings Booked</div><div class="kpi-value">' + fmtN(meetings7d) + '</div><div class="kpi-sub">Last 7 days</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Reps Dialing</div><div class="kpi-value">' + fmtN(activeReps) + (seatLimit ? ' <span style="font-size:14px;color:var(--text-muted);">/ ' + seatLimit + '</span>' : '') + '</div><div class="kpi-sub">' + (seatLimit ? 'Seats on your plan' : 'Active in last 7 days') + '</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Dialer Seats</div><div class="kpi-value">' + fmtN(used) + (seatLimit ? ' <span style="font-size:14px;color:var(--text-muted);">/ ' + seatLimit + '</span>' : '') + '</div><div class="kpi-sub">' + fmtN(activeReps) + ' dialed in last 7 days</div></div>';
   html += '<div class="kpi-card"><div class="kpi-label">Leads Loaded</div><div class="kpi-value">' + fmtN(totalLeads) + '</div><div class="kpi-sub">In your CRM</div></div>';
   html += '</div>';
 
@@ -1517,27 +1530,27 @@ async function renderDialerDashboard(el) {
   });
   html += '</div></div>';
 
-  // Add a user. Lives here (not on Team) because adding one can spend money,
+  // Add a dialer. Lives here (not on Team) because adding one can spend money,
   // and that is an owner's decision.
-  var used = profiles.length;
   var seatsLeft = seatLimit === null ? null : Math.max(seatLimit - used, 0);
-  html += '<div class="session-stats" style="margin-top:18px;"><h3>Add a User</h3>';
+  html += '<div class="session-stats" style="margin-top:18px;"><h3>Add a Dialer</h3>';
   html += '<div style="font-size:12px;color:var(--text-muted);margin:2px 0 12px;">';
   if (seatLimit === null) {
-    html += 'Using <strong style="color:var(--text-secondary);">' + used + '</strong> seats.';
+    html += 'Using <strong style="color:var(--text-secondary);">' + used + '</strong> dialer seats.';
   } else if (seatsLeft > 0) {
     html += '<strong style="color:var(--text-secondary);">' + seatsLeft + '</strong> of your ' + seatLimit
-         +  ' seats ' + (seatsLeft === 1 ? 'is' : 'are') + ' free. Adding a user costs nothing extra until they run out.';
+         +  ' dialer seats ' + (seatsLeft === 1 ? 'is' : 'are') + ' free. Adding one costs nothing extra until they run out.';
   } else {
-    html += 'All <strong style="color:var(--text-secondary);">' + seatLimit + '</strong> seats are in use. '
-         +  'Adding a user adds a seat at $100/month, prorated from today &mdash; we will show you the exact charge and ask before billing anything.';
+    html += 'All <strong style="color:var(--text-secondary);">' + seatLimit + '</strong> dialer seats are in use. '
+         +  'Adding another costs $100/month, prorated from today &mdash; we will show you the exact charge and ask before billing anything.';
   }
+  html += ' Your owner account is free and does not use a seat.';
   html += '</div>';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
   html += '<input id="dashAgentName" placeholder="Full name" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
   html += '<input id="dashAgentEmail" type="email" placeholder="email@company.com" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
   html += '<input id="dashAgentPass" type="text" placeholder="Temp password" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
-  html += '<button class="btn btn-primary btn-sm" onclick="createAgent(\'dashAgent\', function(){ renderDialerDashboard(document.getElementById(\'pageContent\')); })">Add user</button>';
+  html += '<button class="btn btn-primary btn-sm" onclick="createAgent(\'dashAgent\', function(){ renderDialerDashboard(document.getElementById(\'pageContent\')); })">Add dialer</button>';
   html += '</div>';
   html += '<div style="font-size:11px;color:var(--text-muted);margin-top:8px;">They sign in with this email and password, and can change the password afterwards.</div>';
   html += '</div>';
@@ -2554,6 +2567,19 @@ async function hangupOtherLines(keepLine) {
 }
 
 async function renderDialer(el) {
+  // Owner accounts on a paid plan have no dialing seat. The nav item is already
+  // hidden; this catches a stale hash or a bookmarked page.
+  if (ownerHasNoDialSeat()) {
+    el.innerHTML = '<div class="page-header"><h2>Parallel Dialer</h2>'
+      + '<p>Your owner account is for running the team &mdash; it doesn\'t include a dialing seat, so it isn\'t billed as one.</p></div>'
+      + '<div class="session-stats"><div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">'
+      + 'If you want to dial as well, add yourself as a dialer from the '
+      + '<a href="#" onclick="goToDashboard();return false;" style="color:var(--accent);">Dashboard</a> '
+      + 'using a different email address. That adds a seat to your plan.'
+      + '</div></div>';
+    return;
+  }
+
   // Call Lists — cached per user. Lists are scoped by assignment: you only see lists
   // that contain leads assigned to YOU or unassigned. A list fully assigned to another
   // rep does not appear in your dropdown at all.
@@ -4370,10 +4396,10 @@ async function renderTeam(el) {
     html += '<button class="btn btn-primary btn-sm" onclick="createAgent(\'newAgent\')">Create Login</button>';
     html += '</div><div style="font-size:11px;color:var(--text-muted);margin-top:6px;">The agent signs in at the portal with this email + password.</div></div>';
   } else {
-    html += '<div class="session-stats" style="margin-bottom:16px;"><h3>Add a User</h3>';
-    html += '<div style="font-size:12px;color:var(--text-muted);margin-top:6px;">Users are added from the '
+    html += '<div class="session-stats" style="margin-bottom:16px;"><h3>Add a Dialer</h3>';
+    html += '<div style="font-size:12px;color:var(--text-muted);margin-top:6px;">Dialers are added from the '
          +  '<a href="#" onclick="goToDashboard();return false;" style="color:var(--accent);">Dashboard</a>, '
-         +  'where you can see your seat usage and what a new seat will cost.</div></div>';
+         +  'where you can see your seat usage and what a new seat will cost. Your owner account is free and doesn\'t use a seat.</div></div>';
   }
 
   // Per-user performance metrics (today / this week)

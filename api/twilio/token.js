@@ -4,7 +4,7 @@
  * The browser uses this to register as a softphone.
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifySession } = require('../../lib/twilio-auth');
+const { setCorsHeaders, verifySession, assertCanDial } = require('../../lib/twilio-auth');
 
 module.exports = async function handler(req, res) {
   // CORS
@@ -14,6 +14,9 @@ module.exports = async function handler(req, res) {
 
   // Auth — require a logged-in CRM session
   if (!(await verifySession(req, res))) return;
+
+  // Seats are dialer seats: the owner account does not get a softphone.
+  if (!(await assertCanDial(req, res))) return;
 
   const {
     TWILIO_ACCOUNT_SID,

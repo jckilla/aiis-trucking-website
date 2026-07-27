@@ -13,7 +13,7 @@
  *  5. Initiate call from matching number to lead
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifySession, getCallerIdForRequest } = require('../../lib/twilio-auth');
+const { setCorsHeaders, verifySession, assertCanDial, getCallerIdForRequest } = require('../../lib/twilio-auth');
 
 // In-memory cache of owned numbers (refreshed every 5 min)
 let numberPoolCache = null;
@@ -132,6 +132,9 @@ module.exports = async function handler(req, res) {
 
   // Auth — require a logged-in CRM session
   if (!(await verifySession(req, res))) return;
+
+  // Placing calls costs money; gate it on the same rule as the softphone.
+  if (!(await assertCanDial(req, res))) return;
 
   const {
     TWILIO_ACCOUNT_SID,
