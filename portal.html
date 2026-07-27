@@ -1277,6 +1277,7 @@ var _dialerCallListsCacheUid = null;  // uid the list cache was built for
 // ===== Multi-user + dialer config =====
 var currentUser = null;            // supabase auth user (set in checkAuth)
 var currentProfile = null;         // public.profiles row (role, active, ...)
+var currentAccount = null;         // my_account_status(): org_name, plan, active, seat_limit
 var agentIdentity = 'aiis-agent';  // unique Twilio Client identity per agent
 var dialerLineCount = 3;           // parallel dials, 1-5 (default 3)
 var lineDialTimes = {};            // line -> dial-start ms (for dial_seconds)
@@ -1333,6 +1334,21 @@ async function checkAuth() {
     window.location.href = 'login.html';
     return false;
   }
+  // Subscription gate. auth_org_id() resolves to NULL for a deactivated org, so
+  // every table would come back empty; without this the customer sees a working
+  // app with no data and assumes it is broken. my_account_status() deliberately
+  // bypasses that gate so we can explain why.
+  // Fails OPEN: a transient RPC error must never lock out a paying customer.
+  // Nothing is trusted to the client here — the real enforcement is in RLS.
+  try {
+    var stRes = await sb.rpc('my_account_status');
+    currentAccount = (stRes.data && stRes.data[0]) || null;
+    if (currentAccount && currentAccount.active === false) {
+      showSubscriptionInactive();
+      return false;
+    }
+  } catch (e) { /* fail open */ }
+
   // Take the seat for this browser (signs out any other device on this login),
   // then watch for someone else taking it.
   await claimSeat();
@@ -1412,6 +1428,151 @@ async function signOutSeatTaken() {
 
   try { await sb.auth.signOut(); } catch (e) {}
   setTimeout(function () { window.location.href = 'login.html'; }, 4000);
+}
+
+// ==================== OWNER DASHBOARD (dialer metrics) ====================
+// The account owner's single view of how the whole team is dialing. Everything
+// here is org-scoped by RLS, so a master only ever sees their own tenant.
+async function renderDialerDashboard(el) {
+  el.innerHTML = '<div class="empty-state">Loading dashboard&hellip;</div>';
+
+  var DAYS = 14;
+  var since = new Date(Date.now() - DAYS * 86400000).toISOString();
+  var weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+
+  var _safe = function (p) { return p.then(function (r) { return r; }, function (e) { return { error: e, data: null, count: 0 }; }); };
+  var res = await Promise.all([
+    _safe(sb.from('crm_calls').select('agent_id, status, disposition, outcome, dial_seconds, duration_seconds, created_at').gte('created_at', since).limit(20000)),
+    _safe(sb.from('profiles').select('id, email, full_name, role, active')),
+    _safe(sb.from('crm_leads').select('*', { count: 'exact', head: true })),
+    _safe(sb.from('crm_meetings').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo))
+  ]);
+
+  var calls = res[0].data || [];
+  var profiles = (res[1].data || []).filter(function (p) { return p.active !== false; });
+  var totalLeads = res[2].count || 0;
+  var meetings7d = res[3].count || 0;
+
+  var todayStartMs = (function () { var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(); })();
+  var weekAgoMs = Date.now() - 7 * 86400000;
+
+  function blank() { return { dialed: 0, connected: 0, interested: 0, booked: 0, sec: 0 }; }
+  function bump(m, c) {
+    m.dialed++;
+    if (c.status === 'completed') m.connected++;
+    if (c.outcome === 'interested' || c.outcome === 'quote_requested' || c.disposition === 'booked') m.interested++;
+    if (c.disposition === 'booked') m.booked++;
+    m.sec += (c.dial_seconds || 0) + (c.duration_seconds || 0);
+  }
+
+  var today = blank(), week = blank(), byAgent = {}, byDay = {};
+  for (var i = 0; i < DAYS; i++) {
+    var d = new Date(Date.now() - i * 86400000);
+    byDay[d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate()] = 0;
+  }
+
+  calls.forEach(function (c) {
+    var t = new Date(c.created_at).getTime();
+    var a = c.agent_id || 'unassigned';
+    if (!byAgent[a]) byAgent[a] = { day: blank(), week: blank() };
+    if (t >= weekAgoMs) { bump(week, c); bump(byAgent[a].week, c); }
+    if (t >= todayStartMs) { bump(today, c); bump(byAgent[a].day, c); }
+    var dd = new Date(c.created_at);
+    var key = dd.getFullYear() + '-' + (dd.getMonth() + 1) + '-' + dd.getDate();
+    if (key in byDay) byDay[key]++;
+  });
+
+  function rate(m) { return m.dialed ? Math.round(100 * m.connected / m.dialed) + '%' : '—'; }
+
+  // Reps who actually dialed in the last 7 days, not just seats that exist.
+  var activeReps = Object.keys(byAgent).filter(function (k) { return byAgent[k].week.dialed > 0; }).length;
+  var seatLimit = (currentAccount && currentAccount.seat_limit) || null;
+
+  var html = '';
+  html += '<div class="page-header"><h2>Dashboard</h2><p>How your team is dialing &mdash; today and the last 7 days. Everyone on your account, in one place.</p></div>';
+
+  html += '<div class="kpi-grid">';
+  html += '<div class="kpi-card highlighted"><div class="kpi-label">Calls Today</div><div class="kpi-value">' + fmtN(today.dialed) + '</div><div class="kpi-sub">' + fmtN(week.dialed) + ' in last 7 days</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Connect Rate</div><div class="kpi-value">' + rate(today) + '</div><div class="kpi-sub">' + rate(week) + ' over 7 days</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Talk Time Today</div><div class="kpi-value">' + formatDialTime(today.sec) + '</div><div class="kpi-sub">' + formatDialTime(week.sec) + ' in last 7 days</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Meetings Booked</div><div class="kpi-value">' + fmtN(meetings7d) + '</div><div class="kpi-sub">Last 7 days</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Reps Dialing</div><div class="kpi-value">' + fmtN(activeReps) + (seatLimit ? ' <span style="font-size:14px;color:var(--text-muted);">/ ' + seatLimit + '</span>' : '') + '</div><div class="kpi-sub">' + (seatLimit ? 'Seats on your plan' : 'Active in last 7 days') + '</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-label">Leads Loaded</div><div class="kpi-value">' + fmtN(totalLeads) + '</div><div class="kpi-sub">In your CRM</div></div>';
+  html += '</div>';
+
+  // Daily call volume, oldest to newest.
+  var dayKeys = Object.keys(byDay).reverse();
+  var maxDay = Math.max.apply(null, dayKeys.map(function (k) { return byDay[k]; }).concat([1]));
+  html += '<div class="session-stats" style="margin-top:18px;"><h3>Call Volume &mdash; Last 14 Days</h3>';
+  html += '<div style="display:flex;align-items:flex-end;gap:5px;height:130px;margin-top:14px;">';
+  dayKeys.forEach(function (k) {
+    var v = byDay[k];
+    var pct = Math.round((v / maxDay) * 100);
+    var parts = k.split('-');
+    html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;" title="' + escHtml(parts[1] + '/' + parts[2] + ': ' + v + ' calls') + '">'
+         +    '<div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">' + (v || '') + '</div>'
+         +    '<div style="width:100%;height:' + Math.max(pct, 2) + '%;background:var(--accent);opacity:' + (v ? '.85' : '.18') + ';border-radius:4px 4px 0 0;"></div>'
+         +    '<div style="font-size:10px;color:var(--text-muted);margin-top:5px;">' + parts[1] + '/' + parts[2] + '</div>'
+         +  '</div>';
+  });
+  html += '</div></div>';
+
+  // Per-rep leaderboard, busiest first.
+  html += '<div class="session-stats" style="margin-top:18px;"><h3>By Rep</h3>';
+  html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">Each cell shows <strong style="color:var(--text-secondary);">today</strong> / last&nbsp;7&nbsp;days.</div>';
+  html += '<div style="overflow-x:auto;"><table class="team-perf">';
+  html += '<thead><tr><th>Rep</th><th>Dialed</th><th>Connected</th><th>Connect&nbsp;Rate</th><th>Interested</th><th>Booked</th><th>Dial&nbsp;Time</th></tr></thead><tbody>';
+
+  var ranked = profiles.slice().sort(function (a, b) {
+    return ((byAgent[b.id] && byAgent[b.id].week.dialed) || 0) - ((byAgent[a.id] && byAgent[a.id].week.dialed) || 0);
+  });
+
+  if (!ranked.length) {
+    html += '<tr><td colspan="7" style="color:var(--text-muted);">No users yet.</td></tr>';
+  }
+  ranked.forEach(function (p) {
+    var ag = byAgent[p.id] || { day: blank(), week: blank() };
+    var d = ag.day, w = ag.week;
+    function cell(dv, wv, color) {
+      return '<td><strong' + (color ? ' style="color:' + color + ';"' : '') + '>' + dv + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + wv + '</span></td>';
+    }
+    html += '<tr style="border-bottom:1px solid var(--border);">';
+    html += '<td><strong>' + escHtml(p.full_name || p.email) + '</strong>' + (p.role === 'master' ? ' <span style="font-size:10px;color:var(--text-muted);">owner</span>' : '') + '</td>';
+    html += cell(d.dialed.toLocaleString(), w.dialed.toLocaleString());
+    html += cell(d.connected.toLocaleString(), w.connected.toLocaleString(), 'var(--accent)');
+    html += cell(rate(d), rate(w));
+    html += cell(d.interested.toLocaleString(), w.interested.toLocaleString());
+    html += cell(d.booked.toLocaleString(), w.booked.toLocaleString(), 'var(--success)');
+    html += cell(formatDialTime(d.sec), formatDialTime(w.sec));
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+
+  el.innerHTML = html;
+}
+
+// Shown when the org's subscription is no longer active. Deliberately does NOT
+// sign the user out: an owner needs to read this, and signing them straight
+// back to the login screen looks like a broken password.
+function showSubscriptionInactive() {
+  try { if (typeof stopDialer === 'function') stopDialer(); } catch (e) {}
+  try { if (typeof twilioDevice !== 'undefined' && twilioDevice) twilioDevice.disconnectAll(); } catch (e) {}
+
+  var o = document.createElement('div');
+  o.setAttribute('style', 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;' +
+    'background:rgba(5,7,10,.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding:24px;');
+  o.innerHTML =
+    '<div style="max-width:460px;text-align:center;padding:34px 30px;border-radius:18px;' +
+      'background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02));' +
+      'border:1px solid rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.5);">' +
+      '<div style="font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#00e5a0;margin-bottom:14px;">Subscription inactive</div>' +
+      '<div style="color:#f0f0f0;font-size:15px;line-height:1.6;margin-bottom:8px;">Your Aduna Dialer subscription is no longer active, so your data is locked.</div>' +
+      '<div style="color:#888;font-size:13px;line-height:1.6;margin-bottom:22px;">Nothing has been deleted. Restart your subscription and everything comes back exactly as you left it.</div>' +
+      '<a href="https://adunadialer.com/checkout" style="display:inline-block;background:#00e5a0;color:#04120c;font-weight:700;font-size:13px;' +
+        'letter-spacing:1px;text-transform:uppercase;text-decoration:none;padding:12px 22px;border-radius:9px;">Restart subscription</a>' +
+      '<div style="margin-top:16px;"><a href="https://adunadialer.com/contact" style="color:#888;font-size:12px;text-decoration:underline;">Contact support</a></div>' +
+    '</div>';
+  document.body.appendChild(o);
 }
 
 async function checkSeatStillMine() {
@@ -1604,6 +1765,12 @@ document.addEventListener('click', function(e) {
 
 // ==================== DASHBOARD ====================
 async function renderDashboard(el) {
+  // The GWP dashboard below is specific to AIIS's insurance business (premiums,
+  // bound policies, carrier segments) and means nothing to a dialer customer.
+  // Every other tenant gets the dialer performance dashboard instead.
+  if (!currentAccount || currentAccount.plan !== 'internal') {
+    return renderDialerDashboard(el);
+  }
   el.innerHTML = '<div class="empty-state">Loading dashboard...</div>';
 
   var twentyFourAgo = new Date(Date.now() - 86400000).toISOString();
