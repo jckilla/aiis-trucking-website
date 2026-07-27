@@ -1517,6 +1517,31 @@ async function renderDialerDashboard(el) {
   });
   html += '</div></div>';
 
+  // Add a user. Lives here (not on Team) because adding one can spend money,
+  // and that is an owner's decision.
+  var used = profiles.length;
+  var seatsLeft = seatLimit === null ? null : Math.max(seatLimit - used, 0);
+  html += '<div class="session-stats" style="margin-top:18px;"><h3>Add a User</h3>';
+  html += '<div style="font-size:12px;color:var(--text-muted);margin:2px 0 12px;">';
+  if (seatLimit === null) {
+    html += 'Using <strong style="color:var(--text-secondary);">' + used + '</strong> seats.';
+  } else if (seatsLeft > 0) {
+    html += '<strong style="color:var(--text-secondary);">' + seatsLeft + '</strong> of your ' + seatLimit
+         +  ' seats ' + (seatsLeft === 1 ? 'is' : 'are') + ' free. Adding a user costs nothing extra until they run out.';
+  } else {
+    html += 'All <strong style="color:var(--text-secondary);">' + seatLimit + '</strong> seats are in use. '
+         +  'Adding a user adds a seat at $100/month, prorated from today &mdash; we will show you the exact charge and ask before billing anything.';
+  }
+  html += '</div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+  html += '<input id="dashAgentName" placeholder="Full name" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
+  html += '<input id="dashAgentEmail" type="email" placeholder="email@company.com" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
+  html += '<input id="dashAgentPass" type="text" placeholder="Temp password" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
+  html += '<button class="btn btn-primary btn-sm" onclick="createAgent(\'dashAgent\', function(){ renderDialerDashboard(document.getElementById(\'pageContent\')); })">Add user</button>';
+  html += '</div>';
+  html += '<div style="font-size:11px;color:var(--text-muted);margin-top:8px;">They sign in with this email and password, and can change the password afterwards.</div>';
+  html += '</div>';
+
   // Per-rep leaderboard, busiest first.
   html += '<div class="session-stats" style="margin-top:18px;"><h3>By Rep</h3>';
   html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">Each cell shows <strong style="color:var(--text-secondary);">today</strong> / last&nbsp;7&nbsp;days.</div>';
@@ -1674,6 +1699,17 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     loadPage(currentPage);
   });
 });
+
+// Jump to a page from a link inside page content, keeping the sidebar in sync
+// (clicking a nav item is what normally moves the highlight).
+function goToPage(page) {
+  document.querySelectorAll('.nav-item').forEach(function(n) {
+    n.classList.toggle('active', n.dataset.page === page);
+  });
+  currentPage = page;
+  loadPage(page);
+}
+function goToDashboard() { goToPage('dashboard'); }
 
 async function loadPage(page) {
   var el = document.getElementById('pageContent');
@@ -4321,14 +4357,24 @@ async function renderTeam(el) {
 
   var html = '';
 
-  // Add agent
-  html += '<div class="session-stats" style="margin-bottom:16px;"><h3>Add Agent</h3>';
-  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">';
-  html += '<input id="newAgentName" placeholder="Full name" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
-  html += '<input id="newAgentEmail" type="email" placeholder="email@advancedins.ai" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
-  html += '<input id="newAgentPass" type="text" placeholder="Temp password" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
-  html += '<button class="btn btn-primary btn-sm" onclick="createAgent()">Create Login</button>';
-  html += '</div><div style="font-size:11px;color:var(--text-muted);margin-top:6px;">The agent signs in at the portal with this email + password.</div></div>';
+  // Add agent. For a paying workspace this lives on the Dashboard only, so
+  // there is exactly one place where a seat can be bought - two entry points
+  // to a billable action is how people get charged twice by accident.
+  var internal = currentAccount && currentAccount.plan === 'internal';
+  if (internal) {
+    html += '<div class="session-stats" style="margin-bottom:16px;"><h3>Add Agent</h3>';
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">';
+    html += '<input id="newAgentName" placeholder="Full name" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
+    html += '<input id="newAgentEmail" type="email" placeholder="email@advancedins.ai" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
+    html += '<input id="newAgentPass" type="text" placeholder="Temp password" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
+    html += '<button class="btn btn-primary btn-sm" onclick="createAgent(\'newAgent\')">Create Login</button>';
+    html += '</div><div style="font-size:11px;color:var(--text-muted);margin-top:6px;">The agent signs in at the portal with this email + password.</div></div>';
+  } else {
+    html += '<div class="session-stats" style="margin-bottom:16px;"><h3>Add a User</h3>';
+    html += '<div style="font-size:12px;color:var(--text-muted);margin-top:6px;">Users are added from the '
+         +  '<a href="#" onclick="goToDashboard();return false;" style="color:var(--accent);">Dashboard</a>, '
+         +  'where you can see your seat usage and what a new seat will cost.</div></div>';
+  }
 
   // Per-user performance metrics (today / this week)
   function dwCell(d, w, color){
@@ -4408,17 +4454,54 @@ async function renderTeam(el) {
   document.getElementById('teamBody').innerHTML = html;
 }
 
-async function createAgent() {
-  var name = document.getElementById('newAgentName').value.trim();
-  var email = document.getElementById('newAgentEmail').value.trim();
-  var pass = document.getElementById('newAgentPass').value;
+// prefix lets the same flow serve the Team page and the owner Dashboard.
+async function createAgent(prefix, after) {
+  prefix = prefix || 'newAgent';
+  var nameEl = document.getElementById(prefix + 'Name');
+  var emailEl = document.getElementById(prefix + 'Email');
+  var passEl = document.getElementById(prefix + 'Pass');
+  if (!emailEl || !passEl) return;
+
+  var name = nameEl ? nameEl.value.trim() : '';
+  var email = emailEl.value.trim();
+  var pass = passEl.value;
   if (!email || !pass) { toast('Email and password required', 'error'); return; }
-  try {
-    var r = await sb.functions.invoke('admin-create-agent', { body: { email: email, password: pass, full_name: name } });
-    if (r.error) { toast('Create failed: ' + (r.error.message || r.error), 'error'); return; }
-    if (r.data && r.data.error) { toast('Create failed: ' + r.data.error, 'error'); return; }
-    toast('Agent created: ' + email);
+
+  async function send(confirmBilling) {
+    return await sb.functions.invoke('admin-create-agent', {
+      body: { email: email, password: pass, full_name: name, confirm_billing: !!confirmBilling }
+    });
+  }
+
+  function refresh() {
+    if (typeof after === 'function') { after(); return; }
     renderTeam(document.getElementById('pageContent'));
+  }
+
+  try {
+    var r = await send(false);
+
+    // The function returns 402 + needs_seat when every paid seat is taken. It
+    // deliberately does NOT charge on a bare click - we ask first, in plain
+    // numbers, and only then re-send with confirmation.
+    var d = r.data || {};
+    if (d.needs_seat) {
+      if (!window.confirm(d.message + '\n\nAdd the seat and charge it now?')) {
+        toast('No seat added — nothing was charged.');
+        return;
+      }
+      r = await send(true);
+      d = r.data || {};
+    }
+
+    if (r.error && !d.error) { toast('Create failed: ' + (r.error.message || r.error), 'error'); return; }
+    if (d.error) { toast(d.error, 'error'); return; }
+
+    toast(d.seat_purchased
+      ? 'Agent created. Your plan is now ' + d.seat_limit + ' seats.'
+      : 'Agent created: ' + email);
+    if (nameEl) nameEl.value = ''; emailEl.value = ''; passEl.value = '';
+    refresh();
   } catch(e) { toast('Create failed: ' + e.message, 'error'); }
 }
 
