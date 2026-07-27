@@ -1354,6 +1354,7 @@ async function checkAuth() {
   await claimSeat();
   watchSeat();
   applyRoleUI();
+  showPastDueBanner();
   return true;
 }
 
@@ -1587,6 +1588,33 @@ async function renderDialerDashboard(el) {
   html += '</tbody></table></div></div>';
 
   el.innerHTML = html;
+}
+
+// Grace-period warning. past_due deliberately does NOT cut access - Stripe is
+// still retrying the card - but staying silent is how a customer sleepwalks
+// into cancellation. Owners only: a rep can't fix billing, so telling them is
+// noise (and a bit humiliating in front of the team).
+function showPastDueBanner() {
+  if (document.getElementById('pastDueBanner')) return;
+  if (!currentAccount || currentAccount.plan !== 'past_due' || !isMaster()) return;
+
+  var b = document.createElement('div');
+  b.id = 'pastDueBanner';
+  b.setAttribute('role', 'status');
+  b.setAttribute('style',
+    'position:relative;z-index:900;display:flex;gap:12px;align-items:center;flex-wrap:wrap;' +
+    'padding:12px 18px;background:rgba(255,176,32,.12);border-bottom:1px solid rgba(255,176,32,.35);' +
+    'color:#ffd88a;font-size:13.5px;line-height:1.5;');
+  b.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px;flex:none;stroke:#ffb020;fill:none;stroke-width:2;stroke-linecap:round;">' +
+      '<path d="M12 8v5"/><path d="M12 16.5v.01"/><circle cx="12" cy="12" r="9"/></svg>' +
+    '<span style="flex:1;min-width:240px;"><strong style="color:#fff;">Your last payment didn\'t go through.</strong> ' +
+      'Everything still works while your bank retries. If it keeps failing your workspace will be locked, so update your card from the receipt email Stripe sent you.</span>' +
+    '<a href="https://adunadialer.com/contact" style="color:#ffd88a;text-decoration:underline;white-space:nowrap;">Need help?</a>' +
+    '<button type="button" aria-label="Dismiss" style="background:none;border:none;color:#ffd88a;font-size:18px;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>';
+
+  b.querySelector('button').addEventListener('click', function () { b.remove(); });
+  document.body.insertBefore(b, document.body.firstChild);
 }
 
 // Shown when the org's subscription is no longer active. Deliberately does NOT
