@@ -4,7 +4,8 @@
  * The browser uses this to register as a softphone.
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifySession, assertCanDial } = require('../../lib/twilio-auth');
+const { setCorsHeaders, verifySession, assertCanDial, getCallerOrgId } = require('../../lib/twilio-auth');
+const { credentialsForOrg } = require('../../lib/twilio-provision');
 
 module.exports = async function handler(req, res) {
   // CORS
@@ -18,13 +19,17 @@ module.exports = async function handler(req, res) {
   // Seats are dialer seats: the owner account does not get a softphone.
   if (!(await assertCanDial(req, res))) return;
 
-  const {
-    TWILIO_ACCOUNT_SID,
-    TWILIO_AUTH_TOKEN,
-    TWILIO_API_KEY,
-    TWILIO_API_SECRET,
-    TWILIO_TWIML_APP_SID
-  } = process.env;
+  // Per-tenant credentials: a provisioned workspace signs tokens with its OWN
+  // subaccount key, so its calls are billed and reputationally separate. An
+  // unprovisioned workspace (and AIIS) falls back to this deployment's env
+  // credentials - exactly the behaviour that shipped before subaccounts.
+  const orgId = await getCallerOrgId(req);
+  const creds = await credentialsForOrg(orgId);
+
+  const TWILIO_ACCOUNT_SID = creds.accountSid;
+  const TWILIO_API_KEY = creds.apiKey;
+  const TWILIO_API_SECRET = creds.apiSecret;
+  const TWILIO_TWIML_APP_SID = creds.twimlAppSid;
 
   if (!TWILIO_ACCOUNT_SID || !TWILIO_API_KEY || !TWILIO_API_SECRET || !TWILIO_TWIML_APP_SID) {
     return res.status(500).json({ error: 'Twilio credentials not configured. Set TWILIO_ACCOUNT_SID, TWILIO_API_KEY, TWILIO_API_SECRET, and TWILIO_TWIML_APP_SID in Vercel env vars.' });
@@ -53,7 +58,8 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       token: token.toJwt(),
-      identity: identity
+      identity: identity,
+      credentials: creds.source
     });
   } catch (err) {
     console.error('Token generation error:', err);
