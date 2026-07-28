@@ -1161,6 +1161,7 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
     <div class="nav-item" data-page="email" data-role="master">Email Campaigns</div>
     <div class="nav-item" data-page="sms" data-role="master">SMS Campaigns</div>
     <div class="nav-section">SYSTEM</div>
+    <div class="nav-item" data-page="activate" data-role="master" style="display:none;">Activate Calling</div>
     <div class="nav-item" data-page="team" data-role="master" style="display:none;">Team</div>
     <div class="nav-item" data-page="settings" data-role="master">Settings</div>
   </div>
@@ -1372,6 +1373,20 @@ function applyRoleUI() {
   });
   var dialNav = document.querySelector('.nav-item[data-page="dialer"]');
   if (dialNav) dialNav.style.display = ownerHasNoDialSeat() ? 'none' : '';
+
+  // "Activate Calling" only matters to an owner whose telephony isn't live yet.
+  // Once it's ready the item disappears rather than sitting there inviting
+  // people to re-submit details that are already with Twilio.
+  var actNav = document.querySelector('.nav-item[data-page="activate"]');
+  if (actNav) actNav.style.display = needsTelephonyActivation() ? '' : 'none';
+}
+
+// True when this workspace still has to supply compliance details before it
+// can dial. AIIS (plan='internal') runs on the shared account and is exempt.
+function needsTelephonyActivation() {
+  return isMaster() && !!currentAccount
+      && currentAccount.plan !== 'internal'
+      && currentAccount.telephony_status !== 'ready';
 }
 
 async function signOut() {
@@ -1439,6 +1454,178 @@ async function signOutSeatTaken() {
 
   try { await sb.auth.signOut(); } catch (e) {}
   setTimeout(function () { window.location.href = 'login.html'; }, 4000);
+}
+
+// ==================== ACTIVATE CALLING (compliance intake) ====================
+// Carriers require the business behind every phone number to be identified.
+// Because we're registered with Twilio as an ISV, we submit a profile and an
+// A2P brand for EACH customer using THAT customer's details - so we have to
+// collect them here. Field names mirror Twilio's Trust Hub schema so this maps
+// straight onto the API with no translation layer.
+//
+// Deliberately NOT part of signup: asking a stranger for a tax ID before
+// they've used the product costs conversions. They get the CRM immediately and
+// only dialing waits on this.
+var COMPLIANCE_FIELDS = [
+  ['legal_business_name', 'Legal business name', 'text', 'Exactly as it appears on your IRS EIN letter'],
+  ['business_type', 'Business type', 'select:Sole Proprietorship|Partnership|Corporation|LLC|Non-profit|Government', ''],
+  ['business_industry', 'Industry', 'select:Technology|Professional Services|Insurance|Real Estate|Financial|Healthcare|Retail|Construction|Transportation|Education|Hospitality|Manufacturing|Media|Legal|Nonprofit|Other', ''],
+  ['business_registration_number', 'EIN', 'text', '9 digits, no dash. Leave blank if you are a sole proprietor without one.'],
+  ['website_url', 'Website', 'text', 'Must be live and match your business name'],
+  ['street', 'Street address', 'text', ''],
+  ['street_secondary', 'Suite / unit', 'text', 'Optional'],
+  ['city', 'City', 'text', ''],
+  ['region', 'State', 'text', 'Two-letter code, e.g. CA'],
+  ['postal_code', 'ZIP', 'text', ''],
+  ['rep_first_name', 'Your first name', 'text', 'A real person who can act for the business'],
+  ['rep_last_name', 'Your last name', 'text', ''],
+  ['rep_email', 'Your email', 'text', ''],
+  ['rep_phone', 'Your phone', 'text', ''],
+  ['rep_business_title', 'Your title', 'text', 'e.g. Owner, CEO'],
+  ['rep_job_position', 'Job position', 'select:CEO|CFO|Director|GM|VP|General Counsel|Other', ''],
+  ['messaging_use_case', 'What will you text people about?', 'textarea', 'e.g. appointment reminders and follow-ups to people who asked us to call'],
+  ['sample_message_1', 'Sample message 1', 'textarea', 'A real example of a text you would send'],
+  ['sample_message_2', 'Sample message 2', 'textarea', 'Optional second example'],
+  ['opt_in_description', 'How do people agree to be contacted?', 'textarea', 'e.g. they request a quote on our website and tick a consent box']
+];
+
+var REQUIRED_COMPLIANCE = [
+  'legal_business_name', 'business_type', 'business_industry', 'website_url',
+  'street', 'city', 'region', 'postal_code',
+  'rep_first_name', 'rep_last_name', 'rep_email', 'rep_phone', 'rep_business_title', 'rep_job_position',
+  'messaging_use_case', 'sample_message_1', 'opt_in_description'
+];
+
+async function renderActivateCalling(el) {
+  if (!isMaster()) {
+    el.innerHTML = '<div class="page-header"><h2>Activate Calling</h2><p>Owner access only.</p></div>';
+    return;
+  }
+  el.innerHTML = '<div class="empty-state">Loading&hellip;</div>';
+
+  var row = null;
+  try {
+    var r = await sb.from('org_compliance').select('*').maybeSingle();
+    row = r.data || null;
+  } catch (e) { /* first visit: no row yet */ }
+
+  var status = (row && row.status) || 'draft';
+  var locked = status === 'submitted' || status === 'in_review' || status === 'approved';
+
+  var html = '<div class="page-header"><h2>Activate Calling</h2>'
+    + '<p>Carriers require the business behind every phone number to be identified. '
+    + 'Give us these details once and we handle the registration &mdash; then your number goes live.</p></div>';
+
+  if (status === 'submitted' || status === 'in_review') {
+    html += banner('info', 'With the carriers now',
+      'We\'ve submitted your details. Review usually takes a few business days. '
+      + 'We\'ll email you the moment your number is live &mdash; nothing else is needed from you.');
+  } else if (status === 'approved') {
+    html += banner('ok', 'Approved', 'Your business is registered. Your number is being set up.');
+  } else if (status === 'rejected') {
+    html += banner('err', 'The carriers rejected this',
+      escHtml(row && row.rejection_reason ? row.rejection_reason : 'No reason was given.')
+      + ' Correct the details below and resubmit.');
+  } else {
+    html += banner('info', 'Why we need this',
+      'This is the same information every carrier demands before letting a business dial or text. '
+      + 'The most common reason registrations fail is a legal name that doesn\'t match IRS records exactly &mdash; '
+      + 'copy it from your EIN letter rather than typing it from memory.');
+  }
+
+  html += '<div class="session-stats" style="margin-top:16px;"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">';
+  COMPLIANCE_FIELDS.forEach(function (f) {
+    var key = f[0], label = f[1], kind = f[2], hint = f[3];
+    var val = row && row[key] != null ? String(row[key]) : '';
+    var req = REQUIRED_COMPLIANCE.indexOf(key) > -1;
+    var dis = locked ? ' disabled' : '';
+    html += '<div' + (kind === 'textarea' ? ' style="grid-column:1/-1;"' : '') + '>';
+    html += '<label style="display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px;">'
+         +  escHtml(label) + (req ? ' <span style="color:var(--accent);">*</span>' : '') + '</label>';
+    var style = 'width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;font-size:13px;';
+    if (kind.indexOf('select:') === 0) {
+      html += '<select id="cf_' + key + '"' + dis + ' style="' + style + '">';
+      html += '<option value="">Select&hellip;</option>';
+      kind.slice(7).split('|').forEach(function (opt) {
+        html += '<option value="' + escHtml(opt) + '"' + (val === opt ? ' selected' : '') + '>' + escHtml(opt) + '</option>';
+      });
+      html += '</select>';
+    } else if (kind === 'textarea') {
+      html += '<textarea id="cf_' + key + '" rows="2"' + dis + ' style="' + style + 'resize:vertical;">' + escHtml(val) + '</textarea>';
+    } else {
+      html += '<input id="cf_' + key + '" type="text" value="' + escHtml(val) + '"' + dis + ' style="' + style + '">';
+    }
+    if (hint) html += '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + escHtml(hint) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  if (!locked) {
+    html += '<div style="display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap;">'
+         +  '<button class="btn btn-secondary btn-sm" onclick="saveCompliance(false)">Save draft</button>'
+         +  '<button class="btn btn-primary btn-sm" onclick="saveCompliance(true)">Submit for review</button>'
+         +  '<span style="font-size:11.5px;color:var(--text-muted);">You can save and come back. Once submitted it\'s locked while the carriers review it.</span>'
+         +  '</div>';
+  }
+  html += '<div style="font-size:11.5px;color:var(--text-muted);margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">'
+       +  'Your EIN and contact details are used only for carrier registration. Your team members cannot see this page.'
+       +  '</div>';
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+// Small status banner used by the activation page.
+function banner(kind, title, body) {
+  var c = kind === 'err' ? ['rgba(255,71,87,.09)', 'rgba(255,71,87,.3)', '#ff8b95']
+        : kind === 'ok'  ? ['rgba(0,229,160,.08)', 'rgba(0,229,160,.28)', 'var(--accent)']
+        :                  ['rgba(255,176,32,.10)', 'rgba(255,176,32,.3)', '#ffd88a'];
+  return '<div style="padding:13px 16px;border-radius:11px;background:' + c[0] + ';border:1px solid ' + c[1] + ';">'
+       + '<div style="font-weight:700;font-size:13px;color:' + c[2] + ';margin-bottom:4px;">' + title + '</div>'
+       + '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;">' + body + '</div></div>';
+}
+
+async function saveCompliance(submit) {
+  var payload = {};
+  COMPLIANCE_FIELDS.forEach(function (f) {
+    var elx = document.getElementById('cf_' + f[0]);
+    if (elx) payload[f[0]] = String(elx.value || '').trim() || null;
+  });
+
+  if (submit) {
+    var missing = REQUIRED_COMPLIANCE.filter(function (k) { return !payload[k]; });
+    if (missing.length) {
+      toast('Still needed: ' + missing.length + ' field' + (missing.length > 1 ? 's' : ''), 'error');
+      var first = document.getElementById('cf_' + missing[0]);
+      if (first) { first.focus(); first.scrollIntoView({ block: 'center' }); }
+      return;
+    }
+    // An EIN is optional (sole proprietors often have none) but if given it
+    // must be 9 digits, because carriers match it against IRS records.
+    var ein = (payload.business_registration_number || '').replace(/\D/g, '');
+    if (payload.business_registration_number && ein.length !== 9) {
+      toast('An EIN is 9 digits. Leave it blank if you don\'t have one.', 'error');
+      return;
+    }
+    payload.business_registration_number = ein || null;
+    if (!window.confirm('Submit these details for carrier review?\n\nThey\'ll be locked while the carriers check them, which usually takes a few business days.')) return;
+    payload.status = 'submitted';
+    payload.submitted_at = new Date().toISOString();
+  }
+  payload.org_id = currentAccount && currentAccount.org_id ? currentAccount.org_id : undefined;
+  payload.updated_at = new Date().toISOString();
+
+  try {
+    // org_id is set by the DB default/RLS from the caller's own org, so it is
+    // never trusted from the client.
+    delete payload.org_id;
+    var res = await sb.from('org_compliance').upsert(payload, { onConflict: 'org_id' }).select('org_id');
+    if (res.error) { toast('Could not save: ' + res.error.message, 'error'); return; }
+    toast(submit ? 'Submitted — we\'ll take it from here.' : 'Saved.');
+    renderActivateCalling(document.getElementById('pageContent'));
+  } catch (e) {
+    toast('Could not save: ' + e.message, 'error');
+  }
 }
 
 // ==================== OWNER DASHBOARD (dialer metrics) ====================
@@ -1764,6 +1951,7 @@ async function loadPage(page) {
     case 'meetings': await renderMeetings(el); break;
     case 'email': await renderEmailCampaigns(el); break;
     case 'sms': await renderSMSCampaigns(el); break;
+    case 'activate': await renderActivateCalling(el); break;
     case 'team': await renderTeam(el); break;
     case 'settings': renderSettings(el); break;
   }
@@ -2605,6 +2793,10 @@ async function renderDialer(el) {
       + 'so your caller reputation is yours alone and never shared with another company. '
       + 'That takes a little setup on our side &mdash; we\'ll email you the moment it\'s live.'
       + '<div style="margin-top:12px;">Everything else works now: import your leads, build your call lists, and add your team.</div>'
+      + (isMaster()
+          ? '<div style="margin-top:14px;"><a href="#" onclick="goToPage(\'activate\');return false;" style="color:var(--accent);font-weight:600;">Give us your business details &rarr;</a>'
+            + ' <span style="color:var(--text-muted);">&mdash; carriers require this before any number can dial.</span></div>'
+          : '')
       + '</div></div>';
     return;
   }
