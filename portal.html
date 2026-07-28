@@ -2595,6 +2595,20 @@ async function hangupOtherLines(keepLine) {
 }
 
 async function renderDialer(el) {
+  // Telephony not provisioned yet. Explain it here rather than letting the
+  // softphone fail with an opaque 403 from the token endpoint.
+  if (currentAccount && currentAccount.plan !== 'internal' && currentAccount.telephony_status !== 'ready') {
+    el.innerHTML = '<div class="page-header"><h2>Parallel Dialer</h2>'
+      + '<p>We\'re setting up your phone system.</p></div>'
+      + '<div class="session-stats"><div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">'
+      + 'Your workspace gets its <strong style="color:var(--text-primary);">own calling account and phone number</strong>, '
+      + 'so your caller reputation is yours alone and never shared with another company. '
+      + 'That takes a little setup on our side &mdash; we\'ll email you the moment it\'s live.'
+      + '<div style="margin-top:12px;">Everything else works now: import your leads, build your call lists, and add your team.</div>'
+      + '</div></div>';
+    return;
+  }
+
   // Owner accounts on a paid plan have no dialing seat. The nav item is already
   // hidden; this catches a stale hash or a bookmarked page.
   if (ownerHasNoDialSeat()) {
