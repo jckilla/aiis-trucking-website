@@ -4,6 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login — AdvancedIns.ai CRM Portal</title>
+  <script>
+    // One codebase serves two brands from two domains. Pick the brand from the
+    // hostname so an Aduna customer never sees an insurance company's name on
+    // the page they sign in through. Default stays AIIS, so fleet.ins2day.com
+    // is untouched by this.
+    (function () {
+      if (!/(^|\.)adunadialer\.com$/i.test(window.location.hostname)) return;
+      document.title = 'Sign In — Aduna Dialer';
+      document.addEventListener('DOMContentLoaded', function () {
+        var brand = document.querySelector('.nav-brand');
+        if (brand) brand.textContent = 'Aduna Dialer';
+        var logo = document.querySelector('.nav-logo');
+        if (logo) logo.setAttribute('href', 'https://adunadialer.com');
+      });
+    })();
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -217,7 +233,9 @@
         forgotLink.textContent = 'Sending…';
         try {
           var res = await sb.auth.resetPasswordForEmail(email, {
-            redirectTo: 'https://fleet.ins2day.com/set-password.html'
+            // Must follow the host the user actually signed in on. Hardcoding one
+            // brand's domain here mailed Aduna customers a link to the insurance site.
+            redirectTo: window.location.origin + '/set-password.html'
           });
           if (res.error) throw res.error;
           errorEl.textContent = 'If an account exists for ' + email + ', a reset link is on its way — check your inbox and spam. The link expires after about an hour.';
