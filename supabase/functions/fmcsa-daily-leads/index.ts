@@ -23,7 +23,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const ORG = '00000000-0000-0000-0000-0000000000a1';
-const REP = '734fc367-8846-4f6b-be46-84115e53370c'; // Jack (new leads land in his dialer; 2026-09-15)
+const REP: string | null = null; // unassigned: the dialer shows unassigned leads to every rep, so Jack and Kail both work these lists (2026-09-15)
 const STATE = 'CA';
 const LIST_NEW = 'New Authority CA - Needs Insurance';
 const LIST_NEW_CLOSED = 'New Authority CA - Closed';
