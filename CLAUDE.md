@@ -21,6 +21,7 @@ Production repo. Push to `main` = **live deploy** to fleet.ins2day.com via Verce
 - **Twilio webhooks must use the public domain** (`BASE_URL` env or `https://fleet.ins2day.com`), never `VERCEL_URL` — per-deployment URLs sit behind Vercel's auth wall (302) and calls fail with "an application error has occurred."
 - **Root `*.md` files are served publicly** (e.g. /STAGING.md). Never put secrets, keys, or personal data in any committed file.
 - Supabase's built-in email is unreliable to external addresses (invites/resets) until custom SMTP is configured — org-member addresses receive fine.
+- **`vercel.json` allows no comment keys.** A `"//": "..."` entry inside `redirects` failed Vercel's schema validation and silently blocked every deploy from 2026-08-12 to 2026-09-14 (GitHub showed "Deployment failed", the sites kept serving the old build). Put explanations here, not in the JSON. The host-scoped `/` and `/index.html` redirects exist so app.adunadialer.com serves the login page instead of the AIIS marketing site.
 - Phones are stored in mixed formats — duplicate/matching logic must normalize digits (see `crm_find_existing_phones` RPC and `normalizePhoneForMatch`).
 
 ## Data model + product rules

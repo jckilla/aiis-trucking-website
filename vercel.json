@@ -7,7 +7,6 @@
   ],
   "redirects": [
     {
-      "//": "The app domain is the product, not a brochure. Without these, app.adunadialer.com/ served the AIIS trucking-insurance landing page. Scoped by host so fleet.ins2day.com keeps serving its own marketing site at /.",
       "source": "/",
       "has": [{ "type": "host", "value": "app.adunadialer.com" }],
       "destination": "/login.html",
