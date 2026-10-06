@@ -1313,7 +1313,13 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
          max-height:190px; overflow-y:auto; background:rgba(0,0,0,0.25);
          border:1px solid var(--glass-border, var(--border)); border-radius:8px; padding:10px; }
 .wp-hist { font-size:11px; color:var(--text-secondary); }
-.wp-hist .h { display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+.wp-hist .h { display:flex; justify-content:space-between; gap:10px; padding:5px 0; }
+/* what the rep typed into the dialer's note box during that call */
+.wp-callnote {
+  font-size:11px; color:var(--text-primary); line-height:1.45; white-space:pre-wrap;
+  background:rgba(0,0,0,0.25); border-left:2px solid var(--accent-border);
+  border-radius:0 6px 6px 0; padding:7px 9px; margin:0 0 8px 2px;
+}
 
 @media (max-width: 900px) {
   .b2-col { flex:0 0 240px; }
@@ -2165,32 +2171,18 @@ async function loadPage(page) {
 }
 
 // ==================== SIDEBAR STATS ====================
+// One call for all three numbers. This used to be two whole-table count:'exact' scans plus
+// crm_gwp_stats() - three queries fired from init() CONCURRENTLY with the dashboard, which on
+// a small instance both queued behind each other and evicted the buffers the dashboard needed.
+// crm_gwp_stats alone measured 3,534 ms mean / 7,975 ms max in production.
 async function updateSidebarStats() {
   try {
-    var results = await Promise.all([
-      sb.from('crm_leads').select('*', { count: 'exact', head: true }),
-      sb.from('crm_leads').select('*', { count: 'exact', head: true }).eq('stage', 'client')
-    ]);
-
-    var totalLeads = results[0].count || 0;
-    var clients = results[1].count || 0;
-    var gwpBound = 0;
-
-    try {
-      var gwpRes = await sb.rpc('crm_gwp_stats');
-      var gwp = gwpRes.data;
-      if (gwp) {
-        if (Array.isArray(gwp) && gwp.length > 0) gwpBound = gwp[0].gwp_bound || 0;
-        else if (gwp.gwp_bound !== undefined) gwpBound = gwp.gwp_bound || 0;
-      }
-    } catch(e) {
-      var clRes = await sb.from('crm_leads').select('estimated_premium').eq('stage', 'client');
-      (clRes.data || []).forEach(function(r) { gwpBound += (r.estimated_premium || 0); });
-    }
-
-    document.getElementById('sidebarLeads').textContent = fmtN(totalLeads);
-    document.getElementById('sidebarClients').textContent = fmtN(clients);
-    document.getElementById('sidebarGWP').textContent = fmt$(gwpBound);
+    var r = await sb.rpc('crm_sidebar_stats');
+    if (r.error) throw r.error;
+    var s = r.data || {};
+    document.getElementById('sidebarLeads').textContent   = fmtN(s.leads || 0);
+    document.getElementById('sidebarClients').textContent = fmtN(s.clients || 0);
+    document.getElementById('sidebarGWP').textContent     = fmt$(s.gwp_bound || 0);
   } catch(e) {
     console.error('Failed to update sidebar stats:', e);
   }
@@ -2242,9 +2234,12 @@ document.addEventListener('click', function(e) {
 // one of them re-evaluating the RLS helpers per row. Both sections now come from a single
 // crm_board() call each, fetched in parallel.
 
+// Growth Crib first and selected by default - it is the book being actively worked, and it
+// is also the cheap one (~24ms vs ~170ms), so the page paints on it and fetches the other
+// section in the background.
 var DASH_SECTIONS = [
-  { key: 'commercial', label: 'Commercial Leads', limit: 24  },
-  { key: 'growthcrib', label: 'Growth Crib',      limit: 200 }
+  { key: 'growthcrib', label: 'Growth Crib',      limit: 200 },
+  { key: 'commercial', label: 'Commercial Leads', limit: 24  }
 ];
 
 // Staleness buckets. Thresholds match crm_board()'s heat aggregation exactly - if you
@@ -2257,7 +2252,7 @@ var HEAT_BUCKETS = [
   { key:'never', label:'Never contacted', color:'#666666', desc:'no call or visit logged' }
 ];
 
-var dashActive = 'commercial';
+var dashActive = 'growthcrib';
 var dashData = {};        // pipeline -> crm_board() payload
 var dashHeat = {};        // pipeline -> selected heat bucket key, or null
 
@@ -2290,14 +2285,28 @@ async function renderDashboard(el) {
   dashPaint(el);
 }
 
+function dashFetch(key) {
+  var s = dashSection(key);
+  return sb.rpc('crm_board', { p_pipeline: s.key, p_limit: s.limit }).then(
+    function(r) { return r.error ? { __err: r.error.message } : r.data; },
+    function(e) { return { __err: String((e && e.message) || e) }; }
+  );
+}
+
+// Paint on the active section alone, then warm the other one in the background. Waiting for
+// both meant every load paid for the slowest - and the commercial board is ~7x the cost of
+// Growth Crib, for a tab the user may never open.
 async function dashLoadAll() {
-  var payloads = await Promise.all(DASH_SECTIONS.map(function(s) {
-    return sb.rpc('crm_board', { p_pipeline: s.key, p_limit: s.limit }).then(
-      function(r) { return r.error ? { __err: r.error.message } : r.data; },
-      function(e) { return { __err: String((e && e.message) || e) }; }
-    );
-  }));
-  DASH_SECTIONS.forEach(function(s, i) { dashData[s.key] = payloads[i]; });
+  dashData[dashActive] = await dashFetch(dashActive);
+  DASH_SECTIONS.forEach(function(s) {
+    if (s.key === dashActive || dashData[s.key]) return;
+    dashFetch(s.key).then(function(p) {
+      dashData[s.key] = p;
+      // refresh only the tab chip's counts; never repaint the section the user is reading
+      var tab = document.querySelector('.sec-tab[data-sec="' + s.key + '"]');
+      if (tab) tab.innerHTML = dashTabInner(s);
+    });
+  });
 }
 
 function dashPaint(el) {
@@ -2307,14 +2316,8 @@ function dashPaint(el) {
   // ---- section switcher ----
   html += '<div class="sec-tabs">';
   DASH_SECTIONS.forEach(function(s) {
-    var d = dashData[s.key] || {};
-    var t = d.totals || {};
-    var overdue = t.overdue || 0;
-    html += '<div class="sec-tab' + (s.key === dashActive ? ' active' : '') + '" data-sec="' + s.key + '" onclick="dashSwitch(this)">'
-          + escHtml(s.label)
-          + '<span class="tab-count">' + fmtN(t.leads || 0) + '</span>'
-          + (overdue ? '<span class="tab-alert">' + overdue + ' overdue</span>' : '')
-          + '</div>';
+    html += '<div class="sec-tab' + (s.key === dashActive ? ' active' : '') + '" data-sec="' + s.key + '"'
+          + ' onclick="dashSwitch(this)">' + dashTabInner(s) + '</div>';
   });
   html += '</div>';
 
@@ -2323,14 +2326,33 @@ function dashPaint(el) {
   dashWire();
 }
 
-function dashSwitch(tabEl) {
+// The tab chip's own contents, so the background prefetch can refresh one chip's counts
+// without repainting the section the user is currently reading.
+function dashTabInner(s) {
+  var d = dashData[s.key] || {};
+  var t = d.totals || {};
+  var overdue = t.overdue || 0;
+  return escHtml(s.label)
+       + '<span class="tab-count">' + (d.totals ? fmtN(t.leads || 0) : '&middot;&middot;&middot;') + '</span>'
+       + (overdue ? '<span class="tab-alert">' + overdue + ' overdue</span>' : '');
+}
+
+async function dashSwitch(tabEl) {
   var key = tabEl.getAttribute('data-sec');
   if (!key || key === dashActive) return;
   dashActive = key;
   document.querySelectorAll('.sec-tab').forEach(function(t) {
     t.classList.toggle('active', t.getAttribute('data-sec') === key);
   });
-  document.getElementById('dashSectionBody').innerHTML = dashSectionHtml(key);
+  var body = document.getElementById('dashSectionBody');
+  if (!dashData[key]) {                       // prefetch has not landed yet
+    body.innerHTML = '<div class="empty-state">Loading ' + escHtml(dashSection(key).label) + '...</div>';
+    dashData[key] = await dashFetch(key);
+    if (dashActive !== key) return;           // user switched again while we waited
+    var tab = document.querySelector('.sec-tab[data-sec="' + key + '"]');
+    if (tab) tab.innerHTML = dashTabInner(dashSection(key));
+  }
+  body.innerHTML = dashSectionHtml(key);
   dashWire();
 }
 
@@ -2713,7 +2735,9 @@ async function openWorkPanel(elm, ev) {
   wp.lastSavedNotes = r.data.rep_notes || '';
   wpPaint();
 
-  sb.from('crm_calls').select('created_at,status,disposition,duration_seconds')
+  // `notes` is what the rep typed into the dialer's note box while on the call - it is stored
+  // per call on crm_calls, so it belongs here rather than in the lead's notepad.
+  sb.from('crm_calls').select('created_at,status,disposition,duration_seconds,notes')
     .eq('lead_id', leadId).order('created_at', { ascending: false }).limit(10)
     .then(function(cr) {
       if (wp.leadId !== leadId) return;
@@ -2722,8 +2746,10 @@ async function openWorkPanel(elm, ev) {
       var rows = cr.data || [];
       if (!rows.length) { box.innerHTML = '<div class="empty-state" style="padding:8px; font-size:11px;">No calls logged yet</div>'; return; }
       box.innerHTML = rows.map(function(c) {
-        return '<div class="h"><span>' + escHtml(c.disposition || c.status || 'call') + '</span>'
-             + '<span>' + escHtml(fmtDate(c.created_at)) + '</span></div>';
+        var head = '<div class="h"><span>' + escHtml(DISPO_LABEL[c.disposition] || c.disposition || c.status || 'call')
+                 + (c.duration_seconds ? ' &middot; ' + formatCallTime(c.duration_seconds) : '') + '</span>'
+                 + '<span>' + escHtml(fmtDate(c.created_at)) + '</span></div>';
+        return head + (c.notes ? '<div class="wp-callnote">' + escHtml(c.notes) + '</div>' : '');
       }).join('');
     }, function() {});
 }
@@ -4247,7 +4273,17 @@ async function saveCallResult(line, forcedDispo) {
   // Map disposition -> stage / follow-up / DNC + a VALID call_outcome enum value (if any).
   var leadUpdate = { last_contacted_at: new Date().toISOString() };
   var newStage = null, outcomeEnum = null;
-  if (dispo === 'booked') { newStage = (lead.stage === 'prospect' || lead.stage === 'lead') ? 'info_pending' : lead.stage; outcomeEnum = 'interested'; }
+  if (dispo === 'booked') {
+    // Advance to the next real stage IN THIS LEAD'S OWN PIPELINE. Without the pipeline check a
+    // booked Growth Crib lawyer was pushed into the commercial 'info_pending' stage, which has
+    // no column on the Growth Crib board - the lead would simply disappear from it.
+    if (lead.pipeline === 'growthcrib') {
+      newStage = (lead.stage === 'prospect' || lead.stage === 'gc_visited') ? 'gc_discovery' : lead.stage;
+    } else {
+      newStage = (lead.stage === 'prospect' || lead.stage === 'lead') ? 'info_pending' : lead.stage;
+    }
+    outcomeEnum = 'interested';
+  }
   else if (dispo === 'not_interested') { outcomeEnum = 'not_interested'; }
   else if (dispo === 'wrong_number') { outcomeEnum = 'wrong_number'; }
   else if (dispo === 'callback_3mo') { outcomeEnum = 'callback'; leadUpdate.next_follow_up = addMonthsISO(3); }
@@ -4287,7 +4323,7 @@ async function saveCallResult(line, forcedDispo) {
   var _f = document.getElementById('lineForm' + line); if (_f) _f.classList.remove('active');
   var _nw = document.getElementById('lineNotesWrap' + line); if (_nw) _nw.style.display = 'none';
   if (notesEl) notesEl.value = '';
-  toast('Saved: ' + (DISPO_LABEL[dispo] || dispo) + (leadUpdate.stage ? ' — moved to ' + leadUpdate.stage.replace(/_/g, ' ') : ''));
+  toast('Saved: ' + (DISPO_LABEL[dispo] || dispo) + (leadUpdate.stage ? ' — moved to ' + stageLabel(leadUpdate.stage) : ''));
   updateDialerStatsUI();
 
   // After the call is logged, reload the lines with fresh leads
@@ -5472,12 +5508,14 @@ async function assignLeads() {
 async function init() {
   var authed = await checkAuth();
   if (!authed) return;
-  updateSidebarStats();
   // Agents land on the dialer (their only page); master lands on the dashboard.
   var landing = isMaster() ? 'dashboard' : 'dialer';
   currentPage = landing;
   document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active', n.dataset.page === landing); });
-  loadPage(landing);
+  // Paint the page FIRST, then fill in the sidebar. Running them together meant the sidebar's
+  // query competed with the page's own for a small instance's buffers and connections, so the
+  // thing the user is actually looking at arrived later.
+  loadPage(landing).then(function() { updateSidebarStats(); }, function() { updateSidebarStats(); });
 }
 
 init();
