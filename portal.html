@@ -1128,6 +1128,198 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
     animation:none !important; background-position:0 0, 0 0 !important;
   }
 }
+/* ============================================================
+   MERGED DASHBOARD (Commercial + Growth Crib)
+   Two sections, each with its own KPIs, staleness heat map,
+   next-step queue and drag-and-drop board. Replaces the old
+   separate Dashboard and Pipeline Board pages.
+   ============================================================ */
+
+/* ---- section switcher ---- */
+.sec-tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+.sec-tab {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 18px; border-radius:12px; cursor:pointer;
+  background:var(--glass-bg, rgba(18,24,28,0.52));
+  border:1px solid var(--glass-border, rgba(255,255,255,0.10));
+  backdrop-filter:blur(var(--glass-blur-lite, 8px));
+  font-size:14px; font-weight:600; color:var(--text-secondary);
+  transition:color .15s, border-color .15s, background .15s;
+}
+.sec-tab:hover { color:var(--text-primary); border-color:var(--glass-hi, rgba(255,255,255,0.16)); }
+.sec-tab.active { color:var(--text-primary); border-color:var(--accent-border); background:var(--accent-dim); }
+.sec-tab .tab-count {
+  font-size:12px; font-weight:700; padding:2px 8px; border-radius:20px;
+  background:rgba(255,255,255,0.08); color:var(--text-secondary);
+}
+.sec-tab.active .tab-count { background:rgba(0,229,160,0.18); color:var(--accent); }
+.sec-tab .tab-alert { font-size:12px; font-weight:700; color:var(--danger); }
+
+/* ---- KPI row ---- */
+.k2-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
+.k2 {
+  padding:14px 16px; border-radius:12px;
+  background:var(--glass-bg, var(--bg-card));
+  border:1px solid var(--glass-border, var(--border));
+  backdrop-filter:blur(var(--glass-blur-lite, 8px));
+}
+.k2 .k2-label { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted); margin-bottom:6px; }
+.k2 .k2-value { font-size:26px; font-weight:700; line-height:1.1; }
+.k2 .k2-sub   { font-size:11px; color:var(--text-secondary); margin-top:4px; }
+.k2.alert .k2-value { color:var(--danger); }
+.k2.good  .k2-value { color:var(--accent); }
+
+/* ---- staleness heat map ---- */
+.heat-wrap { margin-bottom:16px; }
+.heat-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px; }
+.heat-head h3 { font-size:14px; font-weight:600; }
+.heat-head .heat-note { font-size:11px; color:var(--text-muted); }
+.heat-bar { display:flex; height:30px; border-radius:8px; overflow:hidden; border:1px solid var(--glass-border, var(--border)); }
+.heat-seg {
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; color:#0a0a0a; cursor:pointer;
+  transition:filter .15s; min-width:0; overflow:hidden; white-space:nowrap;
+}
+.heat-seg:hover { filter:brightness(1.15); }
+.heat-seg.sel { box-shadow:inset 0 0 0 2px #fff; }
+.heat-legend { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-size:11px; color:var(--text-secondary); }
+.heat-legend .hl { display:flex; align-items:center; gap:6px; cursor:pointer; }
+.heat-legend .hl:hover { color:var(--text-primary); }
+.heat-legend .dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
+.heat-legend .hl.sel { color:var(--text-primary); font-weight:700; }
+
+/* ---- next steps ---- */
+.ns-wrap {
+  margin-bottom:18px; border-radius:12px; overflow:hidden;
+  background:var(--glass-bg, var(--bg-card));
+  border:1px solid var(--glass-border, var(--border));
+}
+.ns-head { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--glass-border, var(--border)); }
+.ns-head h3 { font-size:14px; font-weight:600; }
+.ns-head .ns-sub { font-size:11px; color:var(--text-muted); }
+.ns-list { max-height:260px; overflow-y:auto; }
+.ns-row { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.ns-row:last-child { border-bottom:none; }
+.ns-row:hover { background:rgba(255,255,255,0.03); }
+.ns-due { font-size:11px; font-weight:700; width:92px; flex-shrink:0; }
+.ns-due.overdue { color:var(--danger); }
+.ns-due.soon    { color:var(--warning); }
+.ns-due.later   { color:var(--text-secondary); }
+.ns-who { flex:1; min-width:0; }
+.ns-who .ns-co { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ns-who .ns-step { font-size:11px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ns-acts { display:flex; gap:6px; flex-shrink:0; }
+
+/* ---- board ---- */
+.b2-board { display:flex; gap:12px; overflow-x:auto; padding-bottom:12px; align-items:flex-start; }
+.b2-col {
+  flex:0 0 268px; border-radius:12px;
+  background:var(--glass-bg, var(--bg-secondary));
+  border:1px solid var(--glass-border, var(--border));
+  display:flex; flex-direction:column; max-height:72vh;
+}
+.b2-col.drag-over { border-color:var(--accent); background:var(--accent-dim); }
+.b2-col-head { padding:10px 12px; border-top:3px solid var(--text-muted); border-radius:12px 12px 0 0; }
+.b2-col-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.b2-col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+.b2-col-count { font-size:11px; font-weight:700; color:var(--text-secondary); background:rgba(255,255,255,0.07); padding:2px 8px; border-radius:20px; }
+.b2-col-hint { font-size:10px; color:var(--text-muted); margin-top:5px; line-height:1.35; }
+.b2-col-body { padding:10px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px; min-height:70px; }
+.b2-col-more { font-size:11px; color:var(--text-muted); text-align:center; padding:6px; }
+
+.b2-card {
+  padding:10px 11px; border-radius:9px; cursor:pointer;
+  background:var(--bg-card, #1a1a1a);
+  border:1px solid var(--glass-border, var(--border));
+  border-left:3px solid var(--text-muted);
+  transition:border-color .15s, transform .08s, background .15s;
+}
+.b2-card:hover { background:var(--bg-card-hover, #222); border-color:var(--glass-hi, rgba(255,255,255,0.18)); }
+.b2-card.dragging { opacity:.4; }
+.b2-card.saving { border-color:var(--accent); }
+.b2-card-co { font-size:13px; font-weight:600; line-height:1.25; margin-bottom:2px; }
+.b2-card-contact { font-size:11px; color:var(--text-secondary); margin-bottom:7px; }
+.b2-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:7px; }
+.b2-pill { font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; background:rgba(255,255,255,0.07); color:var(--text-secondary); }
+.b2-pill.calls { background:rgba(52,152,219,0.18); color:#6cb6e8; }
+.b2-pill.due   { background:rgba(255,165,2,0.18);  color:var(--warning); }
+.b2-pill.over  { background:rgba(255,71,87,0.18);  color:var(--danger); }
+.b2-pill.notes { background:rgba(155,89,182,0.18); color:#c08ad6; }
+.b2-pill.dnc   { background:rgba(255,71,87,0.22);  color:var(--danger); }
+.b2-next { font-size:11px; color:var(--text-secondary); margin-bottom:7px; line-height:1.35;
+           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.b2-card-foot { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.b2-stale { font-size:10px; font-weight:700; }
+.b2-calls { display:flex; gap:5px; }
+.b2-mini {
+  font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; cursor:pointer;
+  background:rgba(255,255,255,0.07); border:1px solid var(--glass-border, var(--border));
+  color:var(--text-secondary);
+}
+.b2-mini:hover { color:var(--accent); border-color:var(--accent-border); background:var(--accent-dim); }
+.b2-mini[disabled] { opacity:.35; cursor:not-allowed; }
+
+/* ---- work panel (slide-over) ---- */
+.wp-backdrop {
+  position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:900;
+  opacity:0; pointer-events:none; transition:opacity .18s;
+}
+.wp-backdrop.open { opacity:1; pointer-events:auto; }
+.wp {
+  position:fixed; top:0; right:0; bottom:0; width:min(460px, 100vw); z-index:901;
+  background:var(--glass-bg-strong, #0d1216);
+  backdrop-filter:blur(var(--glass-blur, 16px));
+  border-left:1px solid var(--glass-border, var(--border));
+  transform:translateX(100%); transition:transform .22s ease;
+  display:flex; flex-direction:column;
+}
+.wp.open { transform:translateX(0); }
+.wp-head { padding:16px 18px; border-bottom:1px solid var(--glass-border, var(--border)); flex-shrink:0; }
+.wp-head .wp-co { font-size:17px; font-weight:700; line-height:1.25; padding-right:30px; }
+.wp-head .wp-sub { font-size:12px; color:var(--text-secondary); margin-top:3px; }
+.wp-close { position:absolute; top:14px; right:14px; background:none; border:none; color:var(--text-secondary);
+            font-size:26px; line-height:1; cursor:pointer; padding:0 6px; }
+.wp-close:hover { color:var(--text-primary); }
+.wp-body { padding:16px 18px 28px; overflow-y:auto; flex:1; }
+.wp-sec { margin-bottom:20px; }
+.wp-sec h4 { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted); margin-bottom:9px; }
+.wp-row { display:flex; justify-content:space-between; gap:12px; padding:5px 0; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.wp-row .l { color:var(--text-muted); flex-shrink:0; }
+.wp-row .v { color:var(--text-primary); text-align:right; word-break:break-word; }
+.wp-callrow { display:flex; gap:8px; }
+.wp-callrow .btn { flex:1; }
+.wp-stages { display:flex; flex-direction:column; gap:6px; }
+.wp-stage {
+  display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:8px; cursor:pointer;
+  background:rgba(255,255,255,0.04); border:1px solid transparent; font-size:12px; text-align:left;
+  color:var(--text-secondary); width:100%;
+}
+.wp-stage:hover { background:rgba(255,255,255,0.08); color:var(--text-primary); }
+.wp-stage.cur { border-color:var(--accent-border); background:var(--accent-dim); color:var(--text-primary); font-weight:600; }
+.wp-stage .ord { width:18px; height:18px; border-radius:50%; font-size:10px; font-weight:700;
+                 display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.1); flex-shrink:0; }
+.wp-stage.cur .ord { background:var(--accent); color:#0a0a0a; }
+.wp textarea, .wp input[type="text"], .wp input[type="date"] {
+  width:100%; background:var(--bg-input, #2a2a2a); color:var(--text-primary);
+  border:1px solid var(--glass-border, var(--border)); border-radius:8px; padding:9px 11px;
+  font-size:13px; font-family:inherit; resize:vertical;
+}
+.wp textarea:focus, .wp input:focus { outline:none; border-color:var(--accent-border); }
+.wp-save-state { font-size:10px; margin-top:5px; height:13px; color:var(--text-muted); }
+.wp-save-state.saved  { color:var(--accent); }
+.wp-save-state.saving { color:var(--warning); }
+.wp-save-state.failed { color:var(--danger); }
+.wp-bg { font-size:11px; color:var(--text-secondary); line-height:1.5; white-space:pre-wrap;
+         max-height:190px; overflow-y:auto; background:rgba(0,0,0,0.25);
+         border:1px solid var(--glass-border, var(--border)); border-radius:8px; padding:10px; }
+.wp-hist { font-size:11px; color:var(--text-secondary); }
+.wp-hist .h { display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+
+@media (max-width: 900px) {
+  .b2-col { flex:0 0 240px; }
+  .wp { width:100vw; }
+}
+
 </style>
 </head>
 <body>
@@ -1156,7 +1348,6 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
   <div class="sidebar-nav">
     <div class="nav-section">OPERATIONS</div>
     <div class="nav-item active" data-page="dashboard" data-role="master">Dashboard</div>
-    <div class="nav-item" data-page="pipeline" data-role="master">Pipeline Board</div>
     <div class="nav-item" data-page="leads" data-role="master">All Leads</div>
     <div class="nav-item" data-page="import" data-role="master">Import Leads</div>
     <div class="nav-section">OUTREACH</div>
@@ -1215,12 +1406,23 @@ const STAGES = [
   { key: 'info_pending', label: 'Info Pending', color: 'var(--stage-info)' },
   { key: 'quote_submitted', label: 'Quote Submitted', color: 'var(--stage-quote-sub)' },
   { key: 'quote_ready', label: 'Quote Ready', color: 'var(--stage-quote-ready)' },
-  { key: 'client', label: 'Client', color: 'var(--stage-client)' }
+  { key: 'client', label: 'Client', color: 'var(--stage-client)' },
+  // Growth Crib ladder (pipeline = 'growthcrib'). Listed here so All Leads, the lead-detail
+  // modal and stageLabel() render real names instead of raw enum values. The board itself
+  // reads the ladder from public.crm_pipeline_stages.
+  { key: 'gc_visited',    label: 'GC: Office Visited',       color: 'var(--text-secondary)' },
+  { key: 'gc_discovery',  label: 'GC: Discovery Call',       color: 'var(--stage-lead)' },
+  { key: 'gc_blueprint',  label: 'GC: Strategy & Blueprint', color: 'var(--stage-quote-sub)' },
+  { key: 'gc_onboarding', label: 'GC: Onboarding & Setup',   color: 'var(--stage-info)' },
+  { key: 'gc_launch',     label: 'GC: Kick-off & Launch',    color: 'var(--info)' },
+  { key: 'gc_growth',     label: 'GC: Analytics & Growth',   color: 'var(--stage-client)' }
 ];
 
 const STAGE_RAW_COLORS = {
   'prospect': '#666', 'lead': '#3498db', 'info_pending': '#ffa502',
-  'quote_submitted': '#9b59b6', 'quote_ready': '#00e5a0', 'client': '#2ecc71'
+  'quote_submitted': '#9b59b6', 'quote_ready': '#00e5a0', 'client': '#2ecc71',
+  'gc_visited': '#7f8c9a', 'gc_discovery': '#3498db', 'gc_blueprint': '#9b59b6',
+  'gc_onboarding': '#ffa502', 'gc_launch': '#00bcd4', 'gc_growth': '#2ecc71'
 };
 
 // ==================== STATE ====================
@@ -1948,7 +2150,7 @@ async function loadPage(page) {
   var el = document.getElementById('pageContent');
   switch(page) {
     case 'dashboard': await renderDashboard(el); break;
-    case 'pipeline': await renderPipeline(el); break;
+    case 'pipeline': await renderDashboard(el); break;  // board is merged into the dashboard
     case 'leads': await renderLeads(el); break;
     case 'import': await renderImportLeads(el); break;
     case 'dialer': await renderDialer(el); break;
@@ -2034,277 +2236,748 @@ document.addEventListener('click', function(e) {
 });
 
 // ==================== DASHBOARD ====================
+// One page, two sections (Commercial leads / Growth Crib), each with KPIs, a staleness
+// heat map, a next-step queue and a drag-and-drop board. This replaces the old Dashboard
+// page AND the separate Pipeline Board page, which between them fired ~14 queries - every
+// one of them re-evaluating the RLS helpers per row. Both sections now come from a single
+// crm_board() call each, fetched in parallel.
+
+var DASH_SECTIONS = [
+  { key: 'commercial', label: 'Commercial Leads', limit: 24  },
+  { key: 'growthcrib', label: 'Growth Crib',      limit: 200 }
+];
+
+// Staleness buckets. Thresholds match crm_board()'s heat aggregation exactly - if you
+// change one, change the other.
+var HEAT_BUCKETS = [
+  { key:'fresh', label:'Fresh',   color:'#00e5a0', desc:'touched in the last 7 days' },
+  { key:'warm',  label:'Warm',    color:'#ffa502', desc:'7 to 13 days' },
+  { key:'cool',  label:'Cooling', color:'#ff7f50', desc:'14 to 29 days' },
+  { key:'cold',  label:'Stale',   color:'#ff4757', desc:'30 days or more' },
+  { key:'never', label:'Never contacted', color:'#666666', desc:'no call or visit logged' }
+];
+
+var dashActive = 'commercial';
+var dashData = {};        // pipeline -> crm_board() payload
+var dashHeat = {};        // pipeline -> selected heat bucket key, or null
+
+function heatBucketOf(staleDays) {
+  if (staleDays === null || staleDays === undefined) return 'never';
+  if (staleDays < 7)  return 'fresh';
+  if (staleDays < 14) return 'warm';
+  if (staleDays < 30) return 'cool';
+  return 'cold';
+}
+
+function heatColorOf(key) {
+  for (var i = 0; i < HEAT_BUCKETS.length; i++) if (HEAT_BUCKETS[i].key === key) return HEAT_BUCKETS[i].color;
+  return '#666666';
+}
+
+function dashSection(key) {
+  for (var i = 0; i < DASH_SECTIONS.length; i++) if (DASH_SECTIONS[i].key === key) return DASH_SECTIONS[i];
+  return DASH_SECTIONS[0];
+}
+
 async function renderDashboard(el) {
-  // The GWP dashboard below is specific to AIIS's insurance business (premiums,
-  // bound policies, carrier segments) and means nothing to a dialer customer.
-  // Every other tenant gets the dialer performance dashboard instead.
+  // The two-pipeline dashboard is specific to AIIS's own book. Every other tenant gets the
+  // dialer performance dashboard instead.
   if (!currentAccount || currentAccount.plan !== 'internal') {
     return renderDialerDashboard(el);
   }
   el.innerHTML = '<div class="empty-state">Loading dashboard...</div>';
-
-  var twentyFourAgo = new Date(Date.now() - 86400000).toISOString();
-
-  var results = await Promise.all([
-    sb.from('crm_leads').select('*', { count: 'exact', head: true }),
-    sb.from('crm_leads').select('*', { count: 'exact', head: true }).eq('stage', 'client'),
-    sb.from('crm_calls').select('*', { count: 'exact', head: true }).gte('created_at', twentyFourAgo),
-    sb.from('crm_email_sends').select('*', { count: 'exact', head: true }).gte('created_at', twentyFourAgo)
-  ]);
-
-  var totalLeads = results[0].count || 0;
-  var boundPolicies = results[1].count || 0;
-  var recentCalls = results[2].count || 0;
-  var recentEmails = results[3].count || 0;
-
-  var gwpBound = 0, gwpPipeline = 0, pipelineData = [], segmentData = [], stateData = [];
-
-  // Run the breakdown RPCs + recent activity in PARALLEL (they're independent) so the
-  // dashboard loads in one round-trip instead of five sequential ones.
-  var _safe = function(p) { return p.then(function(r) { return r; }, function(e) { return { error: e, data: null }; }); };
-  var rpcRes = await Promise.all([
-    _safe(sb.rpc('crm_gwp_stats')),
-    _safe(sb.rpc('crm_pipeline_stats')),
-    _safe(sb.rpc('crm_segment_breakdown')),
-    _safe(sb.rpc('crm_state_breakdown')),
-    _safe(sb.from('crm_activities').select('*').order('created_at', { ascending: false }).limit(20))
-  ]);
-
-  // GWP (with fallback if the RPC is unavailable)
-  var gwp = rpcRes[0].data;
-  if (gwp) {
-    if (Array.isArray(gwp) && gwp.length > 0) {
-      gwpBound = parseFloat(gwp[0].gwp_bound) || 0;
-      gwpPipeline = parseFloat(gwp[0].gwp_pipeline) || 0;
-    } else if (gwp.gwp_bound !== undefined) {
-      gwpBound = parseFloat(gwp.gwp_bound) || 0;
-      gwpPipeline = parseFloat(gwp.gwp_pipeline) || 0;
-    }
-  } else {
-    try {
-      var clRes = await sb.from('crm_leads').select('estimated_premium').eq('stage', 'client');
-      (clRes.data || []).forEach(function(r) { gwpBound += (r.estimated_premium || 0); });
-      var plRes = await sb.from('crm_leads').select('estimated_premium').in('stage', ['quote_submitted', 'quote_ready']);
-      (plRes.data || []).forEach(function(r) { gwpPipeline += (r.estimated_premium || 0); });
-    } catch(e2) {}
-  }
-  pipelineData = rpcRes[1].data || [];
-  segmentData = rpcRes[2].data || [];
-  stateData = rpcRes[3].data || [];
-  var recentActivity = rpcRes[4].data || [];
-
-  var gwpTarget = 10000000;
-  var boundPct = Math.min((gwpBound / gwpTarget) * 100, 100);
-  var pipePct = Math.min(((gwpBound + gwpPipeline) / gwpTarget) * 100, 100);
-
-  // Build stage map
-  var stageMap = {};
-  STAGES.forEach(function(s) { stageMap[s.key] = { count: 0, premium: 0 }; });
-  (pipelineData || []).forEach(function(p) {
-    if (stageMap[p.stage]) {
-      stageMap[p.stage].count = parseInt(p.count) || 0;
-      stageMap[p.stage].premium = parseFloat(p.total_premium) || 0;
-    }
-  });
-
-  // Top states (top 10)
-  var topStates = (stateData || []).slice(0, 10);
-  var maxStateCount = topStates.length > 0 ? Math.max.apply(null, topStates.map(function(s) { return parseInt(s.count) || 0; })) : 1;
-
-  // Segments
-  var maxSegCount = segmentData.length > 0 ? Math.max.apply(null, segmentData.map(function(s) { return parseInt(s.count) || 0; })) : 1;
-
-  var html = '';
-  html += '<div class="page-header">';
-  html += '<h2>Dashboard</h2>';
-  html += '<p>AIIS $10M GWP Tracking &mdash; Target: 820 policies, $10M GWP, $1M commission</p>';
-  html += '</div>';
-
-  // GWP Progress
-  html += '<div class="gwp-progress-section">';
-  html += '<h3>Path to $10M GWP</h3>';
-  html += '<div class="progress-bar">';
-  html += '<div class="progress-fill" style="width: ' + boundPct + '%"></div>';
-  html += '<div class="progress-fill-pipeline" style="left: ' + boundPct + '%; width: ' + Math.max(pipePct - boundPct, 0) + '%"></div>';
-  html += '</div>';
-  html += '<div class="progress-labels">';
-  html += '<span class="bound">Bound: ' + fmt$(gwpBound) + ' (' + boundPct.toFixed(1) + '%)</span>';
-  html += '<span class="pipeline">Pipeline: ' + fmt$(gwpPipeline) + '</span>';
-  html += '<span class="target">Target: ' + fmt$(gwpTarget) + '</span>';
-  html += '</div></div>';
-
-  // KPI Grid
-  html += '<div class="kpi-grid">';
-  html += '<div class="kpi-card highlighted"><div class="kpi-label">Total Leads</div><div class="kpi-value">' + fmtN(totalLeads) + '</div><div class="kpi-sub">In database</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Bound Policies</div><div class="kpi-value">' + fmtN(boundPolicies) + '</div><div class="kpi-sub">Active clients</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">GWP Bound</div><div class="kpi-value">' + fmt$(gwpBound) + '</div><div class="kpi-sub">' + boundPct.toFixed(1) + '% of target</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Pipeline Value</div><div class="kpi-value">' + fmt$(gwpPipeline) + '</div><div class="kpi-sub">Quotes in progress</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Calls (24h)</div><div class="kpi-value">' + fmtN(recentCalls) + '</div><div class="kpi-sub">Last 24 hours</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Emails (24h)</div><div class="kpi-value">' + fmtN(recentEmails) + '</div><div class="kpi-sub">Last 24 hours</div></div>';
-  html += '</div>';
-
-  // Pipeline Overview
-  html += '<h3 style="font-size:16px; margin-bottom:12px;">Pipeline Overview</h3>';
-  html += '<div class="pipeline-grid">';
-  STAGES.forEach(function(s) {
-    var sm = stageMap[s.key];
-    html += '<div class="pipeline-stage-card" style="border-top-color: ' + stageRawColor(s.key) + '">';
-    html += '<div class="stage-name" style="color: ' + stageRawColor(s.key) + '">' + s.label + '</div>';
-    html += '<div class="stage-count">' + fmtN(sm.count) + '</div>';
-    html += '<div class="stage-premium">' + fmt$(sm.premium) + '</div>';
-    html += '</div>';
-  });
-  html += '</div>';
-
-  // Charts
-  html += '<div class="chart-row">';
-
-  // States chart
-  html += '<div class="chart-card"><h3>Top States by Lead Volume</h3><div class="bar-chart">';
-  if (topStates.length === 0) {
-    html += '<div class="empty-state">No state data</div>';
-  } else {
-    topStates.forEach(function(s) {
-      var cnt = parseInt(s.count) || 0;
-      var pct = (cnt / maxStateCount * 100);
-      html += '<div class="bar-row">';
-      html += '<div class="bar-label">' + escHtml(s.state || 'N/A') + '</div>';
-      html += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>';
-      html += '<div class="bar-value">' + cnt + '</div>';
-      html += '</div>';
-    });
-  }
-  html += '</div></div>';
-
-  // Segments chart
-  html += '<div class="chart-card"><h3>Segment Breakdown</h3><div class="bar-chart">';
-  if (segmentData.length === 0) {
-    html += '<div class="empty-state">No segment data</div>';
-  } else {
-    segmentData.forEach(function(s) {
-      var cnt = parseInt(s.count) || 0;
-      var pct = (cnt / maxSegCount * 100);
-      html += '<div class="bar-row">';
-      html += '<div class="bar-label">' + escHtml(s.segment || 'N/A') + '</div>';
-      html += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%; background:var(--info);"></div></div>';
-      html += '<div class="bar-value">' + cnt + '</div>';
-      html += '</div>';
-    });
-  }
-  html += '</div></div>';
-  html += '</div>';
-
-  // Recent Activity
-  html += '<div class="activity-section"><h3>Recent Activity</h3>';
-  if (recentActivity.length === 0) {
-    html += '<div class="empty-state">No recent activity</div>';
-  } else {
-    recentActivity.forEach(function(a) {
-      var icon = a.type === 'call' ? 'Call' : a.type === 'email' ? 'Email' : a.type === 'sms' ? 'SMS' : 'Note';
-      html += '<div class="activity-item">';
-      html += '<div class="activity-icon">' + icon + '</div>';
-      html += '<div class="activity-text"><div class="desc">' + escHtml(a.description || a.type) + '</div>';
-      html += '<div class="activity-time">' + timeAgo(a.created_at) + '</div></div>';
-      html += '</div>';
-    });
-  }
-  html += '</div>';
-
-  el.innerHTML = html;
+  await dashLoadAll();
+  dashPaint(el);
 }
 
-// ==================== PIPELINE BOARD ====================
-async function renderPipeline(el) {
-  el.innerHTML = '<div class="empty-state">Loading pipeline...</div>';
-
-  var columns = await Promise.all(STAGES.map(async function(s) {
-    var res = await sb.from('crm_leads').select('*').eq('stage', s.key).order('lead_score', { ascending: false }).limit(25);
-    return { stage: s, leads: res.data || [] };
+async function dashLoadAll() {
+  var payloads = await Promise.all(DASH_SECTIONS.map(function(s) {
+    return sb.rpc('crm_board', { p_pipeline: s.key, p_limit: s.limit }).then(
+      function(r) { return r.error ? { __err: r.error.message } : r.data; },
+      function(e) { return { __err: String((e && e.message) || e) }; }
+    );
   }));
+  DASH_SECTIONS.forEach(function(s, i) { dashData[s.key] = payloads[i]; });
+}
 
-  var html = '<div class="page-header"><h2>Pipeline Board</h2><p>Drag and drop leads between stages</p></div>';
-  html += '<div class="pipeline-board">';
+function dashPaint(el) {
+  var html = '<div class="page-header"><h2>Dashboard</h2>'
+           + '<p>Two books of business, each with its own pipeline. Drag a card to move it, or open it to log the next step.</p></div>';
 
-  columns.forEach(function(col) {
-    html += '<div class="pipeline-column">';
-    html += '<div class="pipeline-column-header" style="border-top-color: ' + stageRawColor(col.stage.key) + '">';
-    html += '<span class="col-title" style="color: ' + stageRawColor(col.stage.key) + '">' + col.stage.label + '</span>';
-    html += '<span class="col-count">' + col.leads.length + '</span>';
+  // ---- section switcher ----
+  html += '<div class="sec-tabs">';
+  DASH_SECTIONS.forEach(function(s) {
+    var d = dashData[s.key] || {};
+    var t = d.totals || {};
+    var overdue = t.overdue || 0;
+    html += '<div class="sec-tab' + (s.key === dashActive ? ' active' : '') + '" data-sec="' + s.key + '" onclick="dashSwitch(this)">'
+          + escHtml(s.label)
+          + '<span class="tab-count">' + fmtN(t.leads || 0) + '</span>'
+          + (overdue ? '<span class="tab-alert">' + overdue + ' overdue</span>' : '')
+          + '</div>';
+  });
+  html += '</div>';
+
+  html += '<div id="dashSectionBody">' + dashSectionHtml(dashActive) + '</div>';
+  el.innerHTML = html;
+  dashWire();
+}
+
+function dashSwitch(tabEl) {
+  var key = tabEl.getAttribute('data-sec');
+  if (!key || key === dashActive) return;
+  dashActive = key;
+  document.querySelectorAll('.sec-tab').forEach(function(t) {
+    t.classList.toggle('active', t.getAttribute('data-sec') === key);
+  });
+  document.getElementById('dashSectionBody').innerHTML = dashSectionHtml(key);
+  dashWire();
+}
+
+function dashSectionHtml(pipeline) {
+  var d = dashData[pipeline];
+  if (!d) return '<div class="empty-state">No data</div>';
+  if (d.__err) return '<div class="empty-state">Could not load this section: ' + escHtml(d.__err) + '</div>';
+
+  var t = d.totals || {};
+  var heat = d.heat || {};
+  var isGC = pipeline === 'growthcrib';
+  var html = '';
+
+  // ---- KPIs ----
+  html += '<div class="k2-grid">';
+  html += k2('Leads', fmtN(t.leads), isGC ? 'Contacts on the Growth Crib list' : 'In the commercial book');
+  html += k2('In play', fmtN(t.in_play), 'Past the entry stage or already touched');
+  html += k2('Calls made', fmtN(t.total_calls), fmtN(t.leads_called) + ' of these leads dialed');
+  html += k2('Due today', fmtN(t.due_today), 'Follow-ups scheduled', (t.due_today > 0 ? 'good' : ''));
+  html += k2('Overdue', fmtN(t.overdue), 'Past their follow-up date', (t.overdue > 0 ? 'alert' : ''));
+  if (!isGC) {
+    // Deliberately NOT totals.value: that sums estimated_premium across all 69k
+    // never-contacted prospects and reads as $846M of "pipeline", which is fiction.
+    // These two are the numbers that actually mean something.
+    var stageValue = function(key) {
+      var s = (d.stages || []).filter(function(x) { return x.key === key; })[0];
+      return s ? Number(s.value || 0) : 0;
+    };
+    html += k2('In quoting', fmt$(stageValue('quote_submitted') + stageValue('quote_ready')), 'Premium out with carriers');
+    html += k2('Bound', fmt$(stageValue('client')), 'Premium on the books');
+  }
+  html += '</div>';
+
+  // ---- staleness heat map ----
+  var inPlay = t.in_play || 0;
+  html += '<div class="heat-wrap"><div class="heat-head">'
+        + '<h3>Staleness heat map</h3>'
+        + '<span class="heat-note">' + fmtN(inPlay) + ' in play &mdash; click a band to filter the board</span>'
+        + '</div>';
+  if (inPlay === 0) {
+    html += '<div class="empty-state">Nothing in play yet</div>';
+  } else {
+    var sel = dashHeat[pipeline] || null;
+    html += '<div class="heat-bar">';
+    HEAT_BUCKETS.forEach(function(b) {
+      var n = heat[b.key] || 0;
+      if (!n) return;
+      var pct = (n / inPlay) * 100;
+      html += '<div class="heat-seg' + (sel === b.key ? ' sel' : '') + '" style="width:' + pct + '%; background:' + b.color + '"'
+            + ' data-pipeline="' + pipeline + '" data-bucket="' + b.key + '" onclick="dashHeatClick(this)"'
+            + ' title="' + escHtml(b.label + ' - ' + b.desc + ': ' + n) + '">'
+            + (pct > 7 ? n : '') + '</div>';
+    });
+    html += '</div><div class="heat-legend">';
+    HEAT_BUCKETS.forEach(function(b) {
+      var n = heat[b.key] || 0;
+      html += '<span class="hl' + (sel === b.key ? ' sel' : '') + '" data-pipeline="' + pipeline + '" data-bucket="' + b.key + '" onclick="dashHeatClick(this)">'
+            + '<span class="dot" style="background:' + b.color + '"></span>'
+            + escHtml(b.label) + ' (' + n + ')</span>';
+    });
+    if (sel) html += '<span class="hl" data-pipeline="' + pipeline + '" data-bucket="" onclick="dashHeatClick(this)">Clear filter</span>';
     html += '</div>';
-    html += '<div class="pipeline-column-body" data-stage="' + col.stage.key + '">';
+  }
+  html += '</div>';
 
-    if (col.leads.length === 0) {
-      html += '<div class="empty-state">No leads</div>';
+  // ---- next steps ----
+  var steps = d.next_steps || [];
+  html += '<div class="ns-wrap"><div class="ns-head"><h3>Next steps</h3>'
+        + '<span class="ns-sub">' + (steps.length ? fmtN(steps.length) + ' scheduled, soonest first' : 'nothing scheduled yet') + '</span></div>';
+  if (!steps.length) {
+    html += '<div class="empty-state" style="padding:16px;">Open any card and set a next step with a date &mdash; it will show up here.</div>';
+  } else {
+    html += '<div class="ns-list">';
+    steps.forEach(function(s) {
+      var cls = 'later', txt = 'No date';
+      if (s.due) {
+        var dd = Math.floor((new Date(s.due) - Date.now()) / 86400000);
+        if (s.overdue)    { cls = 'overdue'; txt = (dd === 0 ? 'Today' : Math.abs(dd) + 'd late'); }
+        else if (dd <= 1) { cls = 'soon';    txt = (dd <= 0 ? 'Today' : 'Tomorrow'); }
+        else              { cls = 'later';   txt = 'in ' + dd + 'd'; }
+      }
+      html += '<div class="ns-row">'
+            + '<span class="ns-due ' + cls + '">' + escHtml(txt) + '</span>'
+            + '<span class="ns-who"><span class="ns-co">' + escHtml(s.company || 'Unknown') + '</span>'
+            + '<span class="ns-step">' + escHtml(s.next_step || stageLabel(s.stage)) + '</span></span>'
+            + '<span class="ns-acts">'
+            + phoneBtn(s.id, 'office', s.phone)
+            + phoneBtn(s.id, 'cell',   s.cell)
+            + '<button class="b2-mini" data-lead="' + s.id + '" onclick="openWorkPanel(this)">Open</button>'
+            + '</span></div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // ---- board ----
+  var sel2 = dashHeat[pipeline] || null;
+  html += '<div class="b2-board" data-pipeline="' + pipeline + '">';
+  (d.stages || []).forEach(function(st) {
+    var cards = (st.cards || []).filter(function(c) {
+      return !sel2 || heatBucketOf(c.stale_days) === sel2;
+    });
+    var color = stageRawColor(st.key);
+    html += '<div class="b2-col" data-stage="' + escHtml(st.key) + '" data-pipeline="' + pipeline + '">'
+          + '<div class="b2-col-head" style="border-top-color:' + color + '">'
+          + '<div class="b2-col-top"><span class="b2-col-title" style="color:' + color + '">' + escHtml(st.label) + '</span>'
+          + '<span class="b2-col-count">' + fmtN(st.count) + '</span></div>'
+          + (st.hint ? '<div class="b2-col-hint">' + escHtml(st.hint) + '</div>' : '')
+          + '</div><div class="b2-col-body" data-stage="' + escHtml(st.key) + '">';
+    if (!cards.length) {
+      html += '<div class="empty-state" style="padding:14px; font-size:11px;">' + (sel2 ? 'None in this band' : 'Empty') + '</div>';
     } else {
-      col.leads.forEach(function(l) {
-        var isAutoMoved = l.notes && l.notes.indexOf('[AUTO] reply_interested') !== -1;
-        var isRecentlyMoved = l.updated_at && (new Date() - new Date(l.updated_at)) < 24 * 60 * 60 * 1000;
-        var cardClass = 'pipeline-card';
-        if (isAutoMoved && isRecentlyMoved && col.stage.key === 'lead') cardClass += ' recently-moved';
-        html += '<div class="' + cardClass + '" draggable="true" data-id="' + l.id + '" onclick="openLeadDetail(' + l.id + ')">';
-        html += '<div class="card-company">' + escHtml(l.company_name || 'Unknown') + '</div>';
-        html += '<div class="card-contact">' + escHtml(l.contact_name) + '</div>';
-        html += '<div class="card-meta"><span class="trucks">' + (l.trucks || l.power_units || 0) + '</span><span>' + escHtml(l.state) + '</span></div>';
-        if (l.segment) html += '<span class="badge badge-segment" style="margin-top:6px;">' + escHtml(l.segment) + '</span>';
-        html += '<div class="card-meta" style="margin-top:6px;"><span class="premium">' + fmt$(l.estimated_premium) + '</span></div>';
-        if (isAutoMoved && isRecentlyMoved) html += '<div class="auto-moved-badge">Auto-moved from email reply</div>';
-        html += '</div>';
-      });
+      cards.forEach(function(c) { html += b2CardHtml(c); });
+      if (!sel2 && st.count > cards.length) {
+        html += '<div class="b2-col-more">' + fmtN(st.count - cards.length) + ' more &mdash; work them in the dialer</div>';
+      }
     }
-
     html += '</div></div>';
   });
-
   html += '</div>';
-  el.innerHTML = html;
 
-  // Attach drag events
-  setupDragAndDrop();
+  return html;
 }
 
-var draggedLeadId = null;
+function k2(label, value, sub, cls) {
+  return '<div class="k2 ' + (cls || '') + '"><div class="k2-label">' + escHtml(label) + '</div>'
+       + '<div class="k2-value">' + value + '</div>'
+       + '<div class="k2-sub">' + escHtml(sub || '') + '</div></div>';
+}
 
-function setupDragAndDrop() {
-  document.querySelectorAll('.pipeline-card[draggable]').forEach(function(card) {
+// Phone numbers travel in data-attributes, never inlined into JS, so untrusted text can
+// never reach an inline handler's code context.
+function phoneBtn(leadId, which, phone) {
+  var label = which === 'cell' ? 'Cell' : 'Office';
+  if (!phone) return '<button class="b2-mini" disabled title="No ' + label.toLowerCase() + ' number on file">' + label + '</button>';
+  return '<button class="b2-mini" data-lead="' + leadId + '" data-which="' + which + '" data-phone="' + escHtml(phone) + '"'
+       + ' onclick="b2Call(this, event)" title="Call the ' + label.toLowerCase() + ' line">' + label + '</button>';
+}
+
+function b2CardHtml(c) {
+  var bucket = heatBucketOf(c.stale_days);
+  var hcolor = heatColorOf(bucket);
+  var html = '<div class="b2-card" draggable="true" data-id="' + c.id + '" style="border-left-color:' + hcolor + '"'
+           + ' data-lead="' + c.id + '" onclick="openWorkPanel(this)">';
+  html += '<div class="b2-card-co">' + escHtml(c.company || 'Unknown') + '</div>';
+  if (c.contact) html += '<div class="b2-card-contact">' + escHtml(c.contact) + '</div>';
+
+  html += '<div class="b2-pills">';
+  if (c.calls)  html += '<span class="b2-pill calls">' + c.calls + ' call' + (c.calls === 1 ? '' : 's') + '</span>';
+  if (c.next_due) {
+    var late = new Date(c.next_due) < new Date();
+    html += '<span class="b2-pill ' + (late ? 'over' : 'due') + '">' + (late ? 'Overdue' : 'Due ' + shortDate(c.next_due)) + '</span>';
+  }
+  if (c.rep_notes) html += '<span class="b2-pill notes">Notes</span>';
+  if (c.dnc)       html += '<span class="b2-pill dnc">Do not call</span>';
+  html += '</div>';
+
+  if (c.next_step) html += '<div class="b2-next">' + escHtml(c.next_step) + '</div>';
+
+  html += '<div class="b2-card-foot">'
+        + '<span class="b2-stale" style="color:' + hcolor + '">' + escHtml(staleText(c.stale_days)) + '</span>'
+        + '<span class="b2-calls">' + phoneBtn(c.id, 'office', c.phone) + phoneBtn(c.id, 'cell', c.cell) + '</span>'
+        + '</div></div>';
+  return html;
+}
+
+function staleText(days) {
+  if (days === null || days === undefined) return 'Never contacted';
+  if (days <= 0) return 'Today';
+  if (days === 1) return '1 day ago';
+  return days + ' days ago';
+}
+
+function shortDate(d) {
+  if (!d) return '';
+  var dt = new Date(d);
+  return (dt.getMonth() + 1) + '/' + dt.getDate();
+}
+
+function dashHeatClick(elm) {
+  var pipeline = elm.getAttribute('data-pipeline');
+  var bucket = elm.getAttribute('data-bucket') || '';
+  dashHeat[pipeline] = (bucket && dashHeat[pipeline] !== bucket) ? bucket : null;
+  document.getElementById('dashSectionBody').innerHTML = dashSectionHtml(pipeline);
+  dashWire();
+}
+
+// ---------- drag and drop ----------
+// Moves are applied optimistically to the DOM and the cached payload, so the board does not
+// re-render (and re-query) on every drop the way the old board did. A failed write reverts.
+var b2Dragged = null;
+
+function dashWire() {
+  document.querySelectorAll('.b2-card[draggable]').forEach(function(card) {
     card.addEventListener('dragstart', function(e) {
-      draggedLeadId = parseInt(card.dataset.id);
+      b2Dragged = card;
       card.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', card.dataset.id); } catch (err) {}
     });
-    card.addEventListener('dragend', function() {
-      card.classList.remove('dragging');
-    });
+    card.addEventListener('dragend', function() { card.classList.remove('dragging'); });
   });
 
-  document.querySelectorAll('.pipeline-column-body').forEach(function(body) {
-    body.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      body.classList.add('drag-over');
-    });
-    body.addEventListener('dragleave', function() {
-      body.classList.remove('drag-over');
-    });
+  document.querySelectorAll('.b2-col-body').forEach(function(body) {
+    var col = body.closest('.b2-col');
+    body.addEventListener('dragover', function(e) { e.preventDefault(); if (col) col.classList.add('drag-over'); });
+    body.addEventListener('dragleave', function() { if (col) col.classList.remove('drag-over'); });
     body.addEventListener('drop', function(e) {
       e.preventDefault();
-      body.classList.remove('drag-over');
-      var newStage = body.dataset.stage;
-      if (draggedLeadId && newStage) {
-        handleDrop(draggedLeadId, newStage);
-      }
+      if (col) col.classList.remove('drag-over');
+      if (!b2Dragged) return;
+      b2MoveCard(b2Dragged, body);
+      b2Dragged = null;
     });
   });
 }
 
-async function handleDrop(leadId, newStage) {
-  var res = await sb.from('crm_leads').update({ stage: newStage, updated_at: new Date().toISOString() }).eq('id', leadId);
-  if (res.error) { toast('Failed to update stage', 'error'); return; }
+async function b2MoveCard(card, targetBody) {
+  var fromBody = card.parentElement;
+  var newStage = targetBody.getAttribute('data-stage');
+  var oldStage = fromBody ? fromBody.getAttribute('data-stage') : null;
+  if (!newStage || newStage === oldStage) return;
 
-  await sb.from('crm_activities').insert({ lead_id: leadId, type: 'stage_change', description: 'Stage changed to ' + stageLabel(newStage) });
+  var leadId = parseInt(card.dataset.id, 10);
+  var pipeline = targetBody.closest('.b2-board').getAttribute('data-pipeline');
+  var nextSibling = card.nextSibling;
+
+  // optimistic move
+  var placeholder = targetBody.querySelector('.empty-state');
+  if (placeholder) placeholder.remove();
+  targetBody.insertBefore(card, targetBody.firstChild);
+  card.classList.add('saving');
+  b2Recount(pipeline, oldStage, -1);
+  b2Recount(pipeline, newStage, +1);
+
+  var res = await sb.from('crm_leads').update({ stage: newStage, updated_at: new Date().toISOString() }).eq('id', leadId);
+
+  card.classList.remove('saving');
+  if (res.error) {
+    // revert
+    if (fromBody) fromBody.insertBefore(card, nextSibling);
+    b2Recount(pipeline, newStage, -1);
+    b2Recount(pipeline, oldStage, +1);
+    toast('Could not move that lead: ' + res.error.message, 'error');
+    return;
+  }
+
+  // keep the cached payload honest so switching tabs does not show the old column
+  b2PatchCache(pipeline, leadId, oldStage, newStage);
+
+  sb.from('crm_activities').insert({
+    lead_id: leadId, type: 'stage_change',
+    description: 'Stage changed to ' + stageLabel(newStage)
+  }).then(function() {}, function() {});
+
   toast('Moved to ' + stageLabel(newStage));
-  draggedLeadId = null;
-  await renderPipeline(document.getElementById('pageContent'));
   updateSidebarStats();
 }
+
+function b2Recount(pipeline, stageKey, delta) {
+  var d = dashData[pipeline];
+  if (!d || !d.stages) return;
+  for (var i = 0; i < d.stages.length; i++) {
+    if (d.stages[i].key === stageKey) {
+      d.stages[i].count = Math.max(0, (d.stages[i].count || 0) + delta);
+      var col = document.querySelector('.b2-col[data-stage="' + stageKey + '"][data-pipeline="' + pipeline + '"] .b2-col-count');
+      if (col) col.textContent = fmtN(d.stages[i].count);
+      return;
+    }
+  }
+}
+
+function b2PatchCache(pipeline, leadId, oldStage, newStage) {
+  var d = dashData[pipeline];
+  if (!d || !d.stages) return;
+  var moved = null;
+  d.stages.forEach(function(st) {
+    if (st.key !== oldStage || !st.cards) return;
+    for (var i = 0; i < st.cards.length; i++) {
+      if (st.cards[i].id === leadId) { moved = st.cards.splice(i, 1)[0]; break; }
+    }
+  });
+  if (!moved) return;
+  moved.stage = newStage;
+  d.stages.forEach(function(st) { if (st.key === newStage) { st.cards = st.cards || []; st.cards.unshift(moved); } });
+}
+
+// ---------- one-off calling: office or cell ----------
+async function b2Call(btn, ev) {
+  if (ev) ev.stopPropagation();
+  var phone = btn.getAttribute('data-phone');
+  var which = btn.getAttribute('data-which') || 'office';
+  var leadId = parseInt(btn.getAttribute('data-lead'), 10);
+  if (!phone || !leadId) return;
+
+  btn.disabled = true;
+  var restore = function() { btn.disabled = false; };
+  try {
+    // The dial endpoint bridges the lead to this browser, so the softphone has to be
+    // registered first or the lead would answer to silence.
+    var ready = await initTwilioDevice();
+    if (!ready) { toast('Phone not ready. Open Parallel Dialer once to allow the microphone, then try again.', 'error'); return restore(); }
+
+    var resp = await fetch('/api/twilio/dial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentAccessToken },
+      body: JSON.stringify({ to: phone, leadId: leadId, line: 1, agentIdentity: agentIdentity })
+    });
+    var data = await resp.json().catch(function() { return {}; });
+    if (!resp.ok || data.error) { toast(data.error || 'Call failed', 'error'); return restore(); }
+
+    toast('Calling the ' + which + ' line - answer in this browser');
+
+    var nowIso = new Date().toISOString();
+    sb.from('crm_calls').insert({
+      lead_id: leadId, direction: 'outbound', status: 'initiated',
+      dialer_line: 1, agent_id: currentUser ? currentUser.id : null,
+      notes: 'Placed from the pipeline board (' + which + ')'
+    }).then(function() {}, function() {});
+    sb.from('crm_leads').update({ last_dialed_at: nowIso, last_contacted_at: nowIso }).eq('id', leadId)
+      .then(function() {}, function() {});
+    sb.from('crm_activities').insert({
+      lead_id: leadId, type: 'call', description: 'Outbound call to ' + which + ' line from the board'
+    }).then(function() {}, function() {});
+  } catch (e) {
+    toast('Call failed: ' + ((e && e.message) || e), 'error');
+  }
+  restore();
+}
+
+// ---------- work panel ----------
+// Everything needed to advance one lead: stage ladder, next step, notes, call buttons.
+var wp = {
+  leadId: null, pipeline: null, lead: null,
+  timer: null, saving: false, pendingNotes: null, lastSavedNotes: ''
+};
+
+function wpEnsureDom() {
+  if (document.getElementById('wpPanel')) return;
+  var bd = document.createElement('div');
+  bd.className = 'wp-backdrop';
+  bd.id = 'wpBackdrop';
+  bd.onclick = closeWorkPanel;
+  var panel = document.createElement('div');
+  panel.className = 'wp';
+  panel.id = 'wpPanel';
+  panel.innerHTML = '<div class="wp-head"><button class="wp-close" onclick="closeWorkPanel()">&times;</button>'
+                  + '<div class="wp-co" id="wpCo"></div><div class="wp-sub" id="wpSub"></div></div>'
+                  + '<div class="wp-body" id="wpBody"></div>';
+  document.body.appendChild(bd);
+  document.body.appendChild(panel);
+}
+
+async function openWorkPanel(elm, ev) {
+  if (ev) ev.stopPropagation();
+  var leadId = parseInt(elm.getAttribute('data-lead'), 10);
+  if (!leadId) return;
+
+  // never lose what is already typed
+  if (wp.leadId && wp.leadId !== leadId) await wpFlushNotes();
+
+  wpEnsureDom();
+  wp.leadId = leadId;
+  document.getElementById('wpBackdrop').classList.add('open');
+  document.getElementById('wpPanel').classList.add('open');
+  document.getElementById('wpCo').textContent = 'Loading...';
+  document.getElementById('wpSub').textContent = '';
+  document.getElementById('wpBody').innerHTML = '<div class="empty-state">Loading...</div>';
+
+  var r = await sb.from('crm_leads')
+    .select('id,company_name,dba_name,contact_name,contact_name_2,phone,cell_phone,email,city,state,zip,'
+          + 'stage,stage_key,pipeline,lead_score,estimated_premium,call_list,dot_number,tags,do_not_call,'
+          + 'notes,rep_notes,rep_notes_updated_at,last_contacted_at,last_dialed_at,next_follow_up,next_step,stage_changed_at')
+    .eq('id', leadId).single();
+  if (r.error || !r.data) { document.getElementById('wpBody').innerHTML = '<div class="empty-state">Could not load this lead.</div>'; return; }
+  if (wp.leadId !== leadId) return;   // the user already opened another card
+
+  wp.lead = r.data;
+  wp.pipeline = r.data.pipeline || 'commercial';
+  wp.lastSavedNotes = r.data.rep_notes || '';
+  wpPaint();
+
+  sb.from('crm_calls').select('created_at,status,disposition,duration_seconds')
+    .eq('lead_id', leadId).order('created_at', { ascending: false }).limit(10)
+    .then(function(cr) {
+      if (wp.leadId !== leadId) return;
+      var box = document.getElementById('wpHist');
+      if (!box) return;
+      var rows = cr.data || [];
+      if (!rows.length) { box.innerHTML = '<div class="empty-state" style="padding:8px; font-size:11px;">No calls logged yet</div>'; return; }
+      box.innerHTML = rows.map(function(c) {
+        return '<div class="h"><span>' + escHtml(c.disposition || c.status || 'call') + '</span>'
+             + '<span>' + escHtml(fmtDate(c.created_at)) + '</span></div>';
+      }).join('');
+    }, function() {});
+}
+
+function wpPaint() {
+  var l = wp.lead;
+  var ladder = ((dashData[wp.pipeline] || {}).stages) || [];
+  document.getElementById('wpCo').textContent = l.company_name || 'Unknown';
+  document.getElementById('wpSub').textContent = [l.contact_name, l.city && (l.city + (l.state ? ', ' + l.state : ''))]
+    .filter(Boolean).join(' - ');
+
+  var dueVal = l.next_follow_up ? new Date(l.next_follow_up).toISOString().slice(0, 10) : '';
+  var staleDays = wpStaleDays(l);
+  var html = '';
+
+  // calling
+  html += '<div class="wp-sec"><h4>Call</h4><div class="wp-callrow">';
+  html += l.phone
+    ? '<button class="btn btn-primary btn-sm" data-lead="' + l.id + '" data-which="office" data-phone="' + escHtml(l.phone) + '" onclick="b2Call(this, event)">Office ' + escHtml(l.phone) + '</button>'
+    : '<button class="btn btn-secondary btn-sm" disabled>No office number</button>';
+  html += l.cell_phone
+    ? '<button class="btn btn-primary btn-sm" data-lead="' + l.id + '" data-which="cell" data-phone="' + escHtml(l.cell_phone) + '" onclick="b2Call(this, event)">Cell ' + escHtml(l.cell_phone) + '</button>'
+    : '<button class="btn btn-secondary btn-sm" disabled>No cell number</button>';
+  html += '</div>';
+  html += '<div class="wp-row"><span class="l">Last contact</span><span class="v" style="color:' + heatColorOf(heatBucketOf(staleDays)) + '">'
+        + escHtml(staleText(staleDays)) + '</span></div>';
+  html += '</div>';
+
+  // stage ladder
+  html += '<div class="wp-sec"><h4>Stage</h4><div class="wp-stages">';
+  ladder.forEach(function(st) {
+    var cur = st.key === (l.stage_key || l.stage);
+    html += '<button class="wp-stage' + (cur ? ' cur' : '') + '" data-stage="' + escHtml(st.key) + '" onclick="wpSetStage(this)">'
+          + '<span class="ord">' + st.ord + '</span><span>' + escHtml(st.label)
+          + (cur ? '' : '<br><span style="font-size:10px; color:var(--text-muted);">' + escHtml(st.hint || '') + '</span>')
+          + '</span></button>';
+  });
+  html += '</div></div>';
+
+  // next step
+  html += '<div class="wp-sec"><h4>Next step</h4>'
+        + '<input type="text" id="wpNextStep" placeholder="What happens next?" value="' + escHtml(l.next_step || '') + '">'
+        + '<div style="display:flex; gap:8px; margin-top:8px; align-items:center;">'
+        + '<input type="date" id="wpNextDue" value="' + dueVal + '" style="flex:1;">'
+        + '<button class="btn btn-primary btn-sm" onclick="wpSaveNextStep()">Save</button></div>'
+        + '<div class="wp-save-state" id="wpStepState"></div></div>';
+
+  // working notes - autosaved
+  html += '<div class="wp-sec"><h4>Your notes</h4>'
+        + '<textarea id="wpNotes" rows="7" placeholder="Type freely. Saved automatically.">' + escHtml(l.rep_notes || '') + '</textarea>'
+        + '<div class="wp-save-state" id="wpNotesState">'
+        + (l.rep_notes_updated_at ? 'Last saved ' + escHtml(timeAgo(l.rep_notes_updated_at)) : '') + '</div></div>';
+
+  // imported background, read-only
+  if (l.notes) {
+    html += '<div class="wp-sec"><h4>Background (imported)</h4><div class="wp-bg">' + escHtml(l.notes) + '</div></div>';
+  }
+
+  // facts
+  html += '<div class="wp-sec"><h4>Details</h4>';
+  [['Email', l.email], ['List', l.call_list], ['Score', l.lead_score],
+   ['Second contact', l.contact_name_2], ['DOT', l.dot_number],
+   ['Premium', l.estimated_premium ? fmt$(l.estimated_premium) : null]
+  ].forEach(function(f) {
+    if (f[1] === null || f[1] === undefined || f[1] === '') return;
+    html += '<div class="wp-row"><span class="l">' + escHtml(f[0]) + '</span><span class="v">' + escHtml(String(f[1])) + '</span></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="wp-sec"><h4>Call history</h4><div class="wp-hist" id="wpHist">'
+        + '<div class="empty-state" style="padding:8px; font-size:11px;">Loading...</div></div></div>';
+
+  document.getElementById('wpBody').innerHTML = html;
+
+  var ta = document.getElementById('wpNotes');
+  ta.addEventListener('input', wpNotesTyped);
+  ta.addEventListener('blur', function() { wpFlushNotes(); });
+
+  // if the tab was closed mid-sentence last time, the draft is newer than the saved copy
+  var draft = wpReadDraft(l.id);
+  if (draft !== null && draft !== (l.rep_notes || '')) {
+    ta.value = draft;
+    wpNoteState('Unsaved draft recovered from your last visit', 'saving');
+    wpNotesTyped();
+  }
+}
+
+function wpStaleDays(l) {
+  var t = null;
+  [l.last_contacted_at, l.last_dialed_at].forEach(function(x) {
+    if (x && (!t || new Date(x) > new Date(t))) t = x;
+  });
+  if (!t) return null;
+  return Math.floor((Date.now() - new Date(t).getTime()) / 86400000);
+}
+
+function wpNoteState(msg, cls) {
+  var el = document.getElementById('wpNotesState');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'wp-save-state ' + (cls || '');
+}
+
+// Draft safety net: a keystroke that has not reached the database yet still survives a
+// closed tab, a crash or a lost connection, and is offered back on the next open.
+function wpDraftKey(id) { return 'aiis_notes_draft_' + id; }
+function wpWriteDraft(id, text) { try { localStorage.setItem(wpDraftKey(id), text); } catch (e) {} }
+function wpClearDraft(id) { try { localStorage.removeItem(wpDraftKey(id)); } catch (e) {} }
+function wpReadDraft(id) { try { return localStorage.getItem(wpDraftKey(id)); } catch (e) { return null; } }
+
+function wpNotesTyped() {
+  var ta = document.getElementById('wpNotes');
+  if (!ta || !wp.leadId) return;
+  wpWriteDraft(wp.leadId, ta.value);
+  wpNoteState('Saving...', 'saving');
+  if (wp.timer) clearTimeout(wp.timer);
+  wp.timer = setTimeout(function() { wpSaveNotes(); }, 900);
+}
+
+async function wpSaveNotes() {
+  var ta = document.getElementById('wpNotes');
+  if (!ta || !wp.leadId) return;
+  var leadId = wp.leadId;
+  var text = ta.value;
+  if (text === wp.lastSavedNotes) { wpNoteState('Saved', 'saved'); wpClearDraft(leadId); return; }
+
+  var res = await sb.from('crm_leads').update({
+    rep_notes: text,
+    rep_notes_updated_at: new Date().toISOString(),
+    rep_notes_updated_by: currentUser ? currentUser.id : null
+  }).eq('id', leadId);
+
+  if (res.error) { wpNoteState('Could not save - your text is kept locally and will retry', 'failed'); return; }
+  wp.lastSavedNotes = text;
+  wpClearDraft(leadId);
+  if (wp.leadId === leadId) wpNoteState('Saved', 'saved');
+  wpPatchCardNotes(leadId, text);
+}
+
+async function wpFlushNotes() {
+  if (wp.timer) { clearTimeout(wp.timer); wp.timer = null; }
+  await wpSaveNotes();
+}
+
+// Called while the page is being hidden or unloaded, when a normal async request can be
+// cancelled mid-flight. keepalive lets the browser finish it after the page is gone.
+function wpFlushOnExit() {
+  var ta = document.getElementById('wpNotes');
+  if (!ta || !wp.leadId) return;
+  var text = ta.value;
+  if (text === wp.lastSavedNotes) return;
+  wpWriteDraft(wp.leadId, text);
+  try {
+    fetch(SUPABASE_URL + '/rest/v1/crm_leads?id=eq.' + wp.leadId, {
+      method: 'PATCH',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + currentAccessToken,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        rep_notes: text,
+        rep_notes_updated_at: new Date().toISOString(),
+        rep_notes_updated_by: currentUser ? currentUser.id : null
+      })
+    });
+  } catch (e) {}
+}
+
+document.addEventListener('visibilitychange', function() { if (document.visibilityState === 'hidden') wpFlushOnExit(); });
+window.addEventListener('pagehide', wpFlushOnExit);
+
+function wpPatchCardNotes(leadId, text) {
+  Object.keys(dashData).forEach(function(p) {
+    var d = dashData[p];
+    if (!d || !d.stages) return;
+    d.stages.forEach(function(st) {
+      (st.cards || []).forEach(function(c) { if (c.id === leadId) c.rep_notes = text; });
+    });
+  });
+  var card = document.querySelector('.b2-card[data-id="' + leadId + '"]');
+  if (card && text && !card.querySelector('.b2-pill.notes')) {
+    var pills = card.querySelector('.b2-pills');
+    if (pills) pills.insertAdjacentHTML('beforeend', '<span class="b2-pill notes">Notes</span>');
+  }
+}
+
+async function wpSaveNextStep() {
+  if (!wp.leadId) return;
+  var step = document.getElementById('wpNextStep').value.trim();
+  var due = document.getElementById('wpNextDue').value;
+  var st = document.getElementById('wpStepState');
+  st.textContent = 'Saving...'; st.className = 'wp-save-state saving';
+
+  var res = await sb.from('crm_leads').update({
+    next_step: step || null,
+    next_follow_up: due ? new Date(due + 'T09:00:00').toISOString() : null
+  }).eq('id', wp.leadId);
+
+  if (res.error) { st.textContent = 'Could not save: ' + res.error.message; st.className = 'wp-save-state failed'; return; }
+  st.textContent = 'Saved'; st.className = 'wp-save-state saved';
+  wp.lead.next_step = step || null;
+  wp.lead.next_follow_up = due ? new Date(due + 'T09:00:00').toISOString() : null;
+  toast('Next step saved');
+  await dashRefreshSection(wp.pipeline);
+}
+
+async function wpSetStage(btn) {
+  if (!wp.leadId) return;
+  var newStage = btn.getAttribute('data-stage');
+  var cur = wp.lead.stage_key || wp.lead.stage;
+  if (!newStage || newStage === cur) return;
+
+  var res = await sb.from('crm_leads').update({ stage: newStage, updated_at: new Date().toISOString() }).eq('id', wp.leadId);
+  if (res.error) { toast('Could not change stage: ' + res.error.message, 'error'); return; }
+
+  wp.lead.stage = newStage;
+  wp.lead.stage_key = newStage;
+  document.querySelectorAll('.wp-stage').forEach(function(b) {
+    b.classList.toggle('cur', b.getAttribute('data-stage') === newStage);
+  });
+  sb.from('crm_activities').insert({
+    lead_id: wp.leadId, type: 'stage_change', description: 'Stage changed to ' + stageLabel(newStage)
+  }).then(function() {}, function() {});
+  toast('Moved to ' + stageLabel(newStage));
+  await dashRefreshSection(wp.pipeline);
+  updateSidebarStats();
+}
+
+async function dashRefreshSection(pipeline) {
+  var s = dashSection(pipeline);
+  var r = await sb.rpc('crm_board', { p_pipeline: s.key, p_limit: s.limit });
+  if (r.error) return;
+  dashData[s.key] = r.data;
+  if (currentPage === 'dashboard' && dashActive === s.key) {
+    var body = document.getElementById('dashSectionBody');
+    if (body) { body.innerHTML = dashSectionHtml(s.key); dashWire(); }
+  }
+}
+
+async function closeWorkPanel() {
+  await wpFlushNotes();
+  var p = document.getElementById('wpPanel'), b = document.getElementById('wpBackdrop');
+  if (p) p.classList.remove('open');
+  if (b) b.classList.remove('open');
+  wp.leadId = null; wp.lead = null;
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && wp.leadId) closeWorkPanel();
+});
+
 
 // ==================== ALL LEADS ====================
 async function renderLeads(el) {
