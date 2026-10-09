@@ -1326,6 +1326,127 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
   .wp { width:100vw; }
 }
 
+/* Responsive portal: preserve the desktop workspace and every live-call hook. */
+.menu-toggle, .menu-close, .menu-backdrop { display:none; }
+.menu-toggle, .menu-close { width:44px; height:44px; flex:0 0 44px; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:9px; background:var(--bg-card); color:var(--text-primary); cursor:pointer; }
+.menu-toggle svg, .menu-close svg { width:22px; height:22px; }
+.sidebar-brand { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.nav-item:focus-visible, .menu-toggle:focus-visible, .menu-close:focus-visible { outline:2px solid var(--accent); outline-offset:-3px; }
+.main-content, .page-content, .dialer-layout > *, .dialer-line, .modal-grid > *, .chart-row > *, .k2, .wp-head > div { min-width:0; }
+.page-content, .modal, .wp { overflow-wrap:anywhere; }
+.top-bar { gap:12px; }
+.search-container { min-width:0; flex:1; max-width:400px; }
+.search-box, .search-results { width:100%; max-width:100%; }
+.dialer-layout { grid-template-columns:minmax(0,1fr) 350px; }
+.dialer-controls, .filter-bar { flex-wrap:wrap; }
+.dialer-controls select, .filter-bar input, .filter-bar select { max-width:100%; min-width:0; }
+.single-dial-heading, .single-dial-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.single-dial-heading { gap:12px; margin-bottom:12px; }
+#singleDialNumber { min-width:0; }
+.leads-table-container { max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; }
+.b2-board, .pipeline-board { max-width:100%; overscroll-behavior-x:contain; }
+.modal { max-height:90dvh; }
+.modal-header { gap:12px; }
+.modal-close { flex-shrink:0; }
+.wp { height:100dvh; max-width:100%; }
+.wp-body { min-height:0; }
+
+@media (max-width: 1100px) {
+  .dialer-layout { grid-template-columns:minmax(0,1fr); }
+  .dialer-sidebar { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)); gap:16px; align-items:start; }
+  .dialer-sidebar > * { min-width:0; margin-bottom:0; }
+  .kpi-grid, .pipeline-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 900px) {
+  .main-content { margin-left:0; }
+  .top-bar { padding:10px max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left)); }
+  .menu-toggle, .menu-close { display:inline-flex; }
+  .sidebar { width:min(300px,calc(100vw - 48px)); height:100dvh; z-index:160; padding-bottom:env(safe-area-inset-bottom); transform:translateX(-100%); visibility:hidden; transition:transform .18s ease; overscroll-behavior-y:contain; }
+  .sidebar-brand { padding:14px 16px; }
+  .sidebar-nav { flex:1 0 auto; }
+  .sidebar .nav-item { min-height:44px; font-size:14px; }
+  .sidebar-signout button { min-height:44px; }
+  .menu-backdrop { position:fixed; inset:0; z-index:150; border:0; background:rgba(0,0,0,.65); cursor:pointer; touch-action:manipulation; }
+  body.menu-open { overflow:hidden; }
+  body.menu-open .sidebar { transform:translateX(0); visibility:visible; }
+  body.menu-open .menu-backdrop { display:block; }
+  .page-content { padding:18px max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); }
+  .top-actions { flex-shrink:0; }
+  .search-container { max-width:none; }
+  .search-results { max-height:60dvh; }
+  .btn, .dispo-btn, .mtg-btn, .book-meeting-btn { min-height:44px; justify-content:center; }
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea,
+  .search-box, .dialer-controls select, .filter-bar input, .filter-bar select,
+  .connected-form select, .live-notes textarea, .mtg-input, .wp textarea, .wp input,
+  .csv-map-grid select, .setting-field input, .notes-area textarea { font-size:16px; max-width:100%; }
+  #singleDialNumber { font-size:16px !important; }
+  input:not([type="checkbox"]):not([type="radio"]), select { min-height:44px; }
+  .modal-overlay { padding:12px; }
+  .modal { width:100%; padding:18px; max-height:calc(100dvh - 24px); }
+  .modal-close { min-width:44px; min-height:44px; }
+  .info-row { gap:12px; flex-wrap:wrap; }
+  .info-value { min-width:0; overflow-wrap:anywhere; }
+  .wp-head { padding:16px; gap:12px; }
+  .wp-body { padding:16px; padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
+  .wp-bg { max-height:none; }
+  .toast-container { left:12px; right:12px; max-width:calc(100% - 24px); }
+  .toast { max-width:100%; min-width:0; overflow-wrap:anywhere; }
+}
+@media (max-width: 600px) {
+  .top-bar { display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:8px; }
+  .search-box { padding-left:12px; }
+  .search-icon { display:none; }
+  .top-actions .btn { padding:8px 10px; font-size:12px; }
+  .search-results { width:calc(100vw - 24px); max-width:none; left:-52px; }
+  .page-header { margin-bottom:18px; }
+  .page-header h2 { font-size:22px; }
+  .page-header p { line-height:1.6; }
+  .dialer-lines, .dialer-sidebar, .chart-row, .modal-grid, .campaign-grid, .settings-grid { grid-template-columns:minmax(0,1fr); }
+  .report-stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .dialer-line { padding:16px; }
+  .dialer-line .lead-name { font-size:17px; line-height:1.4; }
+  .dialer-line .lead-company, .dialer-line .lead-details { font-size:13px; line-height:1.5; }
+  .dialer-controls { gap:10px; align-items:stretch; }
+  #dialerCallList { min-width:0 !important; width:100%; text-overflow:ellipsis; }
+  #dialerLeadCount { width:100%; margin-left:0; border-radius:10px; line-height:1.6; }
+  .dialer-controls > label { width:100%; justify-content:space-between; }
+  .dialer-controls > label select { flex:1; min-width:0; }
+  #dialerStartBtn, #dialerStopBtn { width:100%; }
+  #twilioStatus { margin-left:0 !important; }
+  .single-dial-panel { padding:16px !important; }
+  .single-dial-actions input { flex:1 1 100% !important; width:100%; }
+  .single-dial-actions .btn { flex:1; }
+  .dispo-quick { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .dispo-quick > :last-child { grid-column:1/-1; }
+  .connected-form .btn { width:100%; }
+  .mtg-row { flex-direction:column; }
+  .mtg-input { width:100%; }
+  .k2-grid, .kpi-grid, .pipeline-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .k2 { padding:12px; }
+  .k2 .k2-value { font-size:24px; }
+  .sec-tab { flex:1 1 100%; min-width:0; padding:12px; }
+  .heat-head, .ns-head { flex-wrap:wrap; gap:8px; }
+  .ns-row { flex-wrap:wrap; gap:8px; padding:12px; }
+  .ns-due { width:auto; }
+  .ns-who { flex:1 1 100%; order:-1; }
+  .ns-who .ns-co, .ns-who .ns-step { white-space:normal; overflow:visible; }
+  .ns-acts { flex-wrap:wrap; margin-left:auto; }
+  .b2-col { flex-basis:min(280px,calc(100vw - 40px)); }
+  .b2-card-co, .b2-card-contact { overflow-wrap:anywhere; }
+  .filter-bar { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
+  .filter-bar > * { min-width:0 !important; width:100%; max-width:100%; }
+  .leads-table { min-width:680px; }
+  .pagination { flex-wrap:wrap; gap:12px; }
+  .pagination .buttons { flex-wrap:wrap; }
+  .modal [style*="grid-template-columns"], .session-stats > [style*="grid-template-columns"] { grid-template-columns:minmax(0,1fr) !important; }
+  .modal [style*="grid-column"] { grid-column:1/-1 !important; }
+  .csv-map-grid { grid-template-columns:minmax(0,1fr); }
+  .csv-import-opts > * { min-width:0 !important; width:100%; }
+  .wp-callrow { flex-wrap:wrap; }
+  .wp-callrow .btn { flex:1 1 120px; }
+}
+@media (prefers-reduced-motion: reduce) { .sidebar { transition:none; } }
+
 </style>
 </head>
 <body>
@@ -1347,9 +1468,11 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
 </div>
 
 <!-- Sidebar -->
-<div class="sidebar">
+<button class="menu-backdrop" id="menuBackdrop" aria-label="Close navigation" tabindex="-1" type="button"></button>
+<div class="sidebar" id="portalSidebar" aria-label="Main navigation" tabindex="-1">
   <div class="sidebar-brand">
     <h1>Aduna Dialer</h1>
+    <button class="menu-close" id="menuClose" aria-label="Close navigation" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
   </div>
   <div class="sidebar-nav">
     <div class="nav-section">OPERATIONS</div>
@@ -1380,6 +1503,7 @@ select option{ background:#0c1116; color:var(--text-primary); }  /* keep dropdow
 <!-- Main Content -->
 <div class="main-content">
   <div class="top-bar">
+    <button class="menu-toggle" id="menuToggle" aria-label="Open navigation" aria-controls="portalSidebar" aria-expanded="false" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
     <div class="search-container">
       <span class="search-icon"></span>
       <input type="text" class="search-box" id="globalSearch" placeholder="Search leads by name, company, DOT, phone...">
@@ -2132,8 +2256,61 @@ function dialLeadPhone(btn) {
 }
 
 // ==================== NAVIGATION ====================
+// The drawer only changes presentation; it never reloads the page or voice device.
+var portalMenuMedia = window.matchMedia('(max-width: 900px)');
+function setPortalMenu(open, restoreFocus) {
+  var sidebar = document.getElementById('portalSidebar');
+  var toggle = document.getElementById('menuToggle');
+  var main = document.querySelector('.main-content');
+  var mobile = portalMenuMedia.matches;
+  var wasOpen = document.body.classList.contains('menu-open');
+  open = !!open && mobile;
+  document.body.classList.toggle('menu-open', open);
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+  main.inert = open;
+  if (!open && (wasOpen || (mobile && sidebar.contains(document.activeElement))) && restoreFocus !== false) {
+    (mobile ? toggle : sidebar).focus({ preventScroll:true });
+  }
+  sidebar.inert = mobile && !open;
+  if (mobile && !open) sidebar.setAttribute('aria-hidden', 'true');
+  else sidebar.removeAttribute('aria-hidden');
+  if (open) {
+    sidebar.setAttribute('role', 'dialog');
+    sidebar.setAttribute('aria-modal', 'true');
+    document.getElementById('menuClose').focus({ preventScroll:true });
+  } else {
+    sidebar.removeAttribute('role');
+    sidebar.removeAttribute('aria-modal');
+  }
+}
+document.getElementById('menuToggle').addEventListener('click', function() {
+  setPortalMenu(!document.body.classList.contains('menu-open'));
+});
+['menuClose', 'menuBackdrop'].forEach(function(id) {
+  document.getElementById(id).addEventListener('click', function() { setPortalMenu(false); });
+});
+document.addEventListener('keydown', function(e) {
+  if (!document.body.classList.contains('menu-open')) return;
+  if (e.key === 'Escape') { e.preventDefault(); setPortalMenu(false); return; }
+  if (e.key !== 'Tab') return;
+  var items = Array.from(document.querySelectorAll('#portalSidebar button, #portalSidebar [tabindex="0"]'))
+    .filter(function(el) { return !el.disabled && el.getClientRects().length; });
+  if (!items.length) return;
+  var first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+portalMenuMedia.addEventListener('change', function() { setPortalMenu(false); });
+setPortalMenu(false);
 document.querySelectorAll('.nav-item').forEach(function(item) {
+  item.setAttribute('role', 'button');
+  item.setAttribute('tabindex', '0');
+  item.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.click(); }
+  });
   item.addEventListener('click', function() {
+    setPortalMenu(false);
     document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
     item.classList.add('active');
     currentPage = item.dataset.page;
@@ -2144,6 +2321,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 // Jump to a page from a link inside page content, keeping the sidebar in sync
 // (clicking a nav item is what normally moves the highlight).
 function goToPage(page) {
+  setPortalMenu(false);
   document.querySelectorAll('.nav-item').forEach(function(n) {
     n.classList.toggle('active', n.dataset.page === page);
   });
@@ -3547,10 +3725,10 @@ async function renderDialer(el) {
   } catch(e) { console.error('Failed to load call lists:', e); }
 
   // ======== SINGLE DIALER — Manual dial any number ========
-  var html = '<div style="margin-bottom:24px;padding:20px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;">';
-  html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><h3 style="margin:0;">Single Dialer</h3>';
+  var html = '<div class="single-dial-panel" style="margin-bottom:24px;padding:20px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;">';
+  html += '<div class="single-dial-heading"><h3 style="margin:0;">Single Dialer</h3>';
   html += '<span style="font-size:12px;color:var(--text-muted);">Dial any number from (213) 721-1724</span></div>';
-  html += '<div style="display:flex;gap:8px;align-items:center;">';
+  html += '<div class="single-dial-actions">';
   html += '<input type="tel" id="singleDialNumber" placeholder="(555) 123-4567 or +15551234567" style="flex:1;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:15px;">';
   html += '<button class="btn btn-primary" id="singleDialBtn" onclick="startSingleDial()" style="white-space:nowrap;padding:10px 20px;">Dial</button>';
   html += '<button class="btn btn-danger" id="singleHangupBtn" onclick="hangupSingleDial()" style="display:none;white-space:nowrap;padding:10px 20px;">Hang Up</button>';
