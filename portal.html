@@ -1968,97 +1968,211 @@ async function saveCompliance(submit) {
 // ==================== OWNER DASHBOARD (dialer metrics) ====================
 // The account owner's single view of how the whole team is dialing. Everything
 // here is org-scoped by RLS, so a master only ever sees their own tenant.
+// ---------- consumer (Aduna) dashboard ----------
+// Everyone whose plan is not 'internal' lands here: the owner of a dialer workspace watching
+// how their producers are performing.
+//
+// All aggregation happens in Postgres via crm_producer_stats(). The previous version pulled
+// up to 20,000 crm_calls rows into the browser and summed them in JavaScript, which got
+// SLOWER the more successful the customer became. The RPC is ~9ms regardless of volume.
+//
+// Timezone matters here and is passed from the browser: "hours dialed per day" bucketed in
+// UTC splits a California evening across two days and reads as half the work.
+
+var dialerDashData = null;     // cached crm_producer_stats payload
+var dialerDashPeriod = 'today';  // 'today' | 'week' | 'month'
+
+var DASH_PERIODS = [
+  { key: 'today', label: 'Today',        sub: 'since midnight' },
+  { key: 'week',  label: 'Last 7 days',  sub: 'rolling' },
+  { key: 'month', label: 'Last 30 days', sub: 'rolling' }
+];
+
+function browserTz() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; }
+}
+
+// seconds -> "1h 24m" / "7m" / "45s"
+function fmtHm(sec) {
+  sec = Math.max(0, Math.round(sec || 0));
+  var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  if (h) return h + 'h ' + m + 'm';
+  if (m) return m + 'm';
+  return sec + 's';
+}
+
+function pctRate(connected, calls) {
+  return calls ? Math.round(100 * connected / calls) + '%' : '—';
+}
+
 async function renderDialerDashboard(el) {
   el.innerHTML = '<div class="empty-state">Loading dashboard&hellip;</div>';
 
-  var DAYS = 14;
-  var since = new Date(Date.now() - DAYS * 86400000).toISOString();
   var weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-
   var _safe = function (p) { return p.then(function (r) { return r; }, function (e) { return { error: e, data: null, count: 0 }; }); };
+
   var res = await Promise.all([
-    _safe(sb.from('crm_calls').select('agent_id, status, disposition, outcome, dial_seconds, duration_seconds, created_at').gte('created_at', since).limit(20000)),
-    _safe(sb.from('profiles').select('id, email, full_name, role, active')),
+    _safe(sb.rpc('crm_producer_stats', { p_tz: browserTz(), p_days: 30 })),
     _safe(sb.from('crm_leads').select('*', { count: 'exact', head: true })),
     _safe(sb.from('crm_meetings').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo))
   ]);
 
-  var calls = res[0].data || [];
-  var profiles = (res[1].data || []).filter(function (p) { return p.active !== false; });
-  var totalLeads = res[2].count || 0;
-  var meetings7d = res[3].count || 0;
-
-  var todayStartMs = (function () { var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(); })();
-  var weekAgoMs = Date.now() - 7 * 86400000;
-
-  function blank() { return { dialed: 0, connected: 0, interested: 0, booked: 0, sec: 0 }; }
-  function bump(m, c) {
-    m.dialed++;
-    if (c.status === 'completed') m.connected++;
-    if (c.outcome === 'interested' || c.outcome === 'quote_requested' || c.disposition === 'booked') m.interested++;
-    if (c.disposition === 'booked') m.booked++;
-    m.sec += (c.dial_seconds || 0) + (c.duration_seconds || 0);
+  if (res[0].error || !res[0].data) {
+    el.innerHTML = '<div class="empty-state">Could not load your dashboard. Refresh to try again.</div>';
+    return;
   }
 
-  var today = blank(), week = blank(), byAgent = {}, byDay = {};
-  for (var i = 0; i < DAYS; i++) {
-    var d = new Date(Date.now() - i * 86400000);
-    byDay[d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate()] = 0;
-  }
+  dialerDashData = res[0].data;
+  dialerDashData.__totalLeads = res[1].count || 0;
+  dialerDashData.__meetings7d = res[2].count || 0;
 
-  calls.forEach(function (c) {
-    var t = new Date(c.created_at).getTime();
-    var a = c.agent_id || 'unassigned';
-    if (!byAgent[a]) byAgent[a] = { day: blank(), week: blank() };
-    if (t >= weekAgoMs) { bump(week, c); bump(byAgent[a].week, c); }
-    if (t >= todayStartMs) { bump(today, c); bump(byAgent[a].day, c); }
-    var dd = new Date(c.created_at);
-    var key = dd.getFullYear() + '-' + (dd.getMonth() + 1) + '-' + dd.getDate();
-    if (key in byDay) byDay[key]++;
-  });
+  paintDialerDashboard(el);
+}
 
-  function rate(m) { return m.dialed ? Math.round(100 * m.connected / m.dialed) + '%' : '—'; }
+function dashSetPeriod(key) {
+  if (!key || key === dialerDashPeriod) return;
+  dialerDashPeriod = key;
+  paintDialerDashboard(document.getElementById('pageContent'));
+}
 
-  // Reps who actually dialed in the last 7 days, not just seats that exist.
-  var activeReps = Object.keys(byAgent).filter(function (k) { return byAgent[k].week.dialed > 0; }).length;
+function paintDialerDashboard(el) {
+  var d = dialerDashData;
+  if (!d) return;
+
+  var producers = d.producers || [];
+  var period = dialerDashPeriod;
+  var team = (d.team && d.team[period]) || { calls: 0, connected: 0, deals: 0, talk_sec: 0, dial_sec: 0, hours: 0 };
+  var periodMeta = DASH_PERIODS.filter(function (p) { return p.key === period; })[0] || DASH_PERIODS[0];
+
+  // A seat is a DIALER. The owner account is a free admin login that cannot dial, so it does
+  // not count against the plan.
+  var dialers = producers.filter(function (p) { return p.role === 'agent'; });
+  var used = dialers.length;
   var seatLimit = (currentAccount && currentAccount.seat_limit) || null;
-  // A seat is a DIALER. The owner account is a free admin login that cannot
-  // dial, so it is not counted against the plan.
-  var used = profiles.filter(function (p) { return p.role === 'agent'; }).length;
+  var activeReps = producers.filter(function (p) { return (p.week && p.week.calls) > 0; }).length;
 
   var html = '';
-  html += '<div class="page-header"><h2>Dashboard</h2><p>How your team is dialing &mdash; today and the last 7 days. Everyone on your account, in one place.</p></div>';
+  html += '<div class="page-header"><h2>Dashboard</h2>'
+       +  '<p>How your team is dialing. Every producer on your account, in one place.</p></div>';
 
-  html += '<div class="kpi-grid">';
-  html += '<div class="kpi-card highlighted"><div class="kpi-label">Calls Today</div><div class="kpi-value">' + fmtN(today.dialed) + '</div><div class="kpi-sub">' + fmtN(week.dialed) + ' in last 7 days</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Connect Rate</div><div class="kpi-value">' + rate(today) + '</div><div class="kpi-sub">' + rate(week) + ' over 7 days</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Talk Time Today</div><div class="kpi-value">' + formatDialTime(today.sec) + '</div><div class="kpi-sub">' + formatDialTime(week.sec) + ' in last 7 days</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Meetings Booked</div><div class="kpi-value">' + fmtN(meetings7d) + '</div><div class="kpi-sub">Last 7 days</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Dialer Seats</div><div class="kpi-value">' + fmtN(used) + (seatLimit ? ' <span style="font-size:14px;color:var(--text-muted);">/ ' + seatLimit + '</span>' : '') + '</div><div class="kpi-sub">' + fmtN(activeReps) + ' dialed in last 7 days</div></div>';
-  html += '<div class="kpi-card"><div class="kpi-label">Leads Loaded</div><div class="kpi-value">' + fmtN(totalLeads) + '</div><div class="kpi-sub">In your CRM</div></div>';
+  // ---- period switcher ----
+  html += '<div class="sec-tabs" style="margin-bottom:16px;">';
+  DASH_PERIODS.forEach(function (p) {
+    html += '<div class="sec-tab' + (p.key === period ? ' active' : '') + '" '
+         +  'onclick="dashSetPeriod(\'' + p.key + '\')">' + escHtml(p.label)
+         +  '<span class="tab-count">' + fmtN((d.team && d.team[p.key] && d.team[p.key].calls) || 0) + '</span></div>';
+  });
   html += '</div>';
 
-  // Daily call volume, oldest to newest.
-  var dayKeys = Object.keys(byDay).reverse();
-  var maxDay = Math.max.apply(null, dayKeys.map(function (k) { return byDay[k]; }).concat([1]));
-  html += '<div class="session-stats" style="margin-top:18px;"><h3>Call Volume &mdash; Last 14 Days</h3>';
-  html += '<div style="display:flex;align-items:flex-end;gap:5px;height:130px;margin-top:14px;">';
-  dayKeys.forEach(function (k) {
-    var v = byDay[k];
-    var pct = Math.round((v / maxDay) * 100);
-    var parts = k.split('-');
-    html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;" title="' + escHtml(parts[1] + '/' + parts[2] + ': ' + v + ' calls') + '">'
-         +    '<div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">' + (v || '') + '</div>'
-         +    '<div style="width:100%;height:' + Math.max(pct, 2) + '%;background:var(--accent);opacity:' + (v ? '.85' : '.18') + ';border-radius:4px 4px 0 0;"></div>'
-         +    '<div style="font-size:10px;color:var(--text-muted);margin-top:5px;">' + parts[1] + '/' + parts[2] + '</div>'
-         +  '</div>';
-  });
-  html += '</div></div>';
+  // ---- team KPIs for the selected period ----
+  html += '<div class="k2-grid">';
+  html += k2('Calls', fmtN(team.calls), periodMeta.label.toLowerCase());
+  html += k2('Connect rate', pctRate(team.connected, team.calls), fmtN(team.connected) + ' answered');
+  html += k2('Talk time', fmtHm(team.talk_sec), 'live conversation');
+  html += k2('Dial time', fmtHm(team.dial_sec), 'waiting for an answer');
+  html += k2('Hours on the phone', (team.hours || 0) + 'h', 'talk + dial combined', (team.hours > 0 ? 'good' : ''));
+  html += k2('Deals', fmtN(team.deals), 'booked', (team.deals > 0 ? 'good' : ''));
+  html += k2('Dialer seats', fmtN(used) + (seatLimit ? ' / ' + seatLimit : ''), fmtN(activeReps) + ' dialed in 7 days');
+  html += k2('Leads loaded', fmtN(d.__totalLeads), 'in your CRM');
+  html += '</div>';
 
-  // Add a dialer. Lives here (not on Team) because adding one can spend money,
-  // and that is an owner's decision.
+  // ---- per-producer table ----
+  html += '<div class="session-stats" style="margin-top:18px;"><h3>By producer &mdash; ' + escHtml(periodMeta.label) + '</h3>';
+  html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">'
+       +  'Talk time is live conversation. Dial time is the phone ringing before someone picks up. '
+       +  'Hours on the phone is both together &mdash; that is the number to compare against a working day.</div>';
+  html += '<div style="overflow-x:auto;"><table class="team-perf">';
+  html += '<thead><tr><th>Producer</th><th>Calls</th><th>Answered</th><th>Connect&nbsp;rate</th>'
+       +  '<th>Deals</th><th>Talk&nbsp;time</th><th>Dial&nbsp;time</th><th>Hours</th></tr></thead><tbody>';
+
+  var ranked = producers.slice().sort(function (a, b) {
+    return ((b[period] && b[period].calls) || 0) - ((a[period] && a[period].calls) || 0);
+  });
+
+  if (!ranked.length) {
+    html += '<tr><td colspan="8" style="color:var(--text-muted);">No producers yet. Add a dialer below.</td></tr>';
+  }
+
+  ranked.forEach(function (p) {
+    var m = p[period] || { calls: 0, connected: 0, deals: 0, talk_sec: 0, dial_sec: 0, hours: 0 };
+    var dim = m.calls === 0 ? ' style="opacity:.55;"' : '';
+    html += '<tr' + dim + ' style="border-bottom:1px solid var(--border);">';
+    html += '<td><strong>' + escHtml(p.name || p.email || 'Unknown') + '</strong>'
+         +  (p.role === 'master' ? ' <span style="font-size:10px;color:var(--text-muted);">owner</span>' : '')
+         +  (p.active === false ? ' <span style="font-size:10px;color:var(--danger);">inactive</span>' : '')
+         +  '</td>';
+    html += '<td><strong>' + fmtN(m.calls) + '</strong></td>';
+    html += '<td style="color:var(--accent);">' + fmtN(m.connected) + '</td>';
+    html += '<td>' + pctRate(m.connected, m.calls) + '</td>';
+    html += '<td style="color:var(--success);"><strong>' + fmtN(m.deals) + '</strong></td>';
+    html += '<td>' + fmtHm(m.talk_sec) + '</td>';
+    html += '<td>' + fmtHm(m.dial_sec) + '</td>';
+    html += '<td><strong>' + (m.hours || 0) + 'h</strong></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+
+  // ---- hours on the phone, per producer, per day ----
+  // The owner's actual question: "how many hours is my employee dialing per day".
+  //
+  // The window MUST match the RPC's data window. A hardcoded 14 days against a 30-day payload
+  // renders a row of empty bars directly beneath a table reporting 3.08 hours, which reads as
+  // a broken dashboard rather than "those calls were three weeks ago".
+  var DAYS = (d.days || 30);
+  var dayList = [];
+  for (var i = DAYS - 1; i >= 0; i--) {
+    var dt = new Date(Date.now() - i * 86400000);
+    dayList.push({
+      key: dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'),
+      label: (dt.getMonth() + 1) + '/' + dt.getDate()
+    });
+  }
+
+  var dialersWithData = producers.filter(function (p) { return (p.daily || []).length > 0; });
+
+  html += '<div class="session-stats" style="margin-top:18px;"><h3>Hours on the phone &mdash; last ' + DAYS + ' days</h3>';
+  html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 14px;">'
+       +  'Each bar is one producer\'s total time on calls that day, in their local time ('
+       +  escHtml(d.tz || 'UTC') + ').</div>';
+
+  if (!dialersWithData.length) {
+    html += '<div class="empty-state" style="padding:16px;">No calls logged in that window.</div>';
+  } else {
+    dialersWithData.forEach(function (p) {
+      var byDate = {};
+      (p.daily || []).forEach(function (x) { byDate[String(x.date)] = x; });
+      var maxH = Math.max.apply(null, dayList.map(function (dd) {
+        return (byDate[dd.key] && byDate[dd.key].hours) || 0;
+      }).concat([1]));
+
+      var totalH = dayList.reduce(function (s, dd) { return s + ((byDate[dd.key] && byDate[dd.key].hours) || 0); }, 0);
+
+      html += '<div style="margin-bottom:18px;">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">'
+           +  '<strong style="font-size:13px;">' + escHtml(p.name || p.email) + '</strong>'
+           +  '<span style="font-size:11px;color:var(--text-muted);">' + (Math.round(totalH * 10) / 10) + 'h over ' + DAYS + ' days</span></div>';
+      html += '<div style="display:flex;align-items:flex-end;gap:4px;height:84px;">';
+      dayList.forEach(function (dd) {
+        var row = byDate[dd.key];
+        var h = (row && row.hours) || 0;
+        var calls = (row && row.calls) || 0;
+        var pct = Math.round((h / maxH) * 100);
+        html += '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;" '
+             +  'title="' + escHtml(dd.label + ': ' + h + 'h, ' + calls + ' calls') + '">'
+             +    '<div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;">' + (h ? h : '') + '</div>'
+             +    '<div style="width:100%;height:' + Math.max(pct, 2) + '%;background:var(--accent);opacity:' + (h ? '.85' : '.15') + ';border-radius:3px 3px 0 0;"></div>'
+             +    '<div style="font-size:9px;color:var(--text-muted);margin-top:4px;">' + dd.label + '</div>'
+             +  '</div>';
+      });
+      html += '</div></div>';
+    });
+  }
+  html += '</div>';
+
+  // ---- add a dialer ----
+  // Lives here (not on Team) because adding one can spend money, and that is an owner's call.
   var seatsLeft = seatLimit === null ? null : Math.max(seatLimit - used, 0);
-  html += '<div class="session-stats" style="margin-top:18px;"><h3>Add a Dialer</h3>';
+  html += '<div class="session-stats" style="margin-top:18px;"><h3>Add a dialer</h3>';
   html += '<div style="font-size:12px;color:var(--text-muted);margin:2px 0 12px;">';
   if (seatLimit === null) {
     html += 'Using <strong style="color:var(--text-secondary);">' + used + '</strong> dialer seats.';
@@ -2077,39 +2191,8 @@ async function renderDialerDashboard(el) {
   html += '<input id="dashAgentPass" type="text" placeholder="Temp password" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);">';
   html += '<button class="btn btn-primary btn-sm" onclick="createAgent(\'dashAgent\', function(){ renderDialerDashboard(document.getElementById(\'pageContent\')); })">Add dialer</button>';
   html += '</div>';
-  html += '<div style="font-size:11px;color:var(--text-muted);margin-top:8px;">They sign in with this email and password, and can change the password afterwards.</div>';
+  html += '<div style="font-size:11px;color:var(--text-muted);margin-top:8px;">They sign in with this email and password, and can change it afterwards.</div>';
   html += '</div>';
-
-  // Per-rep leaderboard, busiest first.
-  html += '<div class="session-stats" style="margin-top:18px;"><h3>By Rep</h3>';
-  html += '<div style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">Each cell shows <strong style="color:var(--text-secondary);">today</strong> / last&nbsp;7&nbsp;days.</div>';
-  html += '<div style="overflow-x:auto;"><table class="team-perf">';
-  html += '<thead><tr><th>Rep</th><th>Dialed</th><th>Connected</th><th>Connect&nbsp;Rate</th><th>Interested</th><th>Booked</th><th>Dial&nbsp;Time</th></tr></thead><tbody>';
-
-  var ranked = profiles.slice().sort(function (a, b) {
-    return ((byAgent[b.id] && byAgent[b.id].week.dialed) || 0) - ((byAgent[a.id] && byAgent[a.id].week.dialed) || 0);
-  });
-
-  if (!ranked.length) {
-    html += '<tr><td colspan="7" style="color:var(--text-muted);">No users yet.</td></tr>';
-  }
-  ranked.forEach(function (p) {
-    var ag = byAgent[p.id] || { day: blank(), week: blank() };
-    var d = ag.day, w = ag.week;
-    function cell(dv, wv, color) {
-      return '<td><strong' + (color ? ' style="color:' + color + ';"' : '') + '>' + dv + '</strong> <span style="color:var(--text-muted);font-size:11px;">/ ' + wv + '</span></td>';
-    }
-    html += '<tr style="border-bottom:1px solid var(--border);">';
-    html += '<td><strong>' + escHtml(p.full_name || p.email) + '</strong>' + (p.role === 'master' ? ' <span style="font-size:10px;color:var(--text-muted);">owner</span>' : '') + '</td>';
-    html += cell(d.dialed.toLocaleString(), w.dialed.toLocaleString());
-    html += cell(d.connected.toLocaleString(), w.connected.toLocaleString(), 'var(--accent)');
-    html += cell(rate(d), rate(w));
-    html += cell(d.interested.toLocaleString(), w.interested.toLocaleString());
-    html += cell(d.booked.toLocaleString(), w.booked.toLocaleString(), 'var(--success)');
-    html += cell(formatDialTime(d.sec), formatDialTime(w.sec));
-    html += '</tr>';
-  });
-  html += '</tbody></table></div></div>';
 
   el.innerHTML = html;
 }
