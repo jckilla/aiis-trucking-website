@@ -3902,7 +3902,14 @@ async function renderDialer(el) {
   html += '<div class="stat-row"><span class="stat-label">Interested</span><span class="stat-value" id="statInterested" style="color:var(--accent)">0</span></div>';
   html += '<div class="stat-row"><span class="stat-label">Booked Leads</span><span class="stat-value" id="statBooked" style="color:var(--success)">0</span></div>';
   html += '<div class="stat-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px"><span class="stat-label">Connect Rate</span><span class="stat-value" id="statConnectRate" style="color:var(--accent)">0%</span></div>';
-  html += '<div class="stat-row"><span class="stat-label">Total Dial Time</span><span class="stat-value" id="statDialTime" style="color:var(--accent)" title="Time spent dialing + talking, last 7 days">0s</span></div>';
+  // Time-on-the-phone is a MANAGEMENT metric, not a rep-facing one: it is how an owner judges
+  // whether someone is working, and showing a rep their own running total changes behaviour
+  // (padding call length to look busy). Reps still see their own activity - dials, connects,
+  // connect rate, booked - which is what helps them sell. Owners only, and crm_producer_stats
+  // enforces the same rule server-side so this is not just a hidden div.
+  if (isMaster()) {
+    html += '<div class="stat-row"><span class="stat-label">Total Dial Time</span><span class="stat-value" id="statDialTime" style="color:var(--accent)" title="Time spent dialing + talking, last 7 days">0s</span></div>';
+  }
   html += '</div>';
 
   // Caller ID info
