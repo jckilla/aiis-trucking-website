@@ -13,7 +13,8 @@
  *  5. Initiate call from matching number to lead
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifySession, assertCanDial, getCallerIdForRequest } = require('../../lib/twilio-auth');
+const { setCorsHeaders, verifySession, assertCanDial, getCallerIdForRequest, getCallerOrg } = require('../../lib/twilio-auth');
+const { twilioClientForOrg, sendTelephonyError } = require('../../lib/twilio-provision');
 
 // In-memory cache of owned numbers (refreshed every 5 min)
 let numberPoolCache = null;
@@ -136,14 +137,19 @@ module.exports = async function handler(req, res) {
   // Placing calls costs money; gate it on the same rule as the softphone.
   if (!(await assertCanDial(req, res))) return;
 
-  const {
-    TWILIO_ACCOUNT_SID,
-    TWILIO_AUTH_TOKEN,
-    TWILIO_DEFAULT_NUMBER,
-    TWILIO_AUTO_PROVISION
-  } = process.env;
+  const { TWILIO_DEFAULT_NUMBER, TWILIO_AUTO_PROVISION } = process.env;
 
-  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+  // The REST client is NOT built from the parent env credentials any more. A paying tenant
+  // places calls on its OWN Twilio subaccount, so the usage is billed and attributed to them;
+  // only AIIS ('internal') uses the parent account. twilioClientForOrg throws rather than
+  // silently falling back, which is what used to put a tenant's calls on the owner's bill.
+  let client;
+  try {
+    const org = await getCallerOrg(req);
+    ({ client } = await twilioClientForOrg(org));
+  } catch (e) {
+    if (sendTelephonyError(res, e)) return;
+    console.error('could not build a Twilio client:', e && e.message);
     return res.status(500).json({ error: 'Twilio credentials not configured' });
   }
 
@@ -164,7 +170,6 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
     const e164To = normalizePhone(to);
 
     if (!e164To) {

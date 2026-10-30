@@ -6,7 +6,8 @@
  *   Query: ?callSid=CA...&callSid=CA... (one or more)
  */
 const twilio = require('twilio');
-const { setCorsHeaders, verifySession } = require('../../lib/twilio-auth');
+const { setCorsHeaders, verifySession, getCallerOrg } = require('../../lib/twilio-auth');
+const { twilioClientForOrg, sendTelephonyError } = require('../../lib/twilio-provision');
 
 module.exports = async function handler(req, res) {
   setCorsHeaders(req, res);
@@ -16,8 +17,16 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     if (!(await verifySession(req, res))) return;
 
-    const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN } = process.env;
-    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+    // Scope every REST call to the CALLER'S OWN Twilio account. A tenant acts on its own
+    // subaccount; only AIIS ('internal') uses the parent. Without this, one tenant could act on
+    // a CallSid belonging to another, and all usage landed on the owner's bill.
+    let client;
+    try {
+      const org = await getCallerOrg(req);
+      ({ client } = await twilioClientForOrg(org));
+    } catch (e) {
+      if (sendTelephonyError(res, e)) return;
+      console.error('could not build a Twilio client:', e && e.message);
       return res.status(500).json({ error: 'Twilio not configured' });
     }
 
@@ -35,7 +44,6 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
       const results = await Promise.allSettled(
         sids.map(sid => client.calls(sid).fetch())
       );

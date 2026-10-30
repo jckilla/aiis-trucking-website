@@ -10,7 +10,6 @@ const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cqijyhudfiteivejcgox.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
-const DIALER_API_KEY = process.env.DIALER_API_KEY;
 
 module.exports = async function handler(req, res) {
   // CORS
@@ -21,16 +20,19 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Auth: Allow Vercel Cron (has CRON_SECRET) or API key
+  // Auth: Vercel Cron ONLY.
+  //
+  // This endpoint returns customer PII and builds its Supabase client from the SERVICE-ROLE
+  // key, so it bypasses RLS entirely and can read across every tenant. It previously also
+  // accepted DIALER_API_KEY - a value that had been published in this repo's PUBLIC git
+  // history - which made a cross-tenant PII dump reachable by anyone who read the history.
+  // Vercel Cron sends `Authorization: Bearer $CRON_SECRET` automatically, so the key branch
+  // was never needed. Removed rather than rotated: one credential, one purpose.
   const cronSecret = req.headers['authorization'];
-  const apiKey = req.headers['x-api-key'];
-  const isVercelCron = cronSecret && cronSecret === 'Bearer ' + process.env.CRON_SECRET;
-  const isApiKey = apiKey && apiKey === DIALER_API_KEY;
+  const expected = process.env.CRON_SECRET;
+  const isVercelCron = !!expected && cronSecret === 'Bearer ' + expected;
 
-  // Fail closed: every request MUST present the Vercel Cron bearer (CRON_SECRET) or the
-  // DIALER_API_KEY. There is no unauthenticated GET path — this endpoint returns customer
-  // PII and runs under the service-role key, which bypasses RLS.
-  if (!isVercelCron && !isApiKey) {
+  if (!isVercelCron) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

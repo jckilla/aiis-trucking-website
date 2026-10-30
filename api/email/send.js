@@ -19,7 +19,6 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cqijyhudfiteivejcgox.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Veronica at AdvancedIns.ai <veronica@fleet.ins2day.com>';
-const DIALER_API_KEY = process.env.DIALER_API_KEY;
 
 // Unsubscribe page URL
 const UNSUBSCRIBE_URL = 'https://fleet.ins2day.com/unsubscribe.html';
