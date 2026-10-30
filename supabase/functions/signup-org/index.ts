@@ -230,5 +230,10 @@ Deno.serve(async (req: Request) => {
     console.error('could not apply plan/seat_limit to org', orgId, planErr.message);
   }
 
+  // Telephony provisioning is queued by a DATABASE TRIGGER on orgs, not from here - see
+  // public.queue_telephony_provision(). It fires the moment plan becomes 'paid' (which step 6
+  // above does), so it covers this signup path AND the stripe-webhook reactivation path
+  // without either function needing to know about the outbox. A Vercel cron
+  // (/api/cron/provision-telephony) then drains it and buys the number.
   return new Response(JSON.stringify({ ok: true, org_id: orgId, email, seats: sub.seats }), { headers: H });
 });

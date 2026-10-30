@@ -3,23 +3,49 @@
     {
       "path": "/api/cron/daily-summary",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/provision-telephony",
+      "schedule": "*/10 * * * *"
     }
   ],
   "redirects": [
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "app.adunadialer.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "app.adunadialer.com"
+        }
+      ],
       "destination": "/login.html",
       "permanent": false
     },
     {
       "source": "/index.html",
-      "has": [{ "type": "host", "value": "app.adunadialer.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "app.adunadialer.com"
+        }
+      ],
       "destination": "/login.html",
       "permanent": false
     },
-    { "source": "/lib/:path*", "destination": "/", "permanent": false },
-    { "source": "/scripts/:path*", "destination": "/", "permanent": false },
-    { "source": "/supabase/:path*", "destination": "/", "permanent": false }
+    {
+      "source": "/lib/:path*",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/scripts/:path*",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/supabase/:path*",
+      "destination": "/",
+      "permanent": false
+    }
   ]
 }
